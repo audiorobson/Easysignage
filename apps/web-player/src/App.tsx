@@ -10,6 +10,7 @@ import {
 
 import {
   clearDeviceAssetCache,
+  evictDeviceAssetCacheExcept,
   fetchDeviceAssetCached,
 } from './deviceAssetCache';
 
@@ -128,6 +129,10 @@ function defaultDurationSec(kind: string): number {
   }
 }
 
+function deviceAssetFileUrl(assetId: string): string {
+  return `${API}/device/assets/${assetId}/file`;
+}
+
 export function App() {
   const [pairingCode, setPairingCode] = useState('');
   const [platform, setPlatform] = useState('web');
@@ -145,7 +150,15 @@ export function App() {
   const [currentItem, setCurrentItem] = useState<CurrentItem>(null);
   /** Quando o estado no servidor muda (sync, playlist, publicação), força novo fetch do manifest. */
   const [contentRevision, setContentRevision] = useState<string | null>(null);
+  const [serverPublicationVersion, setServerPublicationVersion] = useState<
+    number | null
+  >(null);
   const lastContentRevisionRef = useRef<string | null>(null);
+  /** Ack enviado no heartbeat após carregar o conteúdo atual. */
+  const appliedAckRef = useRef<{
+    publicationVersion: number | null;
+    contentRevision: string | null;
+  }>({ publicationVersion: null, contentRevision: null });
   const [playlistManifest, setPlaylistManifest] = useState<PlaylistManifest | null>(null);
   const [slideIndex, setSlideIndex] = useState(0);
 
@@ -237,6 +250,7 @@ export function App() {
   const sendHeartbeat = useCallback(async () => {
     const token = deviceToken ?? localStorage.getItem('device_token');
     if (!token) return;
+    const ack = appliedAckRef.current;
     const res = await fetch(`${API}/device/heartbeat`, {
       method: 'POST',
       headers: {
@@ -244,7 +258,13 @@ export function App() {
         Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({
-        publicationVersion: APP_VERSION,
+        appVersion: APP_VERSION,
+        ...(ack.publicationVersion != null
+          ? { appliedPublicationVersion: ack.publicationVersion }
+          : {}),
+        ...(ack.contentRevision
+          ? { appliedContentRevision: ack.contentRevision }
+          : {}),
         metrics: buildMetrics(),
       }),
     });
@@ -299,6 +319,7 @@ export function App() {
         const data = (await res.json()) as {
           currentItem?: CurrentItem;
           contentRevision?: string;
+          publicationVersion?: number | null;
           message?: string;
         };
         if (cancelled) return;
@@ -309,16 +330,24 @@ export function App() {
         }
         const rev =
           typeof data.contentRevision === 'string' ? data.contentRevision : null;
+        const pubVer =
+          typeof data.publicationVersion === 'number'
+            ? data.publicationVersion
+            : null;
         if (rev != null) {
           if (
             lastContentRevisionRef.current != null &&
             lastContentRevisionRef.current !== rev
           ) {
-            void clearDeviceAssetCache();
+            appliedAckRef.current = {
+              publicationVersion: null,
+              contentRevision: null,
+            };
           }
           lastContentRevisionRef.current = rev;
           setContentRevision(rev);
         }
+        setServerPublicationVersion(pubVer);
         setCurrentItem((data.currentItem as CurrentItem) ?? null);
         setErr(null);
       } catch {
@@ -393,6 +422,29 @@ export function App() {
     return null;
   }, [currentItem?.type, currentItem?.assetId]);
 
+  /** Mantém no cache só os ficheiros do manifesto/conteúdo atual. */
+  useEffect(() => {
+    const keep = new Set<string>();
+    if (singleAssetId) {
+      keep.add(deviceAssetFileUrl(singleAssetId));
+    }
+    for (const slide of playableSlides) {
+      if (slide.kind !== 'url') {
+        keep.add(deviceAssetFileUrl(slide.assetId));
+      }
+    }
+    void evictDeviceAssetCacheExcept([...keep]);
+  }, [contentRevision, singleAssetId, playableSlides]);
+
+  const markContentApplied = useCallback(() => {
+    const rev = lastContentRevisionRef.current;
+    if (!rev) return;
+    appliedAckRef.current = {
+      publicationVersion: serverPublicationVersion,
+      contentRevision: rev,
+    };
+  }, [serverPublicationVersion]);
+
   const activeAssetId = useMemo(() => {
     if (playlistId && playableSlides.length) {
       const idx = slideIndex % playableSlides.length;
@@ -465,6 +517,7 @@ export function App() {
           setFrameUrl(meta.remoteUrl);
           setMediaKind('url');
           setContentHint(caption || 'URL externo');
+          markContentApplied();
           return;
         }
 
@@ -515,6 +568,7 @@ export function App() {
           ['image', 'video', 'pdf', 'html'].includes(k) ? k : 'image'
         );
         setContentHint(caption || null);
+        markContentApplied();
       } catch {
         if (!cancelled) {
           setContentHint('Falha ao carregar mídia');
@@ -535,6 +589,7 @@ export function App() {
     slideIndex,
     deviceToken,
     revokeBlob,
+    markContentApplied,
   ]);
 
   /** Avança slide pela duração do item — não depender de `currentItem` (poll recria o objeto). */
@@ -625,7 +680,9 @@ export function App() {
     localStorage.removeItem('device_token');
     setDeviceToken(null);
     lastContentRevisionRef.current = null;
+    appliedAckRef.current = { publicationVersion: null, contentRevision: null };
     setContentRevision(null);
+    setServerPublicationVersion(null);
     setHeartbeatStatus(null);
     setCurrentItem(null);
     setPlaylistManifest(null);

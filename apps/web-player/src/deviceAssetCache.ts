@@ -30,6 +30,23 @@ export async function fetchDeviceAssetCached(
   }
 }
 
+/** Remove entradas que não pertencem ao manifesto/conteúdo atual. */
+export async function evictDeviceAssetCacheExcept(
+  keepUrls: string[]
+): Promise<void> {
+  if (typeof caches === 'undefined') return;
+  try {
+    const cache = await caches.open(CACHE_NAME);
+    const keys = await cache.keys();
+    const keep = new Set(keepUrls);
+    await Promise.all(
+      keys.map((req) => (keep.has(req.url) ? undefined : cache.delete(req)))
+    );
+  } catch {
+    /* ignore */
+  }
+}
+
 export async function clearDeviceAssetCache(): Promise<void> {
   if (typeof caches === 'undefined') return;
   try {

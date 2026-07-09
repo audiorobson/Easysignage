@@ -252,6 +252,11 @@ model DeviceState {
   /** Conteúdo a restaurar quando a janela de agenda termina. */
   scheduleBaselineItemJson Json?   @map("schedule_baseline_item_json")
   activeScheduleRuleId  String?    @map("active_schedule_rule_id") @db.Uuid
+  /** Versão de publicação que o player confirmou ter aplicado (ack). */
+  appliedPublicationVersion Int?   @map("applied_publication_version")
+  /** Revisão de conteúdo (`contentRevision`) confirmada pelo player. */
+  appliedContentRevision String?    @map("applied_content_revision")
+  appliedAt            DateTime?  @map("applied_at")
   updatedAt            DateTime   @updatedAt @map("updated_at")
 
   device Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)

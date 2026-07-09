@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import {
   Body,
   Controller,
@@ -28,6 +27,7 @@ import {
   DeviceCommandAckDto,
   TelemetryBatchDto,
 } from '../telemetry/dto/telemetry-batch.dto';
+import { computeContentRevision } from './content-revision';
 import { HeartbeatDto } from './dto/heartbeat.dto';
 
 @ApiTags('device')
@@ -103,13 +103,16 @@ export class DeviceApiController {
   ) {
     await this.scheduleEngine.applyForDevice(device.tenantId, device.id);
 
+    const appVersion =
+      body.appVersion?.trim() ||
+      body.publicationVersion?.trim() ||
+      undefined;
+
     await this.prisma.device.update({
       where: { id: device.id },
       data: {
         lastSeenAt: new Date(),
-        ...(body.publicationVersion
-          ? { runtimeVersion: body.publicationVersion }
-          : {}),
+        ...(appVersion ? { runtimeVersion: appVersion } : {}),
       },
     });
 
@@ -118,12 +121,46 @@ export class DeviceApiController {
         tenantId: device.tenantId,
         deviceId: device.id,
         isOnline: true,
-        appVersion: body.publicationVersion,
+        appVersion,
         metricsJson: body.metrics
           ? (body.metrics as Prisma.InputJsonValue)
           : undefined,
       },
     });
+
+    if (
+      body.appliedPublicationVersion != null ||
+      (body.appliedContentRevision != null &&
+        body.appliedContentRevision.trim() !== '')
+    ) {
+      const state = await this.prisma.deviceState.findUnique({
+        where: { deviceId: device.id },
+        include: { currentPublication: { select: { version: true } } },
+      });
+      const expectedVersion = state?.currentPublication?.version ?? null;
+      const ackVersion = body.appliedPublicationVersion ?? null;
+      const ackRevision = body.appliedContentRevision?.trim() || null;
+
+      const versionOk =
+        expectedVersion == null ||
+        ackVersion == null ||
+        ackVersion === expectedVersion;
+
+      if (versionOk) {
+        await this.prisma.deviceState.update({
+          where: { deviceId: device.id },
+          data: {
+            ...(ackVersion != null
+              ? { appliedPublicationVersion: ackVersion }
+              : {}),
+            ...(ackRevision != null
+              ? { appliedContentRevision: ackRevision }
+              : {}),
+            appliedAt: new Date(),
+          },
+        });
+      }
+    }
 
     return { ok: true, serverTime: new Date().toISOString() };
   }
@@ -158,29 +195,9 @@ export class DeviceApiController {
       currentPublicationId: row?.currentPublicationId ?? null,
       publicationVersion: row?.currentPublication?.version ?? null,
       lastSyncAt: row?.lastSyncAt ?? null,
-      contentRevision: DeviceApiController.computeContentRevision(
-        row,
-        playlistStamp
-      ),
+      contentRevision: computeContentRevision(row, playlistStamp),
       currentItem: row?.currentItemJson ?? null,
     };
-  }
-
-  private static computeContentRevision(
-    row: {
-      lastSyncAt: Date | null;
-      currentPublicationId: string | null;
-      currentItemJson: unknown;
-    } | null,
-    playlistUpdatedStamp: string
-  ): string {
-    const payload = JSON.stringify({
-      sync: row?.lastSyncAt?.toISOString() ?? '',
-      pub: row?.currentPublicationId ?? '',
-      playlist: playlistUpdatedStamp,
-      item: row?.currentItemJson ?? null,
-    });
-    return createHash('sha256').update(payload).digest('hex').slice(0, 32);
   }
 
   @Get('playlists/:playlistId/manifest')

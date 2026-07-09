@@ -1,6 +1,6 @@
 # Estado do desenvolvimento — EasySignage
 
-Documento de referência do que está implementado **até maio de 2026**. Complementa o roadmap arquitetural na raiz do repositório com o estado **concreto** do código e ligações explícitas às **fases de engenharia (§19)** e **fases de interface (§19.8)** de `digital_signage_arquitetura_roadmap.md`.
+Documento de referência do que está implementado **até julho de 2026**. Complementa o roadmap arquitetural na raiz do repositório com o estado **concreto** do código e ligações explícitas às **fases de engenharia (§19)** e **fases de interface (§19.8)** de `digital_signage_arquitetura_roadmap.md`.
 
 O próprio roadmap, em **§19** (início da secção), aponta para **este ficheiro** como *snapshot* e checklist de QA a manter após entregas.
 
@@ -8,12 +8,12 @@ O próprio roadmap, em **§19** (início da secção), aponta para **este fichei
 
 ## Alinhamento com o roadmap de engenharia (§19.1–19.7)
 
-| Fase | Nome (roadmap) | Estado no código (mai/2026) |
+| Fase | Nome (roadmap) | Estado no código (jul/2026) |
 |------|----------------|-----------------------------|
-| **19.1** | Fase 0 — Fundação técnica | **Em grande parte feito:** monorepo pnpm/Turbo, Prisma + PostgreSQL, Nest API, Next CMS, `device-protocol`, web-player, Docker Compose. **Parcial:** CI/CD uniforme, Redis/filas em prod. |
+| **19.1** | Fase 0 — Fundação técnica | **Em grande parte feito:** monorepo pnpm/Turbo, Prisma + PostgreSQL, Nest API, Next CMS, `device-protocol`, web-player, Docker Compose. **Parcial:** CI em GitHub Actions (lint/test/build), Redis/filas em prod. |
 | **19.2** | Fase 1 — Autenticação, tenants e dispositivos | **Feito (núcleo):** auth JWT, RBAC, sites, devices, pairing, heartbeat, `wakeMac` + WOL UDP. **Parcial:** Electron. |
-| **19.3** | Fase 2 — Biblioteca e playlists | **Parcial avançado:** upload multipart, vários tipos no player (imagem, vídeo, PDF, HTML, URL), playlists + DnD no CMS. **Pendente:** cache offline robusto, media-worker ativo. |
-| **19.4** | Fase 3 — Agendamento e publicação | **Parcial:** `Publication` + publicar no CMS; **`ScheduleRule` + motor** que escreve `current_item_json` no poll do player; **pendente:** campanhas, ack de publicação, manifest com hash. |
+| **19.3** | Fase 2 — Biblioteca e playlists | **Parcial avançado:** upload multipart, vários tipos no player (imagem, vídeo, PDF, HTML, URL), playlists + DnD no CMS, **cache offline leve** (Cache API + eviction por manifest). **Pendente:** media-worker ativo. |
+| **19.4** | Fase 3 — Agendamento e publicação | **Parcial avançado:** `Publication` + publicar no CMS; **`ScheduleRule` + motor**; **ack de publicação** (`appliedPublicationVersion`, `contentRevision` no heartbeat); **manifest com `manifestRevision`**; CMS mostra estado de sincronização. **Pendente:** campanhas. |
 | **19.5** | Fase 4 — Controle remoto e monitoramento | **Parcial (MVP):** telemetria, overview, comandos (`wol`), **preview JPEG** (~1/s player, ~3,5 s CMS). **Pendente:** WebSocket gateway, alertas, dashboard agregado. |
 | **19.6** | Fase 5 — Robustez operacional | **Não iniciado** |
 | **19.7** | Fase 6 — Multi-tenant comercial | **Parcial:** multi-tenant no modelo; **pendente:** quotas, branding. |
@@ -22,14 +22,31 @@ O próprio roadmap, em **§19** (início da secção), aponta para **este fichei
 
 ## Alinhamento com fases de interface CMS (§19.8 / `easysignage_diretrizes_interface_css.md`)
 
-| Fase UI | Estado (mai/2026) |
+| Fase UI | Estado (jul/2026) |
 |---------|---------------------|
 | UI-0, UI-1 | **Feitos** (tokens, shell, navegação). |
-| UI-2 | **Iniciado** — `StatusBadge`, `ConnectionBadge`, `EmptyState` + classes `.badge` em `globals.css`. Falta extrair Table/Modal React. |
-| UI-3 | **Em andamento** — devices/sites/login; badges de conexão nos devices. |
+| UI-2 | **Iniciado** — `StatusBadge`, `ConnectionBadge`, `PublicationSyncBadge`, `EmptyState` + classes `.badge` em `globals.css`. Falta extrair Table/Modal React. |
+| UI-3 | **Em andamento** — devices/sites/login; badges de conexão e sincronização de publicação nos devices. |
 | UI-4 | **Avançado** — assets, playlists, agendamento (grelha + lista), publicação no device. |
 | UI-5 | **Iniciado** — `/monitoring` com pré-visualização e tema escuro local (`.monitoring-theme-dark`). Alerts ainda placeholder. |
 | UI-6 | **Não iniciado** |
+
+---
+
+## Funcionalidades recentes (Fase 3 — ack e cache)
+
+### Ack de publicação no player
+
+- **`GET /device/state`** expõe `contentRevision` (hash de sync + publicação + item + playlist).
+- **`POST /device/heartbeat`** aceita `appliedPublicationVersion` e `appliedContentRevision` após o player carregar o conteúdo.
+- **Web player:** invalida cache quando `contentRevision` muda; confirma ack no heartbeat seguinte.
+- **CMS:** detalhe do device mostra `PublicationSyncBadge` e revisão confirmada.
+- **Migração:** `applied_publication_version`, `applied_content_revision`, `applied_at` em `device_state`.
+
+### Cache offline (Fase 2)
+
+- **Cache API** para ficheiros de device (`deviceAssetCache.ts`).
+- **Eviction** automática: mantém só URLs do manifesto/conteúdo atual.
 
 ---
 
@@ -99,4 +116,4 @@ pnpm docker:compose   # stack Docker
 
 ---
 
-*Última atualização: maio de 2026.*
+*Última atualização: julho de 2026.*

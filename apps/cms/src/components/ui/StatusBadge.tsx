@@ -31,6 +31,35 @@ export function StatusBadge({
   );
 }
 
+/** Publicação versionada: servidor vs ack do player. */
+export function PublicationSyncBadge({
+  synced,
+  expectedVersion,
+  appliedVersion,
+}: {
+  synced: boolean;
+  expectedVersion: number | null;
+  appliedVersion: number | null;
+}) {
+  if (expectedVersion == null) {
+    return (
+      <StatusBadge variant="neutral" title="Nenhuma publicação ativa no servidor">
+        Sem publicação ativa
+      </StatusBadge>
+    );
+  }
+  const title = synced
+    ? `O player confirmou a versão ${expectedVersion}`
+    : `Servidor: v${expectedVersion} — player: v${appliedVersion ?? 'pendente'}`;
+  return (
+    <StatusBadge variant={synced ? 'success' : 'warning'} title={title}>
+      {synced
+        ? `Publicação v${expectedVersion} sincronizada`
+        : `Publicação pendente (v${expectedVersion})`}
+    </StatusBadge>
+  );
+}
+
 /** Online/offline por heartbeat (≤ 5 min). */
 export function ConnectionBadge({
   online,

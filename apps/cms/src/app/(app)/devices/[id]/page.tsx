@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useSearchParams, useParams } from 'next/navigation';
 import { useCallback, useEffect, useState, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
-import { ConnectionBadge } from '@/components/ui/StatusBadge';
+import { ConnectionBadge, PublicationSyncBadge } from '@/components/ui/StatusBadge';
 import { api, getToken } from '@/lib/api';
 import { formatDateTimePtBr } from '@/lib/format-date';
 
@@ -46,6 +46,11 @@ type AdminStatePayload = {
     memoryPercent: string | null;
     networkStatus: string | null;
     currentPublicationId: string | null;
+    expectedPublicationVersion: number | null;
+    appliedPublicationVersion: number | null;
+    appliedContentRevision: string | null;
+    appliedAt: string | null;
+    publicationSynced: boolean;
     currentItemJson: unknown;
     updatedAt: string;
     previewSnapshotAt: string | null;
@@ -506,6 +511,34 @@ function DeviceDetailInner({ id }: { id: string }) {
               )}
               {payload.state && (
                 <dl className="dl-grid">
+                  {payload.state.expectedPublicationVersion != null && (
+                    <>
+                      <dt>Sincronização de publicação</dt>
+                      <dd>
+                        <PublicationSyncBadge
+                          synced={payload.state.publicationSynced}
+                          expectedVersion={payload.state.expectedPublicationVersion}
+                          appliedVersion={payload.state.appliedPublicationVersion}
+                        />
+                      </dd>
+                    </>
+                  )}
+                  {payload.state.appliedContentRevision && (
+                    <>
+                      <dt>Revisão de conteúdo (ack)</dt>
+                      <dd>
+                        <code style={{ fontSize: 12 }}>
+                          {payload.state.appliedContentRevision}
+                        </code>
+                        {payload.state.appliedAt && (
+                          <span className="text-muted">
+                            {' '}
+                            — {formatDateTimePtBr(payload.state.appliedAt)}
+                          </span>
+                        )}
+                      </dd>
+                    </>
+                  )}
                   {payload.state.currentItemJson != null && (
                     <>
                       <dt>Conteúdo (teste)</dt>

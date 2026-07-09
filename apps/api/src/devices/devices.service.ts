@@ -98,7 +98,12 @@ export class DevicesService {
     if (!device) throw new NotFoundException('Dispositivo não encontrado');
 
     const [state, lastHeartbeat] = await Promise.all([
-      this.prisma.deviceState.findUnique({ where: { deviceId } }),
+      this.prisma.deviceState.findUnique({
+        where: { deviceId },
+        include: {
+          currentPublication: { select: { id: true, version: true } },
+        },
+      }),
       this.prisma.heartbeat.findFirst({
         where: { deviceId },
         orderBy: { receivedAt: 'desc' },
@@ -108,6 +113,15 @@ export class DevicesService {
     const threshold = new Date(Date.now() - ONLINE_LAST_SEEN_MS);
     const online =
       device.lastSeenAt != null && device.lastSeenAt >= threshold;
+
+    const expectedPublicationVersion =
+      state?.currentPublication?.version ?? null;
+    const appliedPublicationVersion =
+      state?.appliedPublicationVersion ?? null;
+    const publicationSynced =
+      expectedPublicationVersion == null
+        ? appliedPublicationVersion == null
+        : appliedPublicationVersion === expectedPublicationVersion;
 
     return {
       device: maskDevice(device),
@@ -122,6 +136,11 @@ export class DevicesService {
               state.memoryPercent != null ? String(state.memoryPercent) : null,
             networkStatus: state.networkStatus,
             currentPublicationId: state.currentPublicationId,
+            expectedPublicationVersion,
+            appliedPublicationVersion,
+            appliedContentRevision: state.appliedContentRevision,
+            appliedAt: state.appliedAt,
+            publicationSynced,
             currentItemJson: state.currentItemJson,
             updatedAt: state.updatedAt,
             previewSnapshotAt: state.previewSnapshotAt,
@@ -279,6 +298,9 @@ export class DevicesService {
         activeScheduleRuleId: null,
         lastSyncAt: new Date(),
         currentPublicationId: null,
+        appliedPublicationVersion: null,
+        appliedContentRevision: null,
+        appliedAt: null,
       },
       update: {
         currentItemJson: itemJson,
@@ -286,6 +308,9 @@ export class DevicesService {
         activeScheduleRuleId: null,
         lastSyncAt: new Date(),
         currentPublicationId: null,
+        appliedPublicationVersion: null,
+        appliedContentRevision: null,
+        appliedAt: null,
       },
     });
 
@@ -329,6 +354,9 @@ export class DevicesService {
           scheduleBaselineItemJson: itemJson,
           activeScheduleRuleId: null,
           lastSyncAt: new Date(),
+          appliedPublicationVersion: null,
+          appliedContentRevision: null,
+          appliedAt: null,
         },
         update: {
           currentPublicationId: pub.id,
@@ -336,6 +364,9 @@ export class DevicesService {
           scheduleBaselineItemJson: itemJson,
           activeScheduleRuleId: null,
           lastSyncAt: new Date(),
+          appliedPublicationVersion: null,
+          appliedContentRevision: null,
+          appliedAt: null,
         },
       });
 
