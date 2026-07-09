@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+
+<html lang="pt"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-secondary-fixed-variant": "#5a00c6",
+                    "primary-fixed": "#dbe1ff",
+                    "on-primary-fixed-variant": "#003ea8",
+                    "on-secondary-fixed": "#25005a",
+                    "secondary-fixed": "#eaddff",
+                    "on-secondary": "#ffffff",
+                    "inverse-on-surface": "#eaf1ff",
+                    "on-surface-variant": "#434655",
+                    "on-primary-fixed": "#00174b",
+                    "surface-container-lowest": "#ffffff",
+                    "surface-container": "#e5eeff",
+                    "on-secondary-container": "#fffbff",
+                    "on-error": "#ffffff",
+                    "error-container": "#ffdad6",
+                    "tertiary-container": "#bc4800",
+                    "surface-tint": "#0053db",
+                    "on-primary": "#ffffff",
+                    "on-background": "#0b1c30",
+                    "surface-dim": "#cbdbf5",
+                    "tertiary-fixed-dim": "#ffb596",
+                    "surface-container-high": "#dce9ff",
+                    "on-tertiary-fixed-variant": "#7d2d00",
+                    "surface-container-low": "#eff4ff",
+                    "secondary-fixed-dim": "#d2bbff",
+                    "tertiary-fixed": "#ffdbcd",
+                    "primary": "#004ac6",
+                    "outline-variant": "#c3c6d7",
+                    "primary-fixed-dim": "#b4c5ff",
+                    "on-primary-container": "#eeefff",
+                    "inverse-primary": "#b4c5ff",
+                    "secondary-container": "#8a4cfc",
+                    "on-tertiary": "#ffffff",
+                    "surface-bright": "#f8f9ff",
+                    "primary-container": "#2563eb",
+                    "surface-container-highest": "#d3e4fe",
+                    "inverse-surface": "#213145",
+                    "background": "#f8f9ff",
+                    "error": "#ba1a1a",
+                    "surface-variant": "#d3e4fe",
+                    "outline": "#737686",
+                    "surface": "#f8f9ff",
+                    "on-surface": "#0b1c30",
+                    "secondary": "#712ae2",
+                    "on-tertiary-container": "#ffede6",
+                    "on-tertiary-fixed": "#360f00",
+                    "on-error-container": "#93000a",
+                    "tertiary": "#943700"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Inter"],
+                    "body": ["Inter"],
+                    "label": ["Inter"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .active-pill {
+            box-shadow: 0px 10px 30px rgba(11, 28, 48, 0.05);
+        }
+    </style>
+</head>
+<body class="bg-surface font-body text-on-surface antialiased">
+<!-- SideNavBar -->
+<aside class="h-screen w-64 fixed left-0 top-0 overflow-y-auto bg-[#eff4ff] flex flex-col gap-1 p-4 border-r-0 z-50">
+<div class="mb-8 px-2 flex items-center gap-3">
+<div class="w-8 h-8 rounded bg-primary-container flex items-center justify-center">
+<span class="material-symbols-outlined text-white text-lg">grid_view</span>
+</div>
+<div class="flex flex-col">
+<h1 class="text-lg font-black text-[#0b1c30] tracking-tighter">Curator Admin</h1>
+<span class="text-[10px] uppercase tracking-widest text-slate-500 font-bold">Network Operator</span>
+</div>
+</div>
+<nav class="flex flex-col gap-1">
+<a class="flex items-center gap-3 px-3 py-2.5 text-slate-600 hover:bg-[#f8f9ff]/50 transition-all duration-300 ease-in-out text-sm font-medium" href="#">
+<span class="material-symbols-outlined text-[20px]">dashboard</span> Dashboard
+            </a>
+<a class="flex items-center gap-3 px-3 py-2.5 text-slate-600 hover:bg-[#f8f9ff]/50 transition-all duration-300 ease-in-out text-sm font-medium" href="#">
+<span class="material-symbols-outlined text-[20px]">router</span> Devices
+            </a>
+<a class="flex items-center gap-3 px-3 py-2.5 text-slate-600 hover:bg-[#f8f9ff]/50 transition-all duration-300 ease-in-out text-sm font-medium" href="#">
+<span class="material-symbols-outlined text-[20px]">location_on</span> Sites
+            </a>
+<a class="flex items-center gap-3 px-3 py-2.5 bg-white text-[#2563EB] shadow-[0px_10px_30px_rgba(11,28,48,0.05)] rounded-lg text-sm font-medium" href="#">
+<span class="material-symbols-outlined text-[20px]">folder_open</span> Assets
+            </a>
+<a class="flex items-center gap-3 px-3 py-2.5 text-slate-600 hover:bg-[#f8f9ff]/50 transition-all duration-300 ease-in-out text-sm font-medium" href="#">
+<span class="material-symbols-outlined text-[20px]">subscriptions</span> Playlists
+            </a>
+<a class="flex items-center gap-3 px-3 py-2.5 text-slate-600 hover:bg-[#f8f9ff]/50 transition-all duration-300 ease-in-out text-sm font-medium" href="#">
+<span class="material-symbols-outlined text-[20px]">group_work</span> Groups
+            </a>
+<a class="flex items-center gap-3 px-3 py-2.5 text-slate-600 hover:bg-[#f8f9ff]/50 transition-all duration-300 ease-in-out text-sm font-medium" href="#">
+<span class="material-symbols-outlined text-[20px]">campaign</span> Campaigns
+            </a>
+<a class="flex items-center gap-3 px-3 py-2.5 text-slate-600 hover:bg-[#f8f9ff]/50 transition-all duration-300 ease-in-out text-sm font-medium" href="#">
+<span class="material-symbols-outlined text-[20px]">event_note</span> Scheduling
+            </a>
+<a class="flex items-center gap-3 px-3 py-2.5 text-slate-600 hover:bg-[#f8f9ff]/50 transition-all duration-300 ease-in-out text-sm font-medium" href="#">
+<span class="material-symbols-outlined text-[20px]">analytics</span> Monitoring
+            </a>
+<a class="flex items-center gap-3 px-3 py-2.5 text-slate-600 hover:bg-[#f8f9ff]/50 transition-all duration-300 ease-in-out text-sm font-medium" href="#">
+<span class="material-symbols-outlined text-[20px]">warning</span> Alerts
+            </a>
+<div class="my-4 border-t border-slate-200/50"></div>
+<a class="flex items-center gap-3 px-3 py-2.5 text-slate-600 hover:bg-[#f8f9ff]/50 transition-all duration-300 ease-in-out text-sm font-medium" href="#">
+<span class="material-symbols-outlined text-[20px]">settings</span> Settings
+            </a>
+</nav>
+</aside>
+<!-- Main Content Area -->
+<main class="ml-64 min-h-screen flex flex-col">
+<!-- TopAppBar -->
+<header class="w-full sticky top-0 z-40 flex justify-between items-center px-8 py-4 bg-white/80 backdrop-blur-xl transition-all">
+<div class="flex items-center flex-1 max-w-xl">
+<div class="relative w-full group">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xl group-focus-within:text-primary transition-colors">search</span>
+<input class="w-full bg-surface-container-low border-0 rounded-lg py-2.5 pl-11 pr-4 focus:ring-2 focus:ring-primary/20 text-sm transition-all placeholder:text-slate-400" placeholder="Search across assets library..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-4 ml-6">
+<button class="w-10 h-10 flex items-center justify-center rounded-full text-slate-500 hover:bg-surface-container transition-all cursor-pointer active:scale-95">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="w-10 h-10 flex items-center justify-center rounded-full text-slate-500 hover:bg-surface-container transition-all cursor-pointer active:scale-95">
+<span class="material-symbols-outlined">help</span>
+</button>
+<div class="h-8 w-[1px] bg-slate-200 mx-2"></div>
+<div class="flex items-center gap-3 pl-2">
+<div class="text-right hidden lg:block">
+<p class="text-xs font-bold text-on-surface">Alexandre Costa</p>
+<p class="text-[10px] text-slate-500">Administrator</p>
+</div>
+<img alt="User profile" class="w-9 h-9 rounded-full object-cover ring-2 ring-white shadow-sm" data-alt="professional male profile portrait in modern studio setting with warm natural lighting and neutral background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD835V7shrkWpO8pZ-P42SOx_MiecVLrilMUCVlM0xiq-euqYzalTDdCq34iedoqiWehv7bxUrnVC4U3RGveqcU2RH1cCTXOUC-2u1uHxHJ3aqFov0lARhMEQqhdJrP2RGLu4sZnPJIGrYKDve8QsmRKZ_eEQn5RAcoN1Qqe9Su6NShWbwOUa4xSmEekZ5ylLn7veg4FPMivC-YxsWTU_TyJ8YDoshMORHjwjP03-7PUnYX7OMz3xV_Sbrcv4Og8HF_868ZTrlYGEeD"/>
+</div>
+</div>
+</header>
+<!-- Content Canvas -->
+<div class="p-8 space-y-8">
+<!-- Page Header -->
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-6">
+<div>
+<h2 class="text-3xl font-bold tracking-tight text-on-surface mb-1">Assets</h2>
+<p class="text-on-surface-variant text-sm font-medium">Manage and deploy your media files across the signage network.</p>
+</div>
+<button class="bg-gradient-to-br from-primary to-primary-container text-white px-6 py-3 rounded-lg font-bold text-sm shadow-lg shadow-primary/20 flex items-center gap-2 hover:scale-[1.02] active:scale-95 transition-all">
+<span class="material-symbols-outlined text-xl">upload_file</span>
+                    Enviar ficheiro
+                </button>
+</div>
+<!-- Filter Bar -->
+<div class="bg-surface-container-low p-1.5 rounded-xl flex items-center gap-1 w-fit">
+<button class="px-5 py-2 text-sm font-semibold rounded-lg bg-white text-primary shadow-sm">Todos</button>
+<button class="px-5 py-2 text-sm font-medium text-slate-600 hover:bg-white/50 transition-colors rounded-lg">Imagens</button>
+<button class="px-5 py-2 text-sm font-medium text-slate-600 hover:bg-white/50 transition-colors rounded-lg">Vídeos</button>
+<button class="px-5 py-2 text-sm font-medium text-slate-600 hover:bg-white/50 transition-colors rounded-lg">PDF</button>
+<button class="px-5 py-2 text-sm font-medium text-slate-600 hover:bg-white/50 transition-colors rounded-lg">HTML</button>
+<button class="px-5 py-2 text-sm font-medium text-slate-600 hover:bg-white/50 transition-colors rounded-lg">URLs</button>
+</div>
+<!-- Table Container -->
+<div class="bg-surface-container-lowest rounded-xl shadow-[0px_10px_30px_rgba(11,28,48,0.05)] overflow-hidden">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface-container-low/50">
+<th class="px-6 py-4 text-[11px] font-bold uppercase tracking-[0.1em] text-on-surface-variant">Prév.</th>
+<th class="px-6 py-4 text-[11px] font-bold uppercase tracking-[0.1em] text-on-surface-variant">Nome</th>
+<th class="px-6 py-4 text-[11px] font-bold uppercase tracking-[0.1em] text-on-surface-variant">Tipo</th>
+<th class="px-6 py-4 text-[11px] font-bold uppercase tracking-[0.1em] text-on-surface-variant">Origem</th>
+<th class="px-6 py-4 text-[11px] font-bold uppercase tracking-[0.1em] text-on-surface-variant">Tamanho</th>
+<th class="px-6 py-4 text-[11px] font-bold uppercase tracking-[0.1em] text-on-surface-variant">Criado</th>
+<th class="px-6 py-4 text-[11px] font-bold uppercase tracking-[0.1em] text-on-surface-variant text-right">Ações</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-slate-50">
+<!-- Asset Row 1 -->
+<tr class="hover:bg-surface-container-low/30 transition-colors group">
+<td class="px-6 py-4">
+<div class="w-14 h-10 rounded-lg bg-surface-container overflow-hidden ring-1 ring-slate-100 flex items-center justify-center">
+<img class="w-full h-full object-cover" data-alt="vibrant mountain landscape at sunrise with turquoise lake and snow-capped peaks in wide-angle cinematic shot" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDlxQVOgooA1krdFR4Kd08iSm33Mx2aPFdT7RuoWiIxWMPEB-ioj6rxLJjM9rviJeekRG7qNn1cL0a-HyzSoBKOnYfasV6X7tTxY-FS-gM_2Pi_u1VyCNoK_el6cDGyO4W9a8IAXI52CAgJt97LxaY45_hrEXHeSyncififRl4M3c1ynakGYkqhxGUf6gvx5rzXI-ySiARh-s-9Bgi4mF71KlE4me4RZIrkhuGKQD3J9IyLWUd6jOyF6LH22MrKcqnHh_7peq5Cl1uJ"/>
+</div>
+</td>
+<td class="px-6 py-4">
+<p class="text-sm font-bold text-on-surface">Summer_Campaign_Hero.jpg</p>
+</td>
+<td class="px-6 py-4">
+<span class="px-2 py-1 bg-surface-container text-[10px] font-bold uppercase tracking-wider text-primary rounded-full">JPG</span>
+</td>
+<td class="px-6 py-4 text-sm text-on-surface-variant">Upload Direto</td>
+<td class="px-6 py-4 text-sm text-on-surface-variant font-medium">2.4 MB</td>
+<td class="px-6 py-4 text-sm text-on-surface-variant">12 Mai 2024</td>
+<td class="px-6 py-4 text-right">
+<div class="flex items-center justify-end gap-2">
+<button class="p-2 text-primary hover:bg-primary/5 rounded transition-all"><span class="material-symbols-outlined text-lg">edit</span></button>
+<button class="p-2 text-error hover:bg-error/5 rounded transition-all"><span class="material-symbols-outlined text-lg">delete</span></button>
+</div>
+</td>
+</tr>
+<!-- Asset Row 2 -->
+<tr class="hover:bg-surface-container-low/30 transition-colors group">
+<td class="px-6 py-4">
+<div class="w-14 h-10 rounded-lg bg-slate-900 overflow-hidden ring-1 ring-slate-100 flex items-center justify-center relative">
+<img class="w-full h-full object-cover opacity-60" data-alt="abstract cinematic motion graphic of flowing blue and purple light particles on dark background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAKqHOKYAZYYrR1NO0QKcb59vLpEM5VWMindPsIAoF_5sYPli1woGJzAmdUr2e0tG4Lx6i-uPr2hmDhXmPpLZT-2N3V1PyYUe2kXdUu6UzgFJXJtfr0VpYzItqYDelXdOo84kyG5OSV2ClDfcykVksyG5QTvYXT0Q3qRthy-cyLTwLpmjoCKU-I__zt20noBOS11-rSRoiTBJ9XFxp19_dcnaEjge3WQCElWnSYpFyHvUgiH-fSanaYVJVeuudOM81VpcBDBuRMCNQ8"/>
+<span class="material-symbols-outlined text-white text-xs absolute inset-0 flex items-center justify-center" style="font-variation-settings: 'FILL' 1;">play_arrow</span>
+</div>
+</td>
+<td class="px-6 py-4">
+<p class="text-sm font-bold text-on-surface">Logo_Animation_V2.mp4</p>
+</td>
+<td class="px-6 py-4">
+<span class="px-2 py-1 bg-secondary-container text-[10px] font-bold uppercase tracking-wider text-white rounded-full">MP4</span>
+</td>
+<td class="px-6 py-4 text-sm text-on-surface-variant">Assets Cloud</td>
+<td class="px-6 py-4 text-sm text-on-surface-variant font-medium">45.8 MB</td>
+<td class="px-6 py-4 text-sm text-on-surface-variant">10 Mai 2024</td>
+<td class="px-6 py-4 text-right">
+<div class="flex items-center justify-end gap-2">
+<button class="p-2 text-primary hover:bg-primary/5 rounded transition-all"><span class="material-symbols-outlined text-lg">edit</span></button>
+<button class="p-2 text-error hover:bg-error/5 rounded transition-all"><span class="material-symbols-outlined text-lg">delete</span></button>
+</div>
+</td>
+</tr>
+<!-- Asset Row 3 -->
+<tr class="hover:bg-surface-container-low/30 transition-colors group">
+<td class="px-6 py-4">
+<div class="w-14 h-10 rounded-lg bg-red-50 flex items-center justify-center ring-1 ring-red-100">
+<span class="material-symbols-outlined text-red-400 text-xl">description</span>
+</div>
+</td>
+<td class="px-6 py-4">
+<p class="text-sm font-bold text-on-surface">Store_Policy_Update.pdf</p>
+</td>
+<td class="px-6 py-4">
+<span class="px-2 py-1 bg-red-100 text-[10px] font-bold uppercase tracking-wider text-red-700 rounded-full">PDF</span>
+</td>
+<td class="px-6 py-4 text-sm text-on-surface-variant">Sync Drive</td>
+<td class="px-6 py-4 text-sm text-on-surface-variant font-medium">1.2 MB</td>
+<td class="px-6 py-4 text-sm text-on-surface-variant">08 Mai 2024</td>
+<td class="px-6 py-4 text-right">
+<div class="flex items-center justify-end gap-2">
+<button class="p-2 text-primary hover:bg-primary/5 rounded transition-all"><span class="material-symbols-outlined text-lg">edit</span></button>
+<button class="p-2 text-error hover:bg-error/5 rounded transition-all"><span class="material-symbols-outlined text-lg">delete</span></button>
+</div>
+</td>
+</tr>
+<!-- Asset Row 4 -->
+<tr class="hover:bg-surface-container-low/30 transition-colors group">
+<td class="px-6 py-4">
+<div class="w-14 h-10 rounded-lg bg-blue-50 flex items-center justify-center ring-1 ring-blue-100">
+<span class="material-symbols-outlined text-blue-400 text-xl">link</span>
+</div>
+</td>
+<td class="px-6 py-4">
+<p class="text-sm font-bold text-on-surface">Internal_Dashboard_Stream</p>
+</td>
+<td class="px-6 py-4">
+<span class="px-2 py-1 bg-surface-container text-[10px] font-bold uppercase tracking-wider text-primary rounded-full">URL</span>
+</td>
+<td class="px-6 py-4 text-sm text-on-surface-variant">Externo</td>
+<td class="px-6 py-4 text-sm text-on-surface-variant font-medium">--</td>
+<td class="px-6 py-4 text-sm text-on-surface-variant">05 Mai 2024</td>
+<td class="px-6 py-4 text-right">
+<div class="flex items-center justify-end gap-2">
+<button class="p-2 text-primary hover:bg-primary/5 rounded transition-all"><span class="material-symbols-outlined text-lg">edit</span></button>
+<button class="p-2 text-error hover:bg-error/5 rounded transition-all"><span class="material-symbols-outlined text-lg">delete</span></button>
+</div>
+</td>
+</tr>
+<!-- Asset Row 5 -->
+<tr class="hover:bg-surface-container-low/30 transition-colors group">
+<td class="px-6 py-4">
+<div class="w-14 h-10 rounded-lg bg-orange-50 flex items-center justify-center ring-1 ring-orange-100">
+<span class="material-symbols-outlined text-orange-400 text-xl">html</span>
+</div>
+</td>
+<td class="px-6 py-4">
+<p class="text-sm font-bold text-on-surface">Weather_Widget_Live.html</p>
+</td>
+<td class="px-6 py-4">
+<span class="px-2 py-1 bg-orange-100 text-[10px] font-bold uppercase tracking-wider text-orange-700 rounded-full">HTML</span>
+</td>
+<td class="px-6 py-4 text-sm text-on-surface-variant">Widget Builder</td>
+<td class="px-6 py-4 text-sm text-on-surface-variant font-medium">340 KB</td>
+<td class="px-6 py-4 text-sm text-on-surface-variant">01 Mai 2024</td>
+<td class="px-6 py-4 text-right">
+<div class="flex items-center justify-end gap-2">
+<button class="p-2 text-primary hover:bg-primary/5 rounded transition-all"><span class="material-symbols-outlined text-lg">edit</span></button>
+<button class="p-2 text-error hover:bg-error/5 rounded transition-all"><span class="material-symbols-outlined text-lg">delete</span></button>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+<!-- Pagination / Footer info -->
+<div class="px-6 py-4 border-t border-slate-50 flex items-center justify-between">
+<p class="text-xs text-on-surface-variant font-medium">Mostrando 5 de 128 ativos</p>
+<div class="flex gap-2">
+<button class="p-1.5 rounded-lg border border-transparent hover:bg-surface-container transition-all text-slate-400">
+<span class="material-symbols-outlined text-xl">chevron_left</span>
+</button>
+<button class="w-8 h-8 rounded-lg bg-primary text-white text-xs font-bold shadow-md shadow-primary/20">1</button>
+<button class="w-8 h-8 rounded-lg text-slate-600 text-xs font-medium hover:bg-surface-container transition-all">2</button>
+<button class="w-8 h-8 rounded-lg text-slate-600 text-xs font-medium hover:bg-surface-container transition-all">3</button>
+<button class="p-1.5 rounded-lg border border-transparent hover:bg-surface-container transition-all text-slate-400">
+<span class="material-symbols-outlined text-xl">chevron_right</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</main>
+</body></html>

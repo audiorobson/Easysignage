@@ -1,0 +1,21 @@
+{
+  "projectId": "13461540223753831413",
+  "screens": [
+    {
+      "screenId": "adbb38af43934bbd983a7942371917e4",
+      "slug": "assets-library-refined",
+      "title": "Assets Library Refined",
+      "htmlFile": "docs/stitch-exports/13461540223753831413/assets-library-refined.html",
+      "htmlAvailable": true,
+      "imageFile": "docs/stitch-exports/13461540223753831413/assets-library-refined.png"
+    },
+    {
+      "screenId": "4869540338590818283",
+      "slug": "image-png",
+      "title": "image.png",
+      "htmlFile": null,
+      "htmlAvailable": false,
+      "imageFile": "docs/stitch-exports/13461540223753831413/image-png.png"
+    }
+  ]
+}

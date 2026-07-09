@@ -1,0 +1,26 @@
+# Git e IDE
+.git
+.github
+.cursor
+*.md
+!README.md
+
+# Dependências e builds locais
+**/node_modules
+**/.next
+**/dist
+.turbo
+**/.env
+**/.env.*
+!**/.env.example
+
+# Apps não usados nas imagens actuais
+apps/web-player
+apps/electron-player
+apps/media-worker
+apps/realtime-gateway
+
+# Testes e artefactos
+coverage
+**/*.map
+apps/api/dist/**/*.map

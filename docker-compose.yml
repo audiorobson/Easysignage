@@ -1,0 +1,55 @@
+# Stack mínimo: Postgres + API Nest + CMS Next.
+# Uso (na raiz): docker compose up --build
+# Browser: CMS http://localhost:3000  |  API http://localhost:3001/api/v1  |  Health http://localhost:3001/api/v1/health
+#
+# Defina JWT_SECRET seguro (ex. ficheiro .env na raiz com JWT_SECRET=...).
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: easysignage
+      POSTGRES_PASSWORD: easysignage_dev
+      POSTGRES_DB: easysignage
+    volumes:
+      - easysignage_pg:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U easysignage -d easysignage"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: docker/api.Dockerfile
+    ports:
+      - "3001:3001"
+    environment:
+      DATABASE_URL: postgresql://easysignage:easysignage_dev@postgres:5432/easysignage
+      PORT: "3001"
+      JWT_SECRET: ${JWT_SECRET:-defina-JWT_SECRET-seguro-em-producao}
+      CORS_ORIGINS: http://localhost:3000,http://127.0.0.1:3000,http://localhost:3010,http://127.0.0.1:3010
+      CMS_ORIGIN: http://localhost:3000
+      SWAGGER: "0"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  cms:
+    build:
+      context: .
+      dockerfile: docker/cms.Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:3001/api/v1
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+    depends_on:
+      - api
+
+volumes:
+  easysignage_pg:
