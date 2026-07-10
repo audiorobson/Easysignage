@@ -26,6 +26,8 @@ model Tenant {
   publications Publication[]
   deviceGroups DeviceGroup[]
   scheduleRules ScheduleRule[]
+  campaigns     Campaign[]
+  alerts        Alert[]
   deviceTelemetryEvents DeviceTelemetryEvent[]
   deviceCommands        DeviceCommand[]
   layoutTemplates       LayoutTemplate[]
@@ -73,6 +75,7 @@ model Playlist {
   tenant Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   items  PlaylistItem[]
   scheduleRules ScheduleRule[]
+  campaigns     Campaign[]
   videoWalls VideoWall[]
 
   @@index([tenantId, createdAt])
@@ -128,6 +131,8 @@ model User {
 
   tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   userRoles UserRole[]
+  campaigns Campaign[]
+  alertsAcknowledged Alert[] @relation("AlertAcknowledgedBy")
 
   @@unique([tenantId, email])
   @@map("users")
@@ -172,6 +177,7 @@ model Site {
   coverAsset Asset?   @relation("SiteCoverAsset", fields: [coverAssetId], references: [id], onDelete: SetNull)
   devices    Device[]
   videoWalls VideoWall[]
+  campaigns  Campaign[]
 
   @@index([tenantId, createdAt])
   @@map("sites")
@@ -208,6 +214,8 @@ model Device {
   publications Publication[]
   groupMembers DeviceGroupMember[]
   scheduleRules ScheduleRule[]
+  campaigns     Campaign[]
+  alerts        Alert[]
   telemetryEvents DeviceTelemetryEvent[]
   commands        DeviceCommand[]
   deviceLayout    DeviceLayout?
@@ -316,6 +324,7 @@ model DeviceGroup {
   tenant  Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   members DeviceGroupMember[]
   scheduleRules ScheduleRule[]
+  campaigns     Campaign[]
 
   @@index([tenantId, createdAt])
   @@map("device_groups")
@@ -353,6 +362,7 @@ model DeviceState {
   /** Conteúdo a restaurar quando a janela de agenda termina. */
   scheduleBaselineItemJson Json?   @map("schedule_baseline_item_json")
   activeScheduleRuleId  String?    @map("active_schedule_rule_id") @db.Uuid
+  activeCampaignId      String?    @map("active_campaign_id") @db.Uuid
   /** Versão de publicação que o player confirmou ter aplicado (ack). */
   appliedPublicationVersion Int?   @map("applied_publication_version")
   /** Revisão de conteúdo (`contentRevision`) confirmada pelo player. */
@@ -362,6 +372,7 @@ model DeviceState {
 
   device Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
   currentPublication Publication? @relation("PublicationAsDeviceCurrent", fields: [currentPublicationId], references: [id], onDelete: SetNull)
+  activeCampaign Campaign? @relation(fields: [activeCampaignId], references: [id], onDelete: SetNull)
 
   @@map("device_state")
 }
@@ -430,6 +441,46 @@ model DeviceCommand {
 }
 
 /**
+ * Campanha promocional: playlist com prioridade sobre regras de agenda recorrente.
+ * `status`: draft | active | paused | ended
+ * `scope`: device | group | site | all
+ */
+model Campaign {
+  id          String    @id @default(uuid()) @db.Uuid
+  tenantId    String    @map("tenant_id") @db.Uuid
+  name        String
+  description String?
+  playlistId  String    @map("playlist_id") @db.Uuid
+  priority    Int       @default(10)
+  status      String    @default("draft")
+  startAt     DateTime? @map("start_at")
+  endAt       DateTime? @map("end_at")
+  scope       String
+  deviceId    String?   @map("device_id") @db.Uuid
+  groupId     String?   @map("group_id") @db.Uuid
+  siteId      String?   @map("site_id") @db.Uuid
+  /// 1 = segunda … 7 = domingo; null = todos os dias
+  dayOfWeek   Int?      @map("day_of_week")
+  startMin    Int?      @map("start_min")
+  endMin      Int?      @map("end_min")
+  createdById String?   @map("created_by_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  tenant     Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  playlist   Playlist     @relation(fields: [playlistId], references: [id], onDelete: Restrict)
+  device     Device?      @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  group      DeviceGroup? @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  site       Site?        @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  createdBy  User?        @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  deviceStates DeviceState[]
+
+  @@index([tenantId, status])
+  @@index([tenantId, scope])
+  @@map("campaigns")
+}
+
+/**
  * Regra de agendamento: playlist num dia da semana (e faixa horária) para um device ou grupo.
  * `dayOfWeek`: 1 = segunda … 7 = domingo (ISO).
  * `startMin` / `endMin`: minutos desde 00:00; fim exclusivo (ex.: dia inteiro 0–1440).
@@ -464,4 +515,33 @@ model ScheduleRule {
   @@index([tenantId, deviceId, dayOfWeek])
   @@index([tenantId, groupId, dayOfWeek])
   @@map("schedule_rules")
+}
+
+/**
+ * Alerta operacional por device (offline, falha de playback, sync pendente).
+ * `status`: open | acknowledged | resolved
+ */
+model Alert {
+  id               String    @id @default(uuid()) @db.Uuid
+  tenantId         String    @map("tenant_id") @db.Uuid
+  deviceId         String    @map("device_id") @db.Uuid
+  alertType        String    @map("alert_type")
+  severity         String
+  status           String    @default("open")
+  title            String
+  message          String?
+  firstSeenAt      DateTime  @default(now()) @map("first_seen_at")
+  lastSeenAt       DateTime  @default(now()) @map("last_seen_at")
+  acknowledgedById String?   @map("acknowledged_by") @db.Uuid
+  acknowledgedAt   DateTime? @map("acknowledged_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  tenant         Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  device         Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  acknowledgedBy User?  @relation("AlertAcknowledgedBy", fields: [acknowledgedById], references: [id], onDelete: SetNull)
+
+  @@unique([tenantId, deviceId, alertType])
+  @@index([tenantId, status, lastSeenAt(sort: Desc)])
+  @@map("alerts")
 }

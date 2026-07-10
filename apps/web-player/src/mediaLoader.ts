@@ -1,5 +1,6 @@
 import {
   isPlayableInPlayer,
+  isRemoteStreamKind,
   resolvePlayerKind,
   type PlayerMediaKind,
 } from '@easysignage/shared-types';
@@ -8,7 +9,7 @@ import { fetchDeviceAssetCached } from './deviceAssetCache';
 const API =
   import.meta.env.VITE_API_URL?.replace(/\/$/, '') ?? 'http://localhost:3001/api/v1';
 
-export type MediaKind = PlayerMediaKind | 'url';
+export type MediaKind = PlayerMediaKind | 'url' | 'rtsp';
 
 export type LoadedMedia = {
   assetId: string;
@@ -95,11 +96,11 @@ export async function loadMedia(
     const kind = resolvePlayerKind(meta.kind, meta.mimeType);
     const mimeType = meta.mimeType ?? '';
 
-    if (meta.kind === 'url' && meta.remoteUrl) {
+    if (isRemoteStreamKind(meta.kind) && meta.remoteUrl) {
       const loaded: LoadedMedia = {
         assetId: slide.assetId,
-        kind: 'url' as MediaKind,
-        mimeType: 'application/x-easysignage-url',
+        kind: meta.kind as MediaKind,
+        mimeType: meta.mimeType ?? '',
         blobUrl: null,
         frameUrl: meta.remoteUrl,
       };
@@ -153,7 +154,9 @@ export async function loadMedia(
 
 export function preloadSlides(token: string, slides: SlideMeta[]): void {
   for (const slide of slides) {
-    if (slide.kind !== 'url' && !isPlayableInPlayer(slide.kind)) continue;
+    if (!isRemoteStreamKind(slide.kind) && !isPlayableInPlayer(slide.kind)) {
+      continue;
+    }
     void loadMedia(token, slide).catch(() => {});
   }
 }
@@ -182,6 +185,6 @@ export function clearMediaCache(): void {
 
 export function playlistFileUrls(slides: SlideMeta[]): string[] {
   return slides
-    .filter((s) => s.kind !== 'url')
+    .filter((s) => !isRemoteStreamKind(s.kind))
     .map((s) => fileUrl(s.assetId));
 }

@@ -8,6 +8,7 @@ import {
   Film,
   Image,
   Link2,
+  Radio,
   Volume2,
   type LucideIcon,
 } from 'lucide-react';
@@ -40,6 +41,7 @@ const KIND_ICONS: Record<string, LucideIcon> = {
   html: FileCode,
   text: FileText,
   url: Link2,
+  rtsp: Radio,
 };
 
 function kindAccent(kind: string): string {
@@ -54,6 +56,8 @@ function kindAccent(kind: string): string {
       return 'linear-gradient(145deg, #78350f 0%, #b45309 100%)';
     case 'url':
       return 'linear-gradient(145deg, #1e3a5f 0%, #2563eb 100%)';
+    case 'rtsp':
+      return 'linear-gradient(145deg, #14532d 0%, #15803d 100%)';
     case 'text':
       return 'linear-gradient(145deg, #374151 0%, #6b7280 100%)';
     case 'image':
@@ -71,7 +75,7 @@ function PlaceholderIcon({
   size: number;
 }) {
   const Icon = KIND_ICONS[kind] ?? File;
-  const isLightIcon = ['pdf', 'video', 'audio', 'html', 'text', 'url', 'image'].includes(kind);
+  const isLightIcon = ['pdf', 'video', 'audio', 'html', 'text', 'url', 'rtsp', 'image'].includes(kind);
   return (
     <span
       role="img"

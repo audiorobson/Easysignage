@@ -21,6 +21,7 @@ import {
 } from '../common/decorators/current-device.decorator';
 import { PrismaService } from '../prisma/prisma.service';
 import { ScheduleEngineService } from '../schedules/schedule-engine.service';
+import { AlertsService } from '../alerts/alerts.service';
 import { DevicePreviewService } from '../telemetry/device-preview.service';
 import { TelemetryService } from '../telemetry/telemetry.service';
 import {
@@ -42,7 +43,8 @@ export class DeviceApiController {
     private readonly playlists: PlaylistsService,
     private readonly telemetry: TelemetryService,
     private readonly devicePreview: DevicePreviewService,
-    private readonly scheduleEngine: ScheduleEngineService
+    private readonly scheduleEngine: ScheduleEngineService,
+    private readonly alerts: AlertsService
   ) {}
 
   /**
@@ -198,6 +200,8 @@ export class DeviceApiController {
         });
       }
     }
+
+    await this.alerts.evaluateDevice(device.tenantId, device.id);
 
     return { ok: true, serverTime: new Date().toISOString() };
   }

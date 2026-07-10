@@ -144,3 +144,86 @@ export function layoutZoneStyle(frame: LayoutZoneFrame): Record<string, string> 
     height: `${frame.h}%`,
   };
 }
+
+export const MAX_LAYOUT_TEMPLATE_ZONES = 6;
+
+const RESERVED_SYSTEM_SLUGS = new Set(
+  SYSTEM_LAYOUT_TEMPLATES.map((t) => t.slug)
+);
+
+export type LayoutTemplateZonesValidation =
+  | { ok: true; zones: LayoutTemplateZone[] }
+  | { ok: false; message: string };
+
+function isPercentFrame(v: unknown): v is LayoutZoneFrame {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return false;
+  const f = v as Record<string, unknown>;
+  return (
+    f.unit === 'percent' &&
+    typeof f.x === 'number' &&
+    typeof f.y === 'number' &&
+    typeof f.w === 'number' &&
+    typeof f.h === 'number' &&
+    f.x >= 0 &&
+    f.y >= 0 &&
+    f.w >= 1 &&
+    f.h >= 1 &&
+    f.x + f.w <= 100.01 &&
+    f.y + f.h <= 100.01
+  );
+}
+
+/** Valida JSON de zonas para templates custom (CMS upload / API POST). */
+export function validateLayoutTemplateZones(raw: unknown): LayoutTemplateZonesValidation {
+  if (!Array.isArray(raw)) {
+    return { ok: false, message: 'zonesJson deve ser um array de zonas' };
+  }
+  if (raw.length < 1 || raw.length > MAX_LAYOUT_TEMPLATE_ZONES) {
+    return {
+      ok: false,
+      message: `Entre 1 e ${MAX_LAYOUT_TEMPLATE_ZONES} zonas`,
+    };
+  }
+  const zoneIds = new Set<string>();
+  const zones: LayoutTemplateZone[] = [];
+  for (let i = 0; i < raw.length; i++) {
+    const row = raw[i];
+    if (!row || typeof row !== 'object' || Array.isArray(row)) {
+      return { ok: false, message: `Zona ${i + 1}: objeto inválido` };
+    }
+    const o = row as Record<string, unknown>;
+    if (typeof o.zoneId !== 'string' || !/^[a-z][a-z0-9_]{0,31}$/.test(o.zoneId)) {
+      return {
+        ok: false,
+        message: `Zona ${i + 1}: zoneId inválido (a-z, 0-9, _, máx. 32)`,
+      };
+    }
+    if (zoneIds.has(o.zoneId)) {
+      return { ok: false, message: `zoneId duplicado: ${o.zoneId}` };
+    }
+    zoneIds.add(o.zoneId);
+    const label = typeof o.label === 'string' && o.label.trim() ? o.label.trim() : o.zoneId;
+    if (!isPercentFrame(o.frame)) {
+      return {
+        ok: false,
+        message: `Zona ${o.zoneId}: frame inválido (percent, dentro de 100%)`,
+      };
+    }
+    zones.push({
+      zoneId: o.zoneId,
+      label,
+      frame: {
+        x: o.frame.x,
+        y: o.frame.y,
+        w: o.frame.w,
+        h: o.frame.h,
+        unit: 'percent',
+      },
+    });
+  }
+  return { ok: true, zones };
+}
+
+export function isReservedLayoutTemplateSlug(slug: string): boolean {
+  return RESERVED_SYSTEM_SLUGS.has(slug);
+}

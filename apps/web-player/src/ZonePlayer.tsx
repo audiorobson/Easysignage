@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { isPlayableInPlayer } from '@easysignage/shared-types';
+import { isPlayableInPlayer, isRemoteStreamKind } from '@easysignage/shared-types';
 import type { LayoutCurrentZone } from '@easysignage/shared-types';
 import {
   getCachedMedia,
@@ -32,6 +32,7 @@ type PlaylistManifest = {
 };
 
 function defaultDurationSec(kind: string): number {
+  if (kind === 'rtsp' || kind === 'url') return 3600;
   if (kind === 'video') return 30;
   if (kind === 'audio') return 30;
   if (kind === 'pdf' || kind === 'html') return 20;
@@ -39,7 +40,7 @@ function defaultDurationSec(kind: string): number {
 }
 
 function isPlayableKind(kind: string): boolean {
-  return kind === 'url' || isPlayableInPlayer(kind);
+  return isRemoteStreamKind(kind) || isPlayableInPlayer(kind);
 }
 
 export function ZonePlayer({

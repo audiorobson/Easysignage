@@ -9,6 +9,8 @@ import {
 } from 'react';
 import {
   isPlayableInPlayer,
+  isRemoteStreamKind,
+  maskStreamUrl,
   resolvePlayerKind,
   type PlayerMediaKind,
 } from '@easysignage/shared-types';
@@ -31,10 +33,10 @@ type PlaylistManifest = {
   items: ManifestItem[];
 };
 
-type MediaKind = PlayerMediaKind | 'url';
+type MediaKind = PlayerMediaKind | 'url' | 'rtsp';
 
 function isPlayableKind(kind: string): boolean {
-  return kind === 'url' || isPlayableInPlayer(kind);
+  return isRemoteStreamKind(kind) || isPlayableInPlayer(kind);
 }
 
 function defaultDurationSec(kind: string): number {
@@ -53,6 +55,8 @@ function defaultDurationSec(kind: string): number {
       return 20;
     case 'url':
       return 30;
+    case 'rtsp':
+      return 3600;
     default:
       return 15;
   }
@@ -139,7 +143,7 @@ export function PlaylistEmbedPlayer({ playlistId, accessToken }: Props) {
     if (!activeAssetId) {
       revokeBlob();
       if (manifest && playableSlides.length === 0) {
-        setHint('Nenhum item reproduzível (imagem, vídeo, áudio, PDF, HTML, texto ou URL).');
+        setHint('Nenhum item reproduzível (imagem, vídeo, áudio, PDF, HTML, texto, URL ou RTSP).');
       }
       return;
     }
@@ -165,13 +169,13 @@ export function PlaylistEmbedPlayer({ playlistId, accessToken }: Props) {
           remoteUrl?: string | null;
         };
 
-        if (meta.kind === 'url' && meta.remoteUrl) {
+        if (isRemoteStreamKind(meta.kind) && meta.remoteUrl) {
           revokeBlob();
           if (cancelled) return;
           blobUrlRef.current = null;
           setBlobUrl(null);
           setFrameUrl(meta.remoteUrl);
-          setMediaKind('url');
+          setMediaKind(meta.kind as MediaKind);
           setHint(caption);
           return;
         }
@@ -385,6 +389,41 @@ export function PlaylistEmbedPlayer({ playlistId, accessToken }: Props) {
                   border: 'none',
                 }}
               />
+            )}
+            {mediaKind === 'rtsp' && frameUrl && (
+              <div
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.75rem',
+                  padding: '2rem',
+                  textAlign: 'center',
+                  background: 'radial-gradient(ellipse at center, #14532d 0%, #020617 70%)',
+                  color: '#cbd5e1',
+                }}
+              >
+                <strong style={{ color: '#86efac', letterSpacing: '0.06em' }}>
+                  STREAM RTSP
+                </strong>
+                <span style={{ fontSize: '0.875rem', maxWidth: '28rem' }}>
+                  Pré-visualização CMS — o player em campo liga-se directamente à rede.
+                </span>
+                <code
+                  style={{
+                    fontSize: '0.75rem',
+                    wordBreak: 'break-all',
+                    padding: '0.35rem 0.6rem',
+                    background: 'rgba(15,23,42,0.85)',
+                    borderRadius: 6,
+                  }}
+                >
+                  {maskStreamUrl(frameUrl)}
+                </code>
+              </div>
             )}
             {mediaKind === 'url' && frameUrl && (
               <iframe

@@ -1,14 +1,25 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable, forwardRef } from '@nestjs/common';
 import { Prisma } from '../generated/prisma-client';
 import { PrismaService } from '../prisma/prisma.service';
+import { CAMPAIGN_CONTENT_SOURCE } from '@easysignage/shared-types';
 import { DevicesService } from '../devices/devices.service';
 import { VideoWallsService } from '../video-walls/video-walls.service';
+import { CampaignEngineService } from '../campaigns/campaign-engine.service';
 
 export const SCHEDULE_CONTENT_SOURCE = 'schedule';
 
 function isScheduleItem(item: unknown): boolean {
   if (!item || typeof item !== 'object' || Array.isArray(item)) return false;
   return (item as Record<string, unknown>).source === SCHEDULE_CONTENT_SOURCE;
+}
+
+function isCampaignItem(item: unknown): boolean {
+  if (!item || typeof item !== 'object' || Array.isArray(item)) return false;
+  return (item as Record<string, unknown>).source === CAMPAIGN_CONTENT_SOURCE;
+}
+
+function isTimedOverrideItem(item: unknown): boolean {
+  return isScheduleItem(item) || isCampaignItem(item);
 }
 
 function itemsEqual(a: unknown, b: unknown): boolean {
@@ -50,7 +61,9 @@ export class ScheduleEngineService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly devices: DevicesService,
-    private readonly videoWalls: VideoWallsService
+    private readonly videoWalls: VideoWallsService,
+    @Inject(forwardRef(() => CampaignEngineService))
+    private readonly campaignEngine: CampaignEngineService
   ) {}
 
   private timeZone(): string {
@@ -166,10 +179,94 @@ export class ScheduleEngineService {
         return pub.payloadJson as Prisma.InputJsonValue;
       }
     }
-    if (state?.currentItemJson != null && !isScheduleItem(state.currentItemJson)) {
+    if (state?.currentItemJson != null && !isTimedOverrideItem(state.currentItemJson)) {
       return state.currentItemJson as Prisma.InputJsonValue;
     }
     return null;
+  }
+
+  private async applyActiveCampaign(
+    tenantId: string,
+    deviceId: string,
+    now: Date,
+    state: {
+      scheduleBaselineItemJson: unknown;
+      currentPublicationId: string | null;
+      currentItemJson: unknown;
+      activeCampaignId: string | null;
+      activeScheduleRuleId: string | null;
+    } | null
+  ): Promise<{ applied: boolean; activeCampaignId: string | null } | null> {
+    const campaign = await this.campaignEngine.findActiveCampaign(
+      tenantId,
+      deviceId,
+      now
+    );
+    const nowDate = new Date();
+
+    if (campaign) {
+      const scheduledItem = this.campaignEngine.buildCampaignItem(campaign);
+      const itemJson = scheduledItem as Prisma.InputJsonValue;
+      const alreadyActive =
+        state?.activeCampaignId === campaign.id &&
+        itemsEqual(state.currentItemJson, scheduledItem);
+
+      if (alreadyActive) {
+        return { applied: false, activeCampaignId: campaign.id };
+      }
+
+      let baseline: Prisma.InputJsonValue | undefined =
+        state?.scheduleBaselineItemJson != null
+          ? (state.scheduleBaselineItemJson as Prisma.InputJsonValue)
+          : undefined;
+      if (baseline == null && state?.currentItemJson != null) {
+        if (!isTimedOverrideItem(state.currentItemJson)) {
+          baseline = state.currentItemJson as Prisma.InputJsonValue;
+        } else {
+          const fb = await this.resolveFallbackItem(tenantId, deviceId, state);
+          baseline = fb ?? undefined;
+        }
+      }
+
+      await this.prisma.deviceState.upsert({
+        where: { deviceId },
+        create: {
+          deviceId,
+          tenantId,
+          currentItemJson: itemJson,
+          scheduleBaselineItemJson: baseline,
+          activeCampaignId: campaign.id,
+          activeScheduleRuleId: null,
+          lastSyncAt: nowDate,
+        },
+        update: {
+          currentItemJson: itemJson,
+          ...(baseline != null ? { scheduleBaselineItemJson: baseline } : {}),
+          activeCampaignId: campaign.id,
+          activeScheduleRuleId: null,
+          lastSyncAt: nowDate,
+        },
+      });
+
+      return { applied: true, activeCampaignId: campaign.id };
+    }
+
+    if (!state?.activeCampaignId) return null;
+
+    const fallback = await this.resolveFallbackItem(tenantId, deviceId, state);
+    await this.prisma.deviceState.update({
+      where: { deviceId },
+      data: {
+        currentItemJson:
+          fallback === null || fallback === undefined
+            ? Prisma.JsonNull
+            : fallback,
+        activeCampaignId: null,
+        lastSyncAt: nowDate,
+      },
+    });
+
+    return { applied: true, activeCampaignId: null };
   }
 
   async applyForDevice(
@@ -177,10 +274,31 @@ export class ScheduleEngineService {
     deviceId: string,
     now = new Date()
   ): Promise<{ applied: boolean; activeRuleId: string | null }> {
-    const rule = await this.findActiveRule(tenantId, deviceId, now);
     const state = await this.prisma.deviceState.findUnique({
       where: { deviceId },
     });
+
+    const campaignResult = await this.applyActiveCampaign(
+      tenantId,
+      deviceId,
+      now,
+      state
+    );
+    if (campaignResult?.activeCampaignId) {
+      return {
+        applied: campaignResult.applied,
+        activeRuleId: null,
+      };
+    }
+
+    let currentState = state;
+    if (campaignResult?.applied) {
+      currentState = await this.prisma.deviceState.findUnique({
+        where: { deviceId },
+      });
+    }
+
+    const rule = await this.findActiveRule(tenantId, deviceId, now);
 
     const nowDate = new Date();
 
@@ -192,13 +310,13 @@ export class ScheduleEngineService {
       );
 
       if (!scheduledItem) {
-        if (!state?.activeScheduleRuleId) {
+        if (!currentState?.activeScheduleRuleId) {
           return { applied: false, activeRuleId: null };
         }
         const fallback = await this.resolveFallbackItem(
           tenantId,
           deviceId,
-          state
+          currentState
         );
         await this.prisma.deviceState.update({
           where: { deviceId },
@@ -216,22 +334,26 @@ export class ScheduleEngineService {
 
       const itemJson = scheduledItem as Prisma.InputJsonValue;
       const alreadyActive =
-        state?.activeScheduleRuleId === rule.id &&
-        itemsEqual(state.currentItemJson, scheduledItem);
+        currentState?.activeScheduleRuleId === rule.id &&
+        itemsEqual(currentState.currentItemJson, scheduledItem);
 
       if (alreadyActive) {
         return { applied: false, activeRuleId: rule.id };
       }
 
       let baseline: Prisma.InputJsonValue | undefined =
-        state?.scheduleBaselineItemJson != null
-          ? (state.scheduleBaselineItemJson as Prisma.InputJsonValue)
+        currentState?.scheduleBaselineItemJson != null
+          ? (currentState.scheduleBaselineItemJson as Prisma.InputJsonValue)
           : undefined;
-      if (baseline == null && state?.currentItemJson != null) {
-        if (!isScheduleItem(state.currentItemJson)) {
-          baseline = state.currentItemJson as Prisma.InputJsonValue;
+      if (baseline == null && currentState?.currentItemJson != null) {
+        if (!isTimedOverrideItem(currentState.currentItemJson)) {
+          baseline = currentState.currentItemJson as Prisma.InputJsonValue;
         } else {
-          const fb = await this.resolveFallbackItem(tenantId, deviceId, state);
+          const fb = await this.resolveFallbackItem(
+            tenantId,
+            deviceId,
+            currentState
+          );
           baseline = fb ?? undefined;
         }
       }
@@ -257,11 +379,15 @@ export class ScheduleEngineService {
       return { applied: true, activeRuleId: rule.id };
     }
 
-    if (!state?.activeScheduleRuleId) {
+    if (!currentState?.activeScheduleRuleId) {
       return { applied: false, activeRuleId: null };
     }
 
-    const fallback = await this.resolveFallbackItem(tenantId, deviceId, state);
+    const fallback = await this.resolveFallbackItem(
+      tenantId,
+      deviceId,
+      currentState
+    );
 
     await this.prisma.deviceState.update({
       where: { deviceId },

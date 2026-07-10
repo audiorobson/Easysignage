@@ -14,6 +14,10 @@ export const P = {
   GROUPS_WRITE: 'groups.write',
   SCHEDULING_READ: 'scheduling.read',
   SCHEDULING_WRITE: 'scheduling.write',
+  CAMPAIGNS_READ: 'campaigns.read',
+  CAMPAIGNS_WRITE: 'campaigns.write',
+  ALERTS_READ: 'alerts.read',
+  ALERTS_WRITE: 'alerts.write',
   MONITORING_READ: 'monitoring.read',
   MONITORING_WRITE: 'monitoring.write',
 } as const;

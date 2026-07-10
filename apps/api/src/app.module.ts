@@ -15,6 +15,8 @@ import { MonitoringModule } from './monitoring/monitoring.module';
 import { LayoutTemplatesModule } from './layout-templates/layout-templates.module';
 import { VideoWallsModule } from './video-walls/video-walls.module';
 import { RealtimeModule } from './realtime/realtime.module';
+import { CampaignsModule } from './campaigns/campaigns.module';
+import { AlertsModule } from './alerts/alerts.module';
 
 @Module({
   imports: [
@@ -28,6 +30,8 @@ import { RealtimeModule } from './realtime/realtime.module';
     DevicesModule,
     GroupsModule,
     SchedulesModule,
+    CampaignsModule,
+    AlertsModule,
     MonitoringModule,
     LayoutTemplatesModule,
     VideoWallsModule,

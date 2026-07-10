@@ -8,7 +8,7 @@ import {
   useState,
 } from 'react';
 
-import { isPlayableInPlayer, isLayoutCurrentItem, isWallTileCurrentItem, normalizeContentDisplay, type ContentDisplay, type WallPlaybackSync } from '@easysignage/shared-types';
+import { isPlayableInPlayer, isRemoteStreamKind, isLayoutCurrentItem, isWallTileCurrentItem, normalizeContentDisplay, type ContentDisplay, type WallPlaybackSync } from '@easysignage/shared-types';
 import {
   computeViewportFitScale,
   DEFAULT_DEVICE_VIEWPORT,
@@ -104,7 +104,7 @@ function buildMetrics(): Record<string, unknown> | undefined {
 }
 
 function isPlayableKind(kind: string): boolean {
-  return kind === 'url' || isPlayableInPlayer(kind);
+  return isRemoteStreamKind(kind) || isPlayableInPlayer(kind);
 }
 
 function drawStageToJpegBlob(
@@ -168,6 +168,8 @@ function defaultDurationSec(kind: string): number {
       return 20;
     case 'url':
       return 30;
+    case 'rtsp':
+      return 3600;
     default:
       return 15;
   }

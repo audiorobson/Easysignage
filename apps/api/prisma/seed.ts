@@ -66,6 +66,8 @@ async function main() {
           'playlists.read',
           'groups.read',
           'scheduling.read',
+          'campaigns.read',
+          'alerts.read',
           'monitoring.read',
         ],
       },

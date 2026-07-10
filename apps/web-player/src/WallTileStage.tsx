@@ -3,6 +3,7 @@ import {
   computeWallDriftMs,
   computeWallPlaybackAt,
   isPlayableInPlayer,
+  isRemoteStreamKind,
   normalizeContentDisplay,
   wallTileMediaTransform,
   type WallPlaybackSync,
@@ -41,6 +42,7 @@ type PlaylistManifest = {
 };
 
 function defaultDurationSec(kind: string): number {
+  if (kind === 'rtsp' || kind === 'url') return 3600;
   if (kind === 'video') return 30;
   if (kind === 'audio') return 30;
   if (kind === 'pdf' || kind === 'html') return 20;
@@ -48,7 +50,7 @@ function defaultDurationSec(kind: string): number {
 }
 
 function isPlayableKind(kind: string): boolean {
-  return kind === 'url' || isPlayableInPlayer(kind);
+  return isRemoteStreamKind(kind) || isPlayableInPlayer(kind);
 }
 
 function slideDurationMs(sl: ManifestItem): number {

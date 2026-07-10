@@ -10,6 +10,7 @@ import {
   FolderOpen,
   ListVideo,
   Grid2x2,
+  LayoutGrid,
   CalendarDays,
   Users,
   Megaphone,
@@ -28,19 +29,20 @@ const NAV_OPERACAO: NavItem[] = [
   { href: '/devices', label: 'Dispositivos', Icon: MonitorPlay },
   { href: '/video-walls', label: 'Video walls', Icon: Grid2x2 },
   { href: '/monitoring', label: 'Monitorização', Icon: Activity },
+  { href: '/alerts', label: 'Alertas', Icon: TriangleAlert },
   { href: '/sites', label: 'Sites', Icon: MapPin },
 ];
 
 const NAV_CONTEUDO: NavItem[] = [
   { href: '/assets', label: 'Biblioteca', Icon: FolderOpen },
   { href: '/playlists', label: 'Playlists', Icon: ListVideo },
+  { href: '/layout-templates', label: 'Templates layout', Icon: LayoutGrid },
+  { href: '/campaigns', label: 'Campanhas', Icon: Megaphone },
   { href: '/scheduling', label: 'Agendamento', Icon: CalendarDays },
   { href: '/groups', label: 'Grupos', Icon: Users },
 ];
 
 const NAV_SISTEMA: NavItem[] = [
-  { href: '/campaigns', label: 'Campanhas', Icon: Megaphone, soon: true },
-  { href: '/alerts', label: 'Alertas', Icon: TriangleAlert, soon: true },
   { href: '/settings', label: 'Configurações', Icon: Settings, soon: true },
 ];
 

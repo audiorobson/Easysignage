@@ -18,7 +18,10 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
 import sharp from 'sharp';
 import {
   inferKindFromMime,
+  inferRemoteStreamKindFromUrl,
   resolveMimeAndExt,
+  validateRemoteStreamUrl,
+  type RemoteStreamKind,
 } from '@easysignage/shared-types';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateAssetDto } from './dto/create-asset.dto';
@@ -70,7 +73,11 @@ export class AssetsService {
   async create(tenantId: string, dto: CreateAssetDto) {
     const url = dto.remoteUrl?.trim();
     if (url) {
-      return this.createUrlAsset(tenantId, dto.name.trim(), url);
+      const kind: RemoteStreamKind =
+        dto.kind === 'rtsp' || dto.kind === 'url'
+          ? dto.kind
+          : inferRemoteStreamKindFromUrl(url);
+      return this.createRemoteStreamAsset(tenantId, dto.name.trim(), url, kind);
     }
     if (!dto.mimeType?.trim() || !dto.dataBase64?.trim()) {
       throw new BadRequestException(
@@ -112,25 +119,34 @@ export class AssetsService {
     return this.persistBufferAsset(tenantId, name, mimetype, buf);
   }
 
-  private async createUrlAsset(tenantId: string, name: string, rawUrl: string) {
-    let parsed: URL;
+  private async createRemoteStreamAsset(
+    tenantId: string,
+    name: string,
+    rawUrl: string,
+    kind: RemoteStreamKind
+  ) {
+    let normalizedUrl: string;
     try {
-      parsed = new URL(rawUrl);
-    } catch {
-      throw new BadRequestException('URL inválida');
+      normalizedUrl = validateRemoteStreamUrl(rawUrl, kind);
+    } catch (err) {
+      throw new BadRequestException(
+        err instanceof Error ? err.message : 'URL inválida'
+      );
     }
-    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
-      throw new BadRequestException('Use http ou https');
-    }
+
+    const mimeType =
+      kind === 'rtsp'
+        ? 'application/x-rtsp-stream'
+        : 'application/x-easysignage-url';
 
     const asset = await this.prisma.asset.create({
       data: {
         tenantId,
         name,
-        kind: 'url',
-        mimeType: 'application/x-easysignage-url',
+        kind,
+        mimeType,
         storageKey: null,
-        remoteUrl: parsed.toString(),
+        remoteUrl: normalizedUrl,
         thumbnailKey: null,
         fileSize: 0n,
         status: 'ready',
@@ -327,25 +343,25 @@ export class AssetsService {
     }
 
     if (dto.remoteUrl != null && dto.remoteUrl.trim() !== '') {
-      if (asset.kind !== 'url') {
+      if (asset.kind !== 'url' && asset.kind !== 'rtsp') {
         throw new BadRequestException(
-          'Só assets do tipo URL podem alterar o endereço remoto'
+          'Só assets remotos (URL ou RTSP) podem alterar o endereço'
         );
       }
     }
 
     let remoteUrl: string | undefined;
     if (hasUrl) {
-      let parsed: URL;
       try {
-        parsed = new URL(dto.remoteUrl!.trim());
-      } catch {
-        throw new BadRequestException('URL inválida');
+        remoteUrl = validateRemoteStreamUrl(
+          dto.remoteUrl!.trim(),
+          asset.kind as RemoteStreamKind
+        );
+      } catch (err) {
+        throw new BadRequestException(
+          err instanceof Error ? err.message : 'URL inválida'
+        );
       }
-      if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
-        throw new BadRequestException('Use http ou https');
-      }
-      remoteUrl = parsed.toString();
     }
 
     const updated = await this.prisma.asset.update({
@@ -455,7 +471,16 @@ export class AssetsService {
       return;
     }
 
-    if (asset.remoteUrl && !asset.storageKey) {
+    if (asset.kind === 'rtsp') {
+      reply.code(400).send({
+        code: 'RTSP_DIRECT_PLAY',
+        message:
+          'Stream RTSP: o player liga diretamente à rede via meta.remoteUrl (sem proxy no servidor)',
+      });
+      return;
+    }
+
+    if (asset.kind === 'url' && asset.remoteUrl && !asset.storageKey) {
       return reply.redirect(asset.remoteUrl, 302);
     }
 

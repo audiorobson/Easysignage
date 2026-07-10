@@ -8,6 +8,7 @@ import {
   type ContentDisplay,
 } from '@easysignage/shared-types';
 import type { LoadedMedia, MediaKind } from './mediaLoader';
+import { RtspStreamView } from './RtspStreamView';
 
 type TransitionKind = 'none' | 'fade' | 'slide-left' | 'slide-right' | 'zoom';
 
@@ -203,6 +204,9 @@ function MediaContent({
         referrerPolicy="no-referrer-when-downgrade"
       />
     );
+  }
+  if (kind === 'rtsp' && frameUrl) {
+    return <RtspStreamView url={frameUrl} videoRef={videoRef} />;
   }
   return null;
 }

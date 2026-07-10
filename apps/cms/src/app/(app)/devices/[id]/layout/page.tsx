@@ -230,6 +230,12 @@ export default function DeviceLayoutEditorPage() {
         }
       />
 
+      <p style={{ margin: '0 0 var(--space-4)', fontSize: 13 }}>
+        <Link href="/layout-templates" className="text-muted">
+          Gerir templates custom →
+        </Link>
+      </p>
+
       {error && <p className="text-danger">{error}</p>}
 
       {!device || !token ? (

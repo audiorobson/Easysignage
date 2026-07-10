@@ -12,10 +12,10 @@ O próprio roadmap, em **§19** (início da secção), aponta para **este fichei
 |------|----------------|-----------------------------|
 | **19.1** | Fase 0 — Fundação técnica | **Em grande parte feito:** monorepo pnpm/Turbo, Prisma + PostgreSQL, Nest API, Next CMS, `device-protocol`, web-player, Docker Compose. **Parcial:** CI em GitHub Actions (lint/test/build), Redis/filas em prod. |
 | **19.2** | Fase 1 — Autenticação, tenants e dispositivos | **Feito (núcleo):** auth JWT, RBAC, sites, devices, pairing, heartbeat, `wakeMac` + WOL UDP. **Parcial:** Electron. |
-| **19.3** | Fase 2 — Biblioteca e playlists | **Parcial avançado:** upload multipart, vários tipos no player (imagem, vídeo, PDF, HTML, URL), playlists + DnD no CMS, **cache offline leve** (Cache API + eviction por manifest). **Pendente:** media-worker ativo. |
-| **19.4** | Fase 3 — Agendamento e publicação | **Parcial avançado:** `Publication` + publicar no CMS; **`ScheduleRule` + motor**; **ack de publicação** (`appliedPublicationVersion`, `contentRevision` no heartbeat); **manifest com `manifestRevision`**; CMS mostra estado de sincronização. **Pendente:** campanhas. |
-| **19.4b–19.5b** | **Layouts, zonas e video wall** | **L1–L4 + drift + WS sync** — viewport, layouts, fit, video wall, painel drift, push `wall.sync`/`wall.tick`. Editor/templates L5 pendente. |
-| **19.5** | Fase 4 — Controle remoto e monitoramento | **Parcial (MVP):** telemetria, overview, comandos (`wol`), **preview JPEG**, **realtime-gateway** com wall sync. **Pendente:** alertas, dashboard agregado. |
+| **19.3** | Fase 2 — Biblioteca e playlists | **Parcial avançado:** upload multipart, vários tipos no player (imagem, vídeo, PDF, HTML, URL, **RTSP**), playlists + DnD no CMS, **cache offline leve** (Cache API + eviction por manifest). **RTSP:** servidor só configura `remoteUrl`; player liga directo à rede (sem proxy API). **Pendente:** media-worker ativo; decoder RTSP no electron-player. |
+| **19.4** | Fase 3 — Agendamento e publicação | **Parcial avançado:** `Publication` + publicar no CMS; **`ScheduleRule` + motor** (playlist, layout ou video wall); **`Campaign` + motor** (playlist promocional com prioridade sobre agenda); **ack de publicação**; **manifest com `manifestRevision`**; CMS campanhas + agendamento. **Pendente:** métricas de entrega, campanhas com layout/wall. |
+| **19.4b–19.5b** | **Layouts, zonas e video wall** | **Feito (L1–L5):** viewport, layouts multi-zona, fit, video wall, drift, WS sync, editor visual, agenda layout/wall, snap/guias, **templates custom por tenant**. |
+| **19.5** | Fase 4 — Controle remoto e monitoramento | **Parcial (MVP):** telemetria, overview, comandos (`wol`), **preview JPEG**, **realtime-gateway** com wall sync, painel de drift, **alertas automáticos** (`/alerts`). **Pendente:** dashboard agregado real (sem dados demo), e-mail/webhook. |
 | **19.6** | Fase 5 — Robustez operacional | **Não iniciado** |
 | **19.7** | Fase 6 — Multi-tenant comercial | **Parcial:** multi-tenant no modelo; **pendente:** quotas, branding. |
 
@@ -26,11 +26,13 @@ O próprio roadmap, em **§19** (início da secção), aponta para **este fichei
 | Fase UI | Estado (jul/2026) |
 |---------|---------------------|
 | UI-0, UI-1 | **Feitos** (tokens, shell, navegação). |
-| UI-2 | **Iniciado** — `StatusBadge`, `ConnectionBadge`, `PublicationSyncBadge`, `EmptyState` + classes `.badge` em `globals.css`. Falta extrair Table/Modal React. |
-| UI-3 | **Em andamento** — devices/sites/login; badges de conexão e sincronização de publicação nos devices. |
-| UI-4 | **Avançado** — assets, playlists, agendamento (grelha + lista), publicação no device. |
-| UI-5 | **Iniciado** — `/monitoring` com pré-visualização e tema NOC. Alerts ainda placeholder. |
-| UI-4b–5b | **Planejado** — editor de layout/zonas e módulo video wall ([`planejamento-layouts-zonas-video-wall.md`](planejamento-layouts-zonas-video-wall.md)). |
+| UI-2 | **Iniciado** — `StatusBadge`, `ConnectionBadge`, `PublicationSyncBadge`, `EmptyState`, `Modal`, `PageHeader` + classes `.badge` em `globals.css`. Falta extrair Table e fechar biblioteca. |
+| UI-3 | **Avançado** — devices/sites/login; badges de conexão e sincronização de publicação nos devices. |
+| UI-4 | **Avançado** — assets, playlists, agendamento (grelha + lista + layout/wall), publicação no device, editor de zonas. |
+| UI-5 | **Avançado** — `/monitoring` com pré-visualização e tema NOC; `/video-walls` com saúde de sync; **`/alerts`** operacional. |
+| UI-4b | **Feito** — aba Ecrã no device (viewport, galeria de templates, fit por zona). |
+| UI-4c | **Feito** — editor visual em `/devices/:id/layout` (`LayoutZoneEditor`, snap/guias). |
+| UI-5b | **Feito** — módulo video walls (`/video-walls`, wizard, painel drift/sync live). |
 | UI-6 | **Não iniciado** |
 
 ---
@@ -54,6 +56,15 @@ O próprio roadmap, em **§19** (início da secção), aponta para **este fichei
 
 ## Funcionalidades recentes (motor de agenda e monitorização)
 
+### Campanhas no player
+
+- **`Campaign`:** playlist promocional com `scope` (device, group, site, all), calendário (`startAt`/`endAt`), janela horária opcional e `priority` (omissão 10).
+- **`CampaignEngineService`:** seleciona campanha `active` aplicável; **prevalece sobre `ScheduleRule`** no heartbeat.
+- **`current_item_json`:** `source: "campaign"`, `campaignId`, `type: "playlist"`.
+- **API:** `GET/POST/PATCH/DELETE /campaigns`, `POST /:id/activate|pause|end`, `POST /campaigns/reapply`.
+- **CMS:** `/campaigns` — lista, modal criar/editar, ativar/pausar.
+- **Migração:** `campaigns`, `active_campaign_id` em `device_state` (`20260710020000_campaigns`).
+
 ### Agendamento no player
 
 - **`ScheduleEngineService`:** na janela ativa (dia ISO 1–7, minutos, prioridade), define `current_item_json` com `source: "schedule"` — **playlist**, **layout multi-zona** (`layoutId`) ou **tile de video wall** (`videoWallId`).
@@ -64,6 +75,14 @@ O próprio roadmap, em **§19** (início da secção), aponta para **este fichei
 - **CMS:** `POST /schedules/reapply` reaplica todas as regras do tenant; modal com tipo de conteúdo (Playlist | Layout | Video wall).
 - **Env:** `SCHEDULE_TIMEZONE` (omissão `Europe/Lisbon`).
 - **Migração:** `schedule_baseline_item_json`, `active_schedule_rule_id` em `device_state`; `layout_id` / `video_wall_id` opcionais em `schedule_rule` (`20260710010000_schedule_layout_wall`).
+
+### Alertas automáticos
+
+- **Tipos:** `device_offline`, `device_offline_long`, `playback_fault`, `publication_sync_pending`.
+- **Avaliação:** a cada `POST /device/heartbeat` + `POST /alerts/evaluate` (CMS).
+- **Ciclo:** aberto → reconhecido (ack) → resolvido automaticamente quando a condição desaparece.
+- **API:** `GET /alerts`, `GET /alerts/summary`, `PATCH /alerts/:id/ack`.
+- **Migração:** `alerts` (`20260710030000_alerts`).
 
 ### Monitorização
 
@@ -78,9 +97,11 @@ O próprio roadmap, em **§19** (início da secção), aponta para **este fichei
 | Pacote | Descrição |
 |--------|-----------|
 | `apps/api` | NestJS: domínios acima + Swagger `/docs`. |
-| `apps/cms` | Next.js: gestão + agendamento + monitorização. |
-| `apps/web-player` | Vite: playback + captura de preview. |
+| `apps/cms` | Next.js: gestão + agendamento + monitorização + video walls. |
+| `apps/web-player` | Vite: playback multi-zona, wall tile, captura de preview. |
+| `apps/realtime-gateway` | WebSocket: rooms por parede, `wall.sync`/`wall.tick`, broadcast interno. |
 | `apps/electron-player` | Esqueleto. |
+| `apps/media-worker` | Placeholder (thumbnails/transcode — Fase 2+). |
 | `docker-compose.yml` | Postgres + API + CMS. |
 
 ---
@@ -89,10 +110,18 @@ O próprio roadmap, em **§19** (início da secção), aponta para **este fichei
 
 | Rota | Estado |
 |------|--------|
-| `/devices`, `/sites`, `/assets`, `/playlists`, `/groups` | Operacional |
-| `/scheduling` | Operacional (regras + timeline + reaplicar agenda) |
+| `/devices`, `/sites` | Operacional |
+| `/assets` | Operacional (upload, URL, **RTSP**) |
+| `/playlists`, `/groups` | Operacional |
+| `/devices/:id/layout` | Operacional (editor visual de zonas) |
+| `/layout-templates` | Operacional (templates sistema + custom JSON) |
+| `/scheduling` | Operacional (regras + timeline + playlist/layout/wall) |
+| `/video-walls`, `/video-walls/new`, `/video-walls/:id` | Operacional (paredes + sync) |
 | `/monitoring` | Operacional (overview + preview) |
-| `/dashboard`, `/campaigns`, `/alerts`, `/settings` | Placeholder ou mínimo |
+| `/campaigns` | Operacional (CRUD, ativar/pausar, reaplicar) |
+| `/alerts` | Operacional (offline, playback, sync pendente, ack) |
+| `/dashboard` | Parcial (overview com dados demo em partes) |
+| `/settings` | Placeholder ou mínimo |
 
 ---
 
@@ -105,11 +134,31 @@ pnpm start            # API + CMS produção local (após build)
 pnpm docker:compose   # stack Docker
 ```
 
-**Migrações aplicadas:** `20260709220000_device_viewport`, `20260709223000_layout_templates`.
+**Migrações aplicadas:** `20260709220000_device_viewport`, `20260709223000_layout_templates`, `20260709233000_video_walls`, `20260710010000_schedule_layout_wall`, `20260710020000_campaigns`, `20260710030000_alerts`.
 
 ---
 
-## Planejamento futuro — layouts, zonas e video wall (jul/2026)
+## Fontes RTSP (jul/2026)
+
+Integração de **streaming RTSP** como tipo de asset — o servidor **apenas configura**; o player **liga-se directamente** à câmara/encoder na rede (sem proxy de mídia na API).
+
+| Camada | Entrega |
+|--------|---------|
+| **shared-types** | `AssetKind: 'rtsp'`, `stream-sources.ts` (`validateRemoteStreamUrl`, `isRemoteStreamKind`, `maskStreamUrl`) |
+| **API** | `POST /assets` com `{ name, remoteUrl, kind: 'rtsp' }` (ou inferência por `rtsp://`); `PATCH` em assets remotos; `GET .../file` → `400 RTSP_DIRECT_PLAY` |
+| **CMS** | Filtro «Streams RTSP», modal «Nova fonte RTSP», pré-visualização com ícone dedicado |
+| **Web player** | `mediaLoader` lê só `meta.remoteUrl`; `RtspStreamView` + ponte `window.easysignage.rtsp` para Electron futuro |
+| **Electron** | Preload documentado; decoder nativo **pendente** |
+
+**Fluxo:** CMS grava URL → device obtém `GET /device/assets/:id/meta` → player abre `rtsp://…` na LAN.
+
+**Limitação:** browsers não reproduzem `rtsp://` nativamente; o web-player mostra overlay informativo. Reprodução real exige `electron-player` ou Android com bridge `easysignage.rtsp.play()`.
+
+**Teste manual:** CMS → Biblioteca → Streams RTSP → criar fonte → adicionar a playlist → publicar no device → player mostra URL/estado (web) ou stream (Electron, quando implementado).
+
+---
+
+## Entregas — layouts, zonas e video wall (jul/2026)
 
 ### Fase L1 — Viewport (**feito**, jul/2026)
 
@@ -195,14 +244,23 @@ pnpm docker:compose   # stack Docker
 | **API** | `frame` opcional em bindings de layout; `buildLayoutCurrentItem` usa override |
 | **CMS** | Grelha 5%, guias de alinhamento, inputs X/Y/W/H com snap; «Repor geometria do template» |
 
-### Fases L5 (parcial / pendente)
+### L5.4 — Templates custom por tenant (**feito**, jul/2026)
+
+| Camada | Entrega |
+|--------|---------|
+| **shared-types** | `validateLayoutTemplateZones`, `isReservedLayoutTemplateSlug` |
+| **API** | `POST/PATCH/DELETE /layout-templates`; só tenant edita/elimina os seus; validação de zonas JSON |
+| **CMS** | `/layout-templates` — galeria sistema + custom, modal criar/editar com JSON e pré-visualização |
+
+### Melhorias opcionais (L5+)
 
 | Área | Escopo |
 |------|--------|
-| **Polimento (L5)** | Templates custom por tenant |
+| **Editor** | Drag-and-drop de zonas (hoje: inputs numéricos + snap) |
+| **Templates** | Importar JSON de template de sistema com um clique; upload de ficheiro `.json` |
 
-**Documento normativo:** [`docs/planejamento-layouts-zonas-video-wall.md`](planejamento-layouts-zonas-video-wall.md)  
-**Fases sugeridas:** L1 (viewport) → L2 (zonas) → L3 (fit) → L4 (video wall).
+**Documento normativo:** [`docs/planejamento-layouts-zonas-video-wall.md`](planejamento-layouts-zonas-video-wall.md) — §2 descreve o baseline *antes* de L1; o estado actual está nas tabelas acima.  
+**Sequência concluída:** L1 → L5.4 (viewport … templates custom).
 
 ---
 
@@ -218,4 +276,16 @@ pnpm docker:compose   # stack Docker
 
 ---
 
-*Última atualização: julho de 2026.*
+## Próximos passos sugeridos
+
+| Prioridade | Item |
+|------------|------|
+| 1 | Decoder RTSP no `electron-player` (`easysignage.rtsp.play`) |
+| 2 | Dashboard real (sem dados demo) |
+| 3 | Media-worker (thumbnails/transcode) |
+| 4 | Campanhas com layout/wall; métricas de entrega |
+| 5 | Notificações de alertas (e-mail/webhook) |
+
+---
+
+*Última atualização: 10 de julho de 2026 — RTSP, campanhas, alertas, templates custom (L5.4).*

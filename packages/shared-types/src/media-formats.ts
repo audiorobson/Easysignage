@@ -11,10 +11,11 @@ export type AssetKind =
   | 'pdf'
   | 'html'
   | 'text'
-  | 'url';
+  | 'url'
+  | 'rtsp';
 
-/** Subconjunto reproduzível no web player */
-export type PlayerMediaKind = Exclude<AssetKind, 'url'>;
+/** Subconjunto reproduzível no web player (ficheiros locais via API) */
+export type PlayerMediaKind = Exclude<AssetKind, 'url' | 'rtsp'>;
 
 /** MIME → extensão de ficheiro em disco */
 export const MIME_TO_EXT: Record<string, string> = {
@@ -184,6 +185,7 @@ export function kindLabelPt(kind: string): string {
     html: 'HTML',
     text: 'Texto',
     url: 'URL',
+    rtsp: 'Stream RTSP',
   };
   return labels[kind] ?? kind;
 }

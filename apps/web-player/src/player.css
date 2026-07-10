@@ -688,3 +688,59 @@ body {
     padding: 0.875rem 1rem 1rem;
   }
 }
+
+/* Stream RTSP — reprodução directa na rede (sem proxy API) */
+.player-stage__rtsp {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #020617;
+}
+
+.player-stage__rtsp-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 1.25rem;
+  text-align: center;
+  background: rgba(2, 6, 23, 0.82);
+  pointer-events: none;
+}
+
+.player-stage__rtsp-overlay--dim {
+  background: rgba(2, 6, 23, 0.45);
+}
+
+.player-stage__rtsp-title {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #86efac;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.player-stage__rtsp-msg {
+  margin: 0;
+  max-width: 28rem;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: #cbd5e1;
+}
+
+.player-stage__rtsp-url {
+  margin: 0;
+  max-width: 100%;
+  padding: 0.35rem 0.6rem;
+  font-size: 0.6875rem;
+  color: #94a3b8;
+  word-break: break-all;
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 6px;
+}

@@ -13,6 +13,28 @@ export interface ApiErrorBody {
 }
 
 export {
+  ALERT_SEVERITIES,
+  ALERT_STATUSES,
+  ALERT_TYPES,
+  alertSeverityLabelPt,
+  alertStatusLabelPt,
+  alertTypeLabelPt,
+  type AlertSeverity,
+  type AlertStatus,
+  type AlertType,
+} from './alert.js';
+
+export {
+  CAMPAIGN_CONTENT_SOURCE,
+  CAMPAIGN_SCOPES,
+  CAMPAIGN_STATUSES,
+  campaignScopeLabelPt,
+  campaignStatusLabelPt,
+  type CampaignScope,
+  type CampaignStatus,
+} from './campaign.js';
+
+export {
   type AssetKind,
   type PlayerMediaKind,
   CMS_ACCEPT_UPLOAD,
@@ -27,6 +49,16 @@ export {
   resolveMimeAndExt,
   resolvePlayerKind,
 } from './media-formats.js';
+
+export {
+  REMOTE_STREAM_KINDS,
+  RTSP_PROTOCOLS,
+  inferRemoteStreamKindFromUrl,
+  isRemoteStreamKind,
+  maskStreamUrl,
+  validateRemoteStreamUrl,
+  type RemoteStreamKind,
+} from './stream-sources.js';
 
 export {
   type DeviceViewport,
@@ -63,8 +95,12 @@ export {
   type LayoutZoneDisplay,
   type LayoutZoneFrame,
   SYSTEM_LAYOUT_TEMPLATES,
+  MAX_LAYOUT_TEMPLATE_ZONES,
   isLayoutCurrentItem,
+  isReservedLayoutTemplateSlug,
   layoutZoneStyle,
+  validateLayoutTemplateZones,
+  type LayoutTemplateZonesValidation,
 } from './display-layout.js';
 
 export {

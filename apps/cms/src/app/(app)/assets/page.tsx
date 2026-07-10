@@ -2,7 +2,7 @@
 
 import { type FormEvent, useCallback, useEffect, useId, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Link2, Pencil, Trash2, Upload } from 'lucide-react';
+import { Link2, Pencil, Radio, Trash2, Upload } from 'lucide-react';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Modal } from '@/components/ui/Modal';
 import { PageHeader } from '@/components/ui/PageHeader';
@@ -32,6 +32,7 @@ const KIND_FILTERS = [
   { id: 'html', label: 'HTML' },
   { id: 'text', label: 'Texto' },
   { id: 'url', label: 'URLs' },
+  { id: 'rtsp', label: 'Streams RTSP' },
 ] as const;
 
 function kindLabel(kind: string): string {
@@ -46,7 +47,8 @@ function formatSize(n: string): string {
   return `${(b / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-type UrlModalMode = 'create' | 'edit-url' | 'edit-file';
+type UrlModalMode = 'create' | 'edit-url' | 'edit-rtsp' | 'edit-file';
+type RemoteStreamKind = 'url' | 'rtsp';
 
 export default function AssetsPage() {
   const router = useRouter();
@@ -58,6 +60,7 @@ export default function AssetsPage() {
 
   const [urlModalOpen, setUrlModalOpen] = useState(false);
   const [urlModalMode, setUrlModalMode] = useState<UrlModalMode>('create');
+  const [remoteStreamKind, setRemoteStreamKind] = useState<RemoteStreamKind>('url');
   const [editAssetId, setEditAssetId] = useState<string | null>(null);
   const [urlName, setUrlName] = useState('');
   const [urlValue, setUrlValue] = useState('');
@@ -92,6 +95,17 @@ export default function AssetsPage() {
 
   function openCreateUrlModal() {
     setUrlModalMode('create');
+    setRemoteStreamKind('url');
+    setEditAssetId(null);
+    setUrlName('');
+    setUrlValue('');
+    setError(null);
+    setUrlModalOpen(true);
+  }
+
+  function openCreateRtspModal() {
+    setUrlModalMode('create');
+    setRemoteStreamKind('rtsp');
     setEditAssetId(null);
     setUrlName('');
     setUrlValue('');
@@ -102,6 +116,13 @@ export default function AssetsPage() {
   function openEditModal(asset: AssetRow) {
     if (asset.kind === 'url') {
       setUrlModalMode('edit-url');
+      setRemoteStreamKind('url');
+      setEditAssetId(asset.id);
+      setUrlName(asset.name);
+      setUrlValue(asset.remoteUrl ?? '');
+    } else if (asset.kind === 'rtsp') {
+      setUrlModalMode('edit-rtsp');
+      setRemoteStreamKind('rtsp');
       setEditAssetId(asset.id);
       setUrlName(asset.name);
       setUrlValue(asset.remoteUrl ?? '');
@@ -139,9 +160,16 @@ export default function AssetsPage() {
       if (urlModalMode === 'create') {
         await api('/assets', {
           method: 'POST',
-          body: JSON.stringify({ name, remoteUrl }),
+          body: JSON.stringify({
+            name,
+            remoteUrl,
+            kind: remoteStreamKind,
+          }),
         });
-      } else if (urlModalMode === 'edit-url' && editAssetId) {
+      } else if (
+        (urlModalMode === 'edit-url' || urlModalMode === 'edit-rtsp') &&
+        editAssetId
+      ) {
         await api(`/assets/${editAssetId}`, {
           method: 'PATCH',
           body: JSON.stringify({ name, remoteUrl }),
@@ -196,16 +224,20 @@ export default function AssetsPage() {
 
   const urlModalTitle =
     urlModalMode === 'create'
-      ? 'Nova URL'
+      ? remoteStreamKind === 'rtsp'
+        ? 'Nova fonte RTSP'
+        : 'Nova URL'
       : urlModalMode === 'edit-url'
         ? 'Editar URL'
-        : 'Editar asset';
+        : urlModalMode === 'edit-rtsp'
+          ? 'Editar stream RTSP'
+          : 'Editar asset';
 
   return (
     <>
       <PageHeader
         title="Biblioteca"
-        lead="Gira e distribui ficheiros multimédia na rede de sinalização. Suporta imagens, vídeo, áudio, PDF, HTML e texto; miniaturas automáticas para imagens e vídeos. Para URLs externas, filtra por «URLs» e adiciona uma ligação."
+        lead="Gira e distribui ficheiros multimédia na rede de sinalização. Suporta imagens, vídeo, áudio, PDF, HTML, texto, URLs e streams RTSP (reprodução direta no player, sem proxy no servidor)."
         actions={
           <>
             {kindFilter === 'url' && (
@@ -218,6 +250,18 @@ export default function AssetsPage() {
               >
                 <Link2 size={17} strokeWidth={1.9} aria-hidden />
                 Nova URL
+              </button>
+            )}
+            {kindFilter === 'rtsp' && (
+              <button
+                type="button"
+                className="btn btn--primary"
+                title="Adicionar stream RTSP"
+                aria-label="Adicionar stream RTSP"
+                onClick={openCreateRtspModal}
+              >
+                <Radio size={17} strokeWidth={1.9} aria-hidden />
+                Nova fonte RTSP
               </button>
             )}
             <input
@@ -297,20 +341,28 @@ export default function AssetsPage() {
                   </td>
                   <td>
                     {a.remoteUrl ? (
-                      <a
-                        href={a.remoteUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        {a.remoteUrl.length > 48
-                          ? `${a.remoteUrl.slice(0, 45)}…`
-                          : a.remoteUrl}
-                      </a>
+                      a.kind === 'rtsp' ? (
+                        <code title={a.remoteUrl}>
+                          {a.remoteUrl.length > 48
+                            ? `${a.remoteUrl.slice(0, 45)}…`
+                            : a.remoteUrl}
+                        </code>
+                      ) : (
+                        <a
+                          href={a.remoteUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          {a.remoteUrl.length > 48
+                            ? `${a.remoteUrl.slice(0, 45)}…`
+                            : a.remoteUrl}
+                        </a>
+                      )
                     ) : (
                       <code>{a.mimeType}</code>
                     )}
                   </td>
-                  <td>{a.kind === 'url' ? '—' : formatSize(a.fileSize)}</td>
+                  <td>{a.kind === 'url' || a.kind === 'rtsp' ? '—' : formatSize(a.fileSize)}</td>
                   <td>{formatDateTimePtBr(a.createdAt)}</td>
                   <td style={{ textAlign: 'right' }}>
                     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6 }}>
@@ -372,17 +424,31 @@ export default function AssetsPage() {
             </label>
             {urlModalMode !== 'edit-file' && (
               <label>
-                <span className="text-muted">URL (https ou http)</span>
+                <span className="text-muted">
+                  {remoteStreamKind === 'rtsp'
+                    ? 'URL RTSP (rtsp:// ou rtsps://)'
+                    : 'URL (https ou http)'}
+                </span>
                 <input
-                  type="url"
+                  type="text"
                   className="input"
                   value={urlValue}
                   onChange={(e) => setUrlValue(e.target.value)}
-                  placeholder="https://…"
+                  placeholder={
+                    remoteStreamKind === 'rtsp'
+                      ? 'rtsp://utilizador:senha@câmara:554/stream1'
+                      : 'https://…'
+                  }
                   style={{ width: '100%', marginTop: '0.25rem' }}
                   disabled={urlModalSaving}
                 />
               </label>
+            )}
+            {urlModalMode === 'create' && remoteStreamKind === 'rtsp' && (
+              <p className="text-muted" style={{ margin: 0, fontSize: '0.875rem' }}>
+                O servidor guarda apenas a configuração. O player liga-se diretamente à
+                câmara ou encoder na rede local — o stream não passa pela API.
+              </p>
             )}
             {urlModalMode === 'edit-file' && (
               <p className="text-muted" style={{ margin: 0, fontSize: '0.875rem' }}>
