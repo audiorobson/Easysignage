@@ -30,9 +30,8 @@ export {
   CAMPAIGN_STATUSES,
   campaignScopeLabelPt,
   campaignStatusLabelPt,
-  type CampaignScope,
-  type CampaignStatus,
 } from './campaign.js';
+export type { CampaignScope, CampaignStatus } from './campaign.js';
 
 export {
   type AssetKind,

@@ -10,13 +10,17 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { hostname } from 'node:os';
 import {
+  DEFAULT_PRODUCTION_PUBLIC_KEY_FILE,
   DEV_LICENSE_PUBLIC_KEY_PEM,
   deriveHardwareId,
   isValidHardwareId,
   normalizeHardwareId,
+  tierFeatures,
+  tierHasFeature,
   tierLabelPt,
   tierMaxPlayers,
   verifyLicense,
+  type LicenseFeature,
   type LicenseStatus,
   type LicenseTier,
 } from '@easysignage/license-core';
@@ -77,12 +81,44 @@ export class LicenseService implements OnModuleInit {
     if (inline?.includes('BEGIN PUBLIC KEY')) {
       return inline;
     }
-    const filePath = this.config.get<string>('LICENSE_PUBLIC_KEY_FILE');
+    const filePath =
+      this.config.get<string>('LICENSE_PUBLIC_KEY_FILE') ??
+      (process.env.NODE_ENV === 'production'
+        ? DEFAULT_PRODUCTION_PUBLIC_KEY_FILE
+        : undefined);
     const fromFile = this.readText(filePath);
     if (fromFile?.includes('BEGIN PUBLIC KEY')) {
       return fromFile;
     }
+
+    const isProd = process.env.NODE_ENV === 'production';
+    if (isProd) {
+      this.logger.error(
+        'Produção sem LICENSE_PUBLIC_KEY ou license-public.pem — licenças comerciais não serão validadas correctamente'
+      );
+    } else {
+      this.logger.warn(
+        'A usar chave pública de desenvolvimento (apenas para dev local)'
+      );
+    }
     return DEV_LICENSE_PUBLIC_KEY_PEM;
+  }
+
+  async getCurrentTier(): Promise<LicenseTier> {
+    const status = await this.getStatus();
+    return status.tier;
+  }
+
+  async assertFeature(feature: LicenseFeature): Promise<void> {
+    const tier = await this.getCurrentTier();
+    if (!tierHasFeature(tier, feature)) {
+      throw new ForbiddenException({
+        code: 'LICENSE_FEATURE_LOCKED',
+        message: `Funcionalidade «${feature}» não incluída no plano ${tierLabelPt(tier)}`,
+        tier,
+        feature,
+      });
+    }
   }
 
   resolveLicenseKeyFromEnv(): string | null {
@@ -121,6 +157,7 @@ export class LicenseService implements OnModuleInit {
       expiresAt: extra?.expiresAt?.toISOString() ?? null,
       customer: extra?.customer ?? null,
       message,
+      features: [...tierFeatures(tier)],
     };
   }
 

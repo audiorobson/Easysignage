@@ -1,5 +1,7 @@
 import { Injectable } from '@nestjs/common';
+import { tierHasFeature } from '@easysignage/license-core';
 import { PrismaService } from '../prisma/prisma.service';
+import { LicenseService } from '../license/license.service';
 
 const MONITORING_ONLINE_MS = 5 * 60 * 1000;
 const MONITORING_OFFLINE_LONG_MS = 24 * 60 * 60 * 1000;
@@ -29,7 +31,10 @@ type UpsertInput = {
 
 @Injectable()
 export class AlertsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly license: LicenseService
+  ) {}
 
   async list(tenantId: string, status?: string) {
     const rows = await this.prisma.alert.findMany({
@@ -92,6 +97,7 @@ export class AlertsService {
   }
 
   async evaluateTenant(tenantId: string) {
+    await this.license.assertFeature('alerts');
     const devices = await this.prisma.device.findMany({
       where: { tenantId },
       select: { id: true },
@@ -105,6 +111,11 @@ export class AlertsService {
   }
 
   async evaluateDevice(tenantId: string, deviceId: string) {
+    const tier = await this.license.getCurrentTier();
+    if (!tierHasFeature(tier, 'alerts')) {
+      return { evaluated: false, skipped: true };
+    }
+
     const device = await this.prisma.device.findFirst({
       where: { id: deviceId, tenantId },
       select: {

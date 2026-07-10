@@ -1,0 +1,3 @@
+# Usado apenas em builds Docker (copiado como .npmrc no Dockerfile)
+shamefully-hoist=true
+public-hoist-pattern[]=@easysignage/*

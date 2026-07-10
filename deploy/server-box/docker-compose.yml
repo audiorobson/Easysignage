@@ -5,6 +5,8 @@
 # 2. Execute install.ps1 (Windows) ou install.sh (Linux) na raiz desta pasta
 # 3. docker compose up -d
 # 4. CMS: http://localhost:3000 — copie o Hardware ID em Definições → Licença
+#
+# Imagens GHCR (produção): defina EASYSIGNAGE_*_IMAGE no .env (ver .env.example)
 
 services:
   postgres:
@@ -22,22 +24,37 @@ services:
       retries: 10
     restart: unless-stopped
 
+  realtime-gateway:
+    image: ${EASYSIGNAGE_RT_IMAGE:-easysignage-realtime-gateway:local}
+    ports:
+      - '3020:3020'
+    environment:
+      RT_PORT: '3020'
+      API_URL: http://api:3001/api/v1
+      RT_INTERNAL_SECRET: ${RT_INTERNAL_SECRET:?defina RT_INTERNAL_SECRET no .env}
+      RT_WALL_TICK_MS: '1000'
+    depends_on:
+      - api
+    restart: unless-stopped
+
   api:
-    image: easysignage-api:local
-    build:
-      context: ../..
-      dockerfile: docker/api.Dockerfile
+    image: ${EASYSIGNAGE_API_IMAGE:-easysignage-api:local}
     ports:
       - '3001:3001'
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-easysignage}:${POSTGRES_PASSWORD:-changeme}@postgres:5432/${POSTGRES_DB:-easysignage}
       PORT: '3001'
+      NODE_ENV: production
       JWT_SECRET: ${JWT_SECRET:?defina JWT_SECRET no .env}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
       CMS_ORIGIN: ${CMS_ORIGIN:-http://localhost:3000}
       SWAGGER: '0'
+      RT_GATEWAY_URL: http://realtime-gateway:3020
+      RT_INTERNAL_SECRET: ${RT_INTERNAL_SECRET}
       EASYSIGNAGE_HARDWARE_ID_FILE: /config/hardware.id
       EASYSIGNAGE_LICENSE_FILE: /config/license.key
+      LICENSE_PUBLIC_KEY_FILE: /config/license-public.pem
+      STORAGE_ROOT: /app/uploads
     volumes:
       - ./data/uploads:/app/uploads
       - ./config:/config:ro
@@ -47,12 +64,7 @@ services:
     restart: unless-stopped
 
   cms:
-    image: easysignage-cms:local
-    build:
-      context: ../..
-      dockerfile: docker/cms.Dockerfile
-      args:
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3001/api/v1}
+    image: ${EASYSIGNAGE_CMS_IMAGE:-easysignage-cms:local}
     ports:
       - '3000:3000'
     environment:

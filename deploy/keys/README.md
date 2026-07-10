@@ -1,19 +1,33 @@
 # Chaves de licenciamento (fornecedor)
 
-## Desenvolvimento
-
-Gere um par de chaves Ed25519:
+## Chaves de desenvolvimento (dev)
 
 ```bash
-node -e "const {generateKeyPairSync}=require('crypto');const k=generateKeyPairSync('ed25519');console.log(k.publicKey.export({type:'spki',format:'pem'}));console.log('---');console.log(k.privateKey.export({type:'pkcs8',format:'pem'}));"
+pnpm license:gen-keys   # gera deploy/keys/dev-private.pem (gitignored)
 ```
 
-- **Pública:** embutida em `packages/license-core/src/keys.ts` (ou `LICENSE_PUBLIC_KEY` na API).
-- **Privada:** grave em `deploy/keys/dev-private.pem` (ficheiro **gitignored**).
+- **Pública dev:** embutida em `packages/license-core/src/keys.ts` (só para dev).
+- **Privada dev:** `deploy/keys/dev-private.pem` — usada pelo gerador Electron em desenvolvimento.
 
-O gerador Electron (`apps/license-generator`) lê `deploy/keys/dev-private.pem` ou a variável `EASYSIGNAGE_LICENSE_PRIVATE_KEY`.
+## Teste de produção (staging)
+
+```bash
+pnpm license:gen-staging-keys   # gera par staging (publica commitada)
+pnpm license:test-serial -- --hwid ES-... --tier STD
+```
+
+- **Pública staging:** `deploy/keys/staging-public.pem` — copiada para `config/license-public.pem` no install.
+- **Privada staging:** `deploy/keys/staging-private.pem` — gitignored; só no posto DEV.
+- Ver `docs/teste-producao.md` para fluxo completo.
 
 ## Produção comercial
 
-- Nunca commitar a chave privada de produção.
-- Usar cofre seguro; apenas a equipa de licenciamento tem acesso ao gerador.
+1. Gere um par Ed25519 **dedicado à produção** (fora do repositório).
+2. Instale a **pública** no mini PC: `config/license-public.pem` (ver `production-public.pem.example`).
+3. Guarde a **privada** apenas no posto do fornecedor:
+   - variável `EASYSIGNAGE_LICENSE_PRIVATE_KEY`, ou
+   - ficheiro seguro referenciado pelo gerador Electron.
+4. **Nunca** commitar `*.pem` de produção.
+5. O gerador **rejeita** `dev-private.pem` quando `NODE_ENV=production`.
+
+A API em produção lê `LICENSE_PUBLIC_KEY_FILE=/config/license-public.pem` e regista erro se ausente.

@@ -15,6 +15,7 @@ import { ScheduleEngineService } from '../schedules/schedule-engine.service';
 import { CampaignEngineService } from './campaign-engine.service';
 import { CreateCampaignDto } from './dto/create-campaign.dto';
 import { UpdateCampaignDto } from './dto/update-campaign.dto';
+import { LicenseService } from '../license/license.service';
 
 function assertScope(
   scope: string,
@@ -71,6 +72,7 @@ export class CampaignsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly campaignEngine: CampaignEngineService,
+    private readonly license: LicenseService,
     @Inject(forwardRef(() => ScheduleEngineService))
     private readonly scheduleEngine: ScheduleEngineService
   ) {}
@@ -104,6 +106,7 @@ export class CampaignsService {
   }
 
   async create(tenantId: string, userId: string, dto: CreateCampaignDto) {
+    await this.license.assertFeature('campaigns');
     assertScope(dto.scope, dto.deviceId, dto.groupId, dto.siteId);
     assertTimeWindow(dto.dayOfWeek, dto.startMin, dto.endMin);
     const startAt = parseOptionalDate(dto.startAt);
@@ -144,6 +147,7 @@ export class CampaignsService {
   }
 
   async update(tenantId: string, id: string, dto: UpdateCampaignDto) {
+    await this.license.assertFeature('campaigns');
     const existing = await this.prisma.campaign.findFirst({
       where: { id, tenantId },
     });
@@ -220,6 +224,9 @@ export class CampaignsService {
   }
 
   async setStatus(tenantId: string, id: string, status: string) {
+    if (status === 'active') {
+      await this.license.assertFeature('campaigns');
+    }
     if (!CAMPAIGN_STATUSES.includes(status as never)) {
       throw new BadRequestException('status inválido');
     }
@@ -251,6 +258,7 @@ export class CampaignsService {
   }
 
   async remove(tenantId: string, id: string) {
+    await this.license.assertFeature('campaigns');
     const existing = await this.prisma.campaign.findFirst({
       where: { id, tenantId },
     });
@@ -268,6 +276,7 @@ export class CampaignsService {
   }
 
   async reapplyAll(tenantId: string) {
+    await this.license.assertFeature('campaigns');
     const devices = await this.prisma.device.findMany({
       where: { tenantId },
       select: { id: true },

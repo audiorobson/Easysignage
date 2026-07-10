@@ -38,5 +38,8 @@ jobs:
       - name: Test
         run: pnpm test
 
+      - name: Test license-core
+        run: pnpm --filter @easysignage/license-core test
+
       - name: Build
         run: pnpm build

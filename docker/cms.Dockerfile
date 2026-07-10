@@ -8,12 +8,14 @@ WORKDIR /app
 FROM base AS builder
 ARG NEXT_PUBLIC_API_URL=http://localhost:3001/api/v1
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
-COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json tsconfig.base.json ./
+COPY docker/npmrc.docker .npmrc
 COPY packages ./packages
 COPY apps/cms ./apps/cms
 RUN pnpm install --frozen-lockfile
 ENV DOCKER_BUILD=1
 ENV NEXT_TELEMETRY_DISABLED=1
+RUN pnpm --filter @easysignage/cms^... build
 RUN pnpm --filter @easysignage/cms build
 
 FROM base AS runner

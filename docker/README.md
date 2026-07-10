@@ -28,7 +28,18 @@ Ou: `pnpm docker:compose` (equivalente).
 ```bash
 docker build -f docker/api.Dockerfile -t easysignage-api .
 docker build -f docker/cms.Dockerfile -t easysignage-cms .
+docker build -f docker/realtime-gateway.Dockerfile -t easysignage-realtime-gateway .
 ```
+
+## Server box (mini PC)
+
+Ver `deploy/server-box/` e `docs/manual-instalacao-mini-pc.md`.
+
+```bash
+pnpm release:zip   # gera dist/release/easysignage-server-box-*.zip
+```
+
+Imagens GHCR: workflow `.github/workflows/release.yml` (tag `v*`).
 
 ## Notas
 

@@ -1,7 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { tierHasFeature } from '@easysignage/license-core';
 import { CAMPAIGN_CONTENT_SOURCE } from '@easysignage/shared-types';
 import { getLocalScheduleContext } from '../schedules/schedule-engine.service';
+import { LicenseService } from '../license/license.service';
 
 export type ActiveCampaignRow = {
   id: string;
@@ -11,7 +13,10 @@ export type ActiveCampaignRow = {
 
 @Injectable()
 export class CampaignEngineService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly license: LicenseService
+  ) {}
 
   private timeZone(): string {
     return process.env.SCHEDULE_TIMEZONE?.trim() || 'Europe/Lisbon';
@@ -45,6 +50,11 @@ export class CampaignEngineService {
     deviceId: string,
     now = new Date()
   ): Promise<ActiveCampaignRow | null> {
+    const tier = await this.license.getCurrentTier();
+    if (!tierHasFeature(tier, 'campaigns')) {
+      return null;
+    }
+
     const device = await this.prisma.device.findFirst({
       where: { id: deviceId, tenantId },
       select: { siteId: true },

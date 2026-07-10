@@ -157,9 +157,9 @@ Comportamento sugerido até inserir serial válido:
 
 | Plano | Código interno | Máx. players | Funções |
 |-------|----------------|--------------|---------|
-| **Lite** | `LITE` | **2** | CMS, biblioteca, playlists, agendamento básico, 1 layout |
-| **Standard** | `STD` | **20** | Tudo o Lite + video walls, campanhas, alertas, RTSP, layouts multi-zona |
-| **Elite** | `ELITE` | **Ilimitado** (soft cap 999) | Standard + multi-site avançado, API aberta, suporte prioritário *(futuro)* |
+| **Lite** | `LITE` | **2** | CMS, biblioteca, playlists, agendamento básico, layouts |
+| **Standard** | `STD` | **20** | Lite + video walls, campanhas, alertas, RTSP |
+| **Elite** | `ELITE` | **Ilimitado** (soft cap 999) | Standard + multi-site avançado *(futuro)* |
 
 ### 4.1 Enforcement na API
 
@@ -387,8 +387,8 @@ EasySignage/
 | **D4** | Compose «Server Box» completo (proxy, gateway, volumes, imagens GHCR) | docker actual |
 | **D5** | CMS `/setup` + Definições → Licença | D3 |
 | **D6** | `apps/license-generator` (Electron) MVP | D1 |
-| **D7** | `docs/manual-instalacao-mini-pc.md` + vídeo curto | D4–D6 |
-| **D8** | CI: build imagens + zip `server-box` por tag Git | D4 |
+| **D7** | `docs/manual-instalacao-mini-pc.md` + vídeo curto | D4–D6 | **Feito** (manual; vídeo pendente) |
+| **D8** | CI: build imagens + zip `server-box` por tag Git | D4 | **Feito** (workflow + script ZIP; GHCR após tag `v*`) |
 
 **Ordem recomendada:** D1 → D3 → D2 → D4 → D5 → D6 → D7 → D8.
 

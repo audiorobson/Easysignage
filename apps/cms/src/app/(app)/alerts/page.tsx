@@ -12,6 +12,8 @@ import {
   alertStatusLabelPt,
   alertTypeLabelPt,
 } from '@easysignage/shared-types';
+import { LicenseFeatureBanner } from '@/components/LicenseFeatureBanner';
+import { useLicenseStatus } from '@/lib/use-license-status';
 
 type AlertRow = {
   id: string;
@@ -54,6 +56,8 @@ function statusClass(status: string): string {
 
 export default function AlertsPage() {
   const router = useRouter();
+  const { hasFeature } = useLicenseStatus();
+  const canEvaluate = hasFeature('alerts');
   const [items, setItems] = useState<AlertRow[] | null>(null);
   const [summary, setSummary] = useState<Summary | null>(null);
   const [filter, setFilter] = useState<'active' | 'open' | 'acknowledged' | 'all'>('active');
@@ -137,7 +141,7 @@ export default function AlertsPage() {
           <button
             type="button"
             className="btn btn--ghost"
-            disabled={evaluating}
+            disabled={evaluating || !canEvaluate}
             onClick={() => void refresh()}
           >
             <RefreshCw size={17} strokeWidth={1.9} aria-hidden />
@@ -145,6 +149,8 @@ export default function AlertsPage() {
           </button>
         }
       />
+
+      <LicenseFeatureBanner feature="alerts" />
 
       {summary && (
         <div

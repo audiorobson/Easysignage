@@ -21,4 +21,5 @@ export type LicenseStatus = {
   expiresAt: string | null;
   customer: string | null;
   message: string | null;
+  features: string[];
 };

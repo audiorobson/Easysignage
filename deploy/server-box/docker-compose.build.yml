@@ -1,0 +1,20 @@
+# Overlay para build local a partir do monorepo (não incluído no ZIP de clientes).
+# Uso: docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
+
+services:
+  realtime-gateway:
+    build:
+      context: ../..
+      dockerfile: docker/realtime-gateway.Dockerfile
+
+  api:
+    build:
+      context: ../..
+      dockerfile: docker/api.Dockerfile
+
+  cms:
+    build:
+      context: ../..
+      dockerfile: docker/cms.Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3001/api/v1}

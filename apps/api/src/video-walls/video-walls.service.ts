@@ -22,6 +22,7 @@ import {
   UpdateVideoWallDto,
 } from './dto/video-wall.dto';
 import { RealtimeService } from '../realtime/realtime.service';
+import { LicenseService } from '../license/license.service';
 
 const SYNC_LEAD_MS = 3000;
 const ONLINE_MS = 5 * 60 * 1000;
@@ -36,8 +37,13 @@ function defaultSlideMs(kind: string): number {
 export class VideoWallsService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly realtime: RealtimeService
+    private readonly realtime: RealtimeService,
+    private readonly license: LicenseService
   ) {}
+
+  private async assertWallFeature(): Promise<void> {
+    await this.license.assertFeature('video_walls');
+  }
 
   async list(tenantId: string) {
     const rows = await this.prisma.videoWall.findMany({
@@ -71,6 +77,7 @@ export class VideoWallsService {
   }
 
   async create(tenantId: string, dto: CreateVideoWallDto) {
+    await this.assertWallFeature();
     const site = await this.prisma.site.findFirst({
       where: { id: dto.siteId, tenantId },
     });
@@ -104,6 +111,7 @@ export class VideoWallsService {
   }
 
   async update(tenantId: string, id: string, dto: UpdateVideoWallDto) {
+    await this.assertWallFeature();
     await this.ensureWall(tenantId, id);
     if (dto.playlistId) {
       const pl = await this.prisma.playlist.findFirst({
@@ -126,6 +134,7 @@ export class VideoWallsService {
   }
 
   async setTiles(tenantId: string, wallId: string, dto: SetWallTilesDto) {
+    await this.assertWallFeature();
     const wall = await this.ensureWall(tenantId, wallId);
     const seenCells = new Set<string>();
     const seenDevices = new Set<string>();
@@ -188,6 +197,7 @@ export class VideoWallsService {
   }
 
   async publish(tenantId: string, wallId: string) {
+    await this.assertWallFeature();
     const wall = await this.getById(tenantId, wallId);
     if (!wall.playlistId) {
       throw new BadRequestException('Defina uma playlist na parede antes de publicar');
@@ -220,6 +230,7 @@ export class VideoWallsService {
   }
 
   async sync(tenantId: string, wallId: string) {
+    await this.assertWallFeature();
     const wall = await this.ensureWall(tenantId, wallId);
     const tiles = await this.prisma.videoWallTile.findMany({
       where: { wallId },

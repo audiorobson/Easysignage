@@ -36,11 +36,26 @@ services:
       SWAGGER: "0"
       EASYSIGNAGE_HARDWARE_ID_FILE: /config/hardware.id
       EASYSIGNAGE_LICENSE_FILE: /config/license.key
+      RT_GATEWAY_URL: http://realtime-gateway:3020
+      RT_INTERNAL_SECRET: ${RT_INTERNAL_SECRET:-dev-rt-secret}
     volumes:
       - ./config:/config:ro
     depends_on:
       postgres:
         condition: service_healthy
+
+  realtime-gateway:
+    build:
+      context: .
+      dockerfile: docker/realtime-gateway.Dockerfile
+    ports:
+      - "3020:3020"
+    environment:
+      RT_PORT: "3020"
+      API_URL: http://api:3001/api/v1
+      RT_INTERNAL_SECRET: ${RT_INTERNAL_SECRET:-dev-rt-secret}
+    depends_on:
+      - api
 
   cms:
     build:

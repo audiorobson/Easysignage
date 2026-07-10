@@ -299,11 +299,16 @@ Integração de **streaming RTSP** como tipo de asset — o servidor **apenas co
 | `deploy/server-box` | **Feito** — compose, install.ps1/sh, volumes config |
 | `deploy/hwid/generate-hwid.mjs` | **Feito** — Win/Linux no host |
 | `apps/license-generator` | **MVP** — Electron gerador de serial |
-| CMS `/settings` | **Feito** — HWID, activar licença |
+| CMS `/settings` | **Feito** — HWID, activar licença, funcionalidades por plano |
 | `docs/manual-instalacao-mini-pc.md` | **Feito** — guia cliente |
-| Imagens GHCR / release ZIP | **Pendente** |
-| Chave privada produção | **Pendente** (cofre fornecedor) |
+| `realtime-gateway` no server-box | **Feito** — compose + Dockerfile |
+| CMS banners por feature | **Feito** — campanhas, walls, RTSP, alertas |
+| `docs/teste-producao.md` | **Feito** — guia instalacao teste |
+| Script `pnpm prod:test` | **Feito** — build + compose + seed |
+| Pacote ZIP `release:zip` | **Feito** — `dist/release/*.zip` |
+| Imagens GHCR publicadas | **Pendente** — requer tag `v*` no repositório |
+| Chave privada produção (cofre) | **Pendente** — processo comercial do fornecedor |
 
 ---
 
-*Última atualização: 10 de julho de 2026 — distribuição/licenciamento D1–D6 iniciado.*
+*Última atualização: 10 de julho de 2026 — pacote teste de produção instalável (Docker + staging + ZIP).*

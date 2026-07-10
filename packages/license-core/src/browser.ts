@@ -7,4 +7,12 @@ export {
   type LicenseTier,
 } from './tiers.js';
 
+export {
+  LICENSE_FEATURES,
+  featureLabelPt,
+  tierFeatures,
+  tierHasFeature,
+  type LicenseFeature,
+} from './features.js';
+
 export type { LicenseStatus } from './types.js';

@@ -9,6 +9,7 @@
 **/node_modules
 **/.next
 **/dist
+!packages/**/dist/**
 .turbo
 **/.env
 **/.env.*
@@ -18,7 +19,6 @@
 apps/web-player
 apps/electron-player
 apps/media-worker
-apps/realtime-gateway
 
 # Testes e artefactos
 coverage

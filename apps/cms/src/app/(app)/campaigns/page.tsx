@@ -11,6 +11,8 @@ import { formatDateTimePtBr } from '@/lib/format-date';
 import { formatMinutes } from '../scheduling/schedule-utils';
 import { CampaignModal } from './CampaignModal';
 import type { CampaignRow } from './types';
+import { LicenseFeatureBanner } from '@/components/LicenseFeatureBanner';
+import { useLicenseStatus } from '@/lib/use-license-status';
 
 type Opt = { id: string; name: string };
 
@@ -29,6 +31,8 @@ function statusTone(status: string): string {
 
 export default function CampaignsPage() {
   const router = useRouter();
+  const { hasFeature } = useLicenseStatus();
+  const canManage = hasFeature('campaigns');
   const [items, setItems] = useState<CampaignRow[] | null>(null);
   const [playlists, setPlaylists] = useState<Opt[]>([]);
   const [devices, setDevices] = useState<Opt[]>([]);
@@ -140,7 +144,7 @@ export default function CampaignsPage() {
             <button
               type="button"
               className="btn btn--ghost"
-              disabled={reapplying}
+              disabled={reapplying || !canManage}
               onClick={() => void reapplyAll()}
             >
               <RefreshCw size={17} strokeWidth={1.9} aria-hidden />
@@ -149,6 +153,7 @@ export default function CampaignsPage() {
             <button
               type="button"
               className="btn btn--primary"
+              disabled={!canManage}
               onClick={() => {
                 setModalMode('create');
                 setEditing(null);
@@ -161,6 +166,8 @@ export default function CampaignsPage() {
           </>
         }
       />
+
+      <LicenseFeatureBanner feature="campaigns" />
 
       {error && <p className="text-danger">{error}</p>}
       {!items && !error && <p className="text-muted">A carregar…</p>}

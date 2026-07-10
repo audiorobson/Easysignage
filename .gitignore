@@ -15,6 +15,13 @@ apps/api/uploads
 apps/api/src/generated/prisma-client
 deploy-test
 deploy/keys/*.pem
+!deploy/keys/staging-public.pem
 !deploy/keys/.gitkeep
 config/hardware.id
 config/license.key
+deploy/server-box/.env
+deploy/server-box/data/
+deploy/server-box/config/hardware.id
+deploy/server-box/config/license.key
+deploy/server-box/config/license-public.pem
+dist/release

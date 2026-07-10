@@ -5,18 +5,35 @@ import { join } from 'node:path';
 function resolvePrivateKey(): string {
   const fromEnv = process.env.EASYSIGNAGE_LICENSE_PRIVATE_KEY?.trim();
   if (fromEnv?.includes('BEGIN PRIVATE KEY')) return fromEnv;
-  const candidates = [
+
+  const isProd = process.env.NODE_ENV === 'production';
+  const isStaging = process.env.EASYSIGNAGE_LICENSE_ENV === 'staging';
+  const devPaths = [
     join(process.cwd(), 'deploy/keys/dev-private.pem'),
     join(process.cwd(), '../../deploy/keys/dev-private.pem'),
     join(__dirname, '../../../deploy/keys/dev-private.pem'),
   ];
-  for (const p of candidates) {
+  const stagingPaths = [
+    join(process.cwd(), 'deploy/keys/staging-private.pem'),
+    join(process.cwd(), '../../deploy/keys/staging-private.pem'),
+    join(__dirname, '../../../deploy/keys/staging-private.pem'),
+  ];
+
+  const searchPaths = isStaging ? stagingPaths : devPaths;
+
+  for (const p of searchPaths) {
     if (existsSync(p)) {
+      if (isProd && !isStaging) {
+        throw new Error(
+          'Chave privada de desenvolvimento detectada em produção — use EASYSIGNAGE_LICENSE_PRIVATE_KEY com a chave comercial'
+        );
+      }
       return readFileSync(p, 'utf8');
     }
   }
+
   throw new Error(
-    'Chave privada não encontrada. Defina EASYSIGNAGE_LICENSE_PRIVATE_KEY ou crie deploy/keys/dev-private.pem (ver deploy/keys/README.md)'
+    'Chave privada não encontrada. Defina EASYSIGNAGE_LICENSE_PRIVATE_KEY (chave comercial do fornecedor)'
   );
 }
 

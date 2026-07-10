@@ -10,6 +10,11 @@
     "prisma:generate": "pnpm --filter @easysignage/api exec prisma generate",
     "license:hwid": "node deploy/hwid/generate-hwid.mjs",
     "license:gen-keys": "node deploy/keys/generate-dev-keys.mjs",
+    "license:gen-staging-keys": "node deploy/keys/generate-staging-keys.mjs",
+    "license:test-serial": "node deploy/release/generate-test-license.mjs",
+    "release:zip": "node deploy/release/build-server-box-zip.mjs",
+    "prod:test": "powershell -NoProfile -ExecutionPolicy Bypass -File deploy/release/prod-test.ps1",
+  "prod:test:packages": "pnpm --filter @easysignage/shared-types build && pnpm --filter @easysignage/license-core build && pnpm --filter @easysignage/device-protocol build && pnpm --filter @easysignage/realtime-gateway build",
     "build": "turbo run build",
     "dev": "turbo run dev",
     "start": "turbo run start --filter=@easysignage/api --filter=@easysignage/cms",
@@ -23,6 +28,7 @@
   },
   "devDependencies": {
     "@google/stitch-sdk": "^0.1.0",
+    "archiver": "^7.0.1",
     "prettier": "^3.4.2",
     "turbo": "^2.3.3",
     "typescript": "^5.7.2"

@@ -9,6 +9,7 @@ import { VideoWallsService } from '../video-walls/video-walls.service';
 import { CreateScheduleRuleDto } from './dto/create-schedule-rule.dto';
 import { UpdateScheduleRuleDto } from './dto/update-schedule-rule.dto';
 import { ScheduleEngineService } from './schedule-engine.service';
+import { LicenseService } from '../license/license.service';
 
 function assertTimeRange(startMin: number, endMin: number) {
   if (startMin < 0 || startMin > 1439) {
@@ -55,8 +56,15 @@ export class SchedulesService {
     private readonly prisma: PrismaService,
     private readonly scheduleEngine: ScheduleEngineService,
     private readonly devices: DevicesService,
-    private readonly videoWalls: VideoWallsService
+    private readonly videoWalls: VideoWallsService,
+    private readonly license: LicenseService
   ) {}
+
+  private async assertContentLicensed(content: ScheduleContentPayload) {
+    if (content.videoWallId) {
+      await this.license.assertFeature('video_walls');
+    }
+  }
 
   async list(tenantId: string) {
     const rows = await this.prisma.scheduleRule.findMany({
@@ -104,6 +112,7 @@ export class SchedulesService {
     this.assertScope(dto.scope, dto.deviceId, dto.groupId);
     assertTimeRange(dto.startMin, dto.endMin);
     const content = resolveContentPayload(dto);
+    await this.assertContentLicensed(content);
     await this.ensureContentRefs(
       tenantId,
       content,
@@ -179,6 +188,8 @@ export class SchedulesService {
           ? dto.videoWallId
           : existing.videoWallId,
     });
+
+    await this.assertContentLicensed(content);
 
     await this.ensureContentRefs(
       tenantId,

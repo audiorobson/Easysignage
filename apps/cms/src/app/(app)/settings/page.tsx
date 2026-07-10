@@ -4,7 +4,7 @@ import { type FormEvent, useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Copy, KeyRound, RefreshCw } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
-import { tierLabelPt, type LicenseTier } from '@easysignage/license-core/browser';
+import { tierLabelPt, featureLabelPt, type LicenseTier, type LicenseFeature } from '@easysignage/license-core/browser';
 import { api, getToken } from '@/lib/api';
 
 type LicenseStatus = {
@@ -18,6 +18,7 @@ type LicenseStatus = {
   expiresAt: string | null;
   customer: string | null;
   message: string | null;
+  features: string[];
 };
 
 export default function SettingsPage() {
@@ -153,6 +154,23 @@ export default function SettingsPage() {
                     : '—'}
               </p>
             </div>
+          </div>
+
+          <div style={{ marginTop: '1.25rem' }}>
+            <span className="text-muted">Funcionalidades do plano</span>
+            <ul style={{ margin: '0.5rem 0 0', paddingLeft: '1.25rem', fontSize: '0.9rem' }}>
+              {(['campaigns', 'video_walls', 'rtsp', 'alerts'] as LicenseFeature[]).map(
+                (f) => {
+                  const on = status.features.includes(f);
+                  return (
+                    <li key={f} style={{ color: on ? 'inherit' : 'var(--color-text-muted)' }}>
+                      {featureLabelPt(f)}
+                      {on ? '' : ' — indisponível neste plano'}
+                    </li>
+                  );
+                }
+              )}
+            </ul>
           </div>
 
           <div style={{ marginTop: '1.25rem' }}>

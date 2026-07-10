@@ -8,6 +8,15 @@ export {
 } from './tiers.js';
 
 export {
+  LICENSE_FEATURES,
+  LICENSE_TIER_FEATURES,
+  featureLabelPt,
+  tierFeatures,
+  tierHasFeature,
+  type LicenseFeature,
+} from './features.js';
+
+export {
   HWID_PATTERN,
   isValidHardwareId,
   deriveHardwareId,
@@ -16,7 +25,7 @@ export {
 
 export type { LicensePayloadV1, LicenseStatus } from './types.js';
 
-export { DEV_LICENSE_PUBLIC_KEY_PEM } from './keys.js';
+export { DEV_LICENSE_PUBLIC_KEY_PEM, DEFAULT_PRODUCTION_PUBLIC_KEY_FILE } from './keys.js';
 
 export {
   generateLicenseKeyPair,

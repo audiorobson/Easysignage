@@ -5,6 +5,8 @@ import { CAMPAIGN_CONTENT_SOURCE } from '@easysignage/shared-types';
 import { DevicesService } from '../devices/devices.service';
 import { VideoWallsService } from '../video-walls/video-walls.service';
 import { CampaignEngineService } from '../campaigns/campaign-engine.service';
+import { LicenseService } from '../license/license.service';
+import { tierHasFeature } from '@easysignage/license-core';
 
 export const SCHEDULE_CONTENT_SOURCE = 'schedule';
 
@@ -62,6 +64,7 @@ export class ScheduleEngineService {
     private readonly prisma: PrismaService,
     private readonly devices: DevicesService,
     private readonly videoWalls: VideoWallsService,
+    private readonly license: LicenseService,
     @Inject(forwardRef(() => CampaignEngineService))
     private readonly campaignEngine: CampaignEngineService
   ) {}
@@ -137,6 +140,10 @@ export class ScheduleEngineService {
         };
       }
       if (rule.videoWallId) {
+        const tier = await this.license.getCurrentTier();
+        if (!tierHasFeature(tier, 'video_walls')) {
+          return null;
+        }
         const tile = await this.prisma.videoWallTile.findFirst({
           where: { wallId: rule.videoWallId, deviceId },
         });

@@ -8,6 +8,8 @@ import { Modal } from '@/components/ui/Modal';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { CMS_ACCEPT_UPLOAD, kindLabelPt } from '@easysignage/shared-types';
 import { AssetPreview } from '@/components/AssetPreview';
+import { LicenseFeatureBanner } from '@/components/LicenseFeatureBanner';
+import { useLicenseStatus } from '@/lib/use-license-status';
 import { api, getToken, uploadAssetMultipart } from '@/lib/api';
 import { formatDateTimePtBr } from '@/lib/format-date';
 
@@ -52,6 +54,8 @@ type RemoteStreamKind = 'url' | 'rtsp';
 
 export default function AssetsPage() {
   const router = useRouter();
+  const { hasFeature } = useLicenseStatus();
+  const canRtsp = hasFeature('rtsp');
   const uploadInputId = useId();
   const [items, setItems] = useState<AssetRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -258,6 +262,7 @@ export default function AssetsPage() {
                 className="btn btn--primary"
                 title="Adicionar stream RTSP"
                 aria-label="Adicionar stream RTSP"
+                disabled={!canRtsp}
                 onClick={openCreateRtspModal}
               >
                 <Radio size={17} strokeWidth={1.9} aria-hidden />
@@ -284,6 +289,8 @@ export default function AssetsPage() {
           </>
         }
       />
+
+      {kindFilter === 'rtsp' && <LicenseFeatureBanner feature="rtsp" />}
 
       <section style={{ marginBottom: 'var(--space-8)' }}>
         <div className="filter-pills">

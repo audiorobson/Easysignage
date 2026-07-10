@@ -15,7 +15,7 @@ Guia para instalar o **EasySignage Server Box** num mini PC (Windows ou Linux) n
 | SO | Windows 10/11 ou Ubuntu 22.04+ |
 | Software | Docker Desktop (Win) ou Docker Engine + Compose (Linux) |
 
-Portas no mini PC: **3000** (CMS), **3001** (API). Ajuste firewall se necessário.
+Portas no mini PC: **3000** (CMS), **3001** (API), **3020** (sync video wall / WebSocket).
 
 ---
 
@@ -32,13 +32,20 @@ Portas no mini PC: **3000** (CMS), **3001** (API). Ajuste firewall se necessári
 ```
 
 6. Edite `.env`: `JWT_SECRET`, `POSTGRES_PASSWORD`, `NEXT_PUBLIC_API_URL` com o **IP do mini PC** (ex. `http://192.168.1.100:3001/api/v1`).
-7. Arranque:
+
+Se estiver no monorepo (com código-fonte):
 
 ```powershell
-docker compose up -d --build
+docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
 ```
 
-8. Abra no browser: `http://localhost:3000` ou `http://IP-DO-MINI-PC:3000`.
+Se instalou só o ZIP (sem código-fonte), configure imagens GHCR no `.env` e:
+
+```powershell
+docker compose up -d
+```
+
+7. Abra no browser: `http://localhost:3000` ou `http://IP-DO-MINI-PC:3000`.
 
 ---
 
@@ -49,7 +56,10 @@ cd deploy/server-box
 chmod +x install.sh
 ./install.sh
 nano .env   # JWT_SECRET, passwords, NEXT_PUBLIC_API_URL
-docker compose up -d --build
+# Monorepo:
+docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
+# Só ZIP (GHCR):
+# docker compose up -d
 ```
 
 Opcional — arranque automático: `restart: unless-stopped` já está no compose.
@@ -58,7 +68,15 @@ Opcional — arranque automático: `restart: unless-stopped` já está no compos
 
 ## 4. Primeira configuração e licença
 
-1. Inicie sessão no CMS (credenciais do seed ou criadas na instalação).
+1. Inicie sessão no CMS com as credenciais iniciais do seed:
+
+| Campo | Valor |
+|-------|--------|
+| Email | `admin@demo.local` |
+| Password | `admin123` |
+
+*(Criadas automaticamente no primeiro arranque da API.)*
+
 2. Vá a **Definições → Licença**.
 3. Copie o **Hardware ID** (`ES-…`).
 4. Envie ao fornecedor EasySignage.

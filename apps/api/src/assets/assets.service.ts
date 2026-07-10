@@ -24,6 +24,7 @@ import {
   type RemoteStreamKind,
 } from '@easysignage/shared-types';
 import { PrismaService } from '../prisma/prisma.service';
+import { LicenseService } from '../license/license.service';
 import { CreateAssetDto } from './dto/create-asset.dto';
 import { UpdateAssetDto } from './dto/update-asset.dto';
 
@@ -35,7 +36,10 @@ const MAX_FILE_BYTES = Math.min(
 
 @Injectable()
 export class AssetsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly license: LicenseService
+  ) {}
 
   private storageRoot(): string {
     return process.env.STORAGE_ROOT ?? join(process.cwd(), 'uploads');
@@ -77,6 +81,9 @@ export class AssetsService {
         dto.kind === 'rtsp' || dto.kind === 'url'
           ? dto.kind
           : inferRemoteStreamKindFromUrl(url);
+      if (kind === 'rtsp') {
+        await this.license.assertFeature('rtsp');
+      }
       return this.createRemoteStreamAsset(tenantId, dto.name.trim(), url, kind);
     }
     if (!dto.mimeType?.trim() || !dto.dataBase64?.trim()) {
