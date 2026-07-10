@@ -12,7 +12,7 @@ O próprio roadmap, em **§19** (início da secção), aponta para **este fichei
 |------|----------------|-----------------------------|
 | **19.1** | Fase 0 — Fundação técnica | **Em grande parte feito:** monorepo pnpm/Turbo, Prisma + PostgreSQL, Nest API, Next CMS, `device-protocol`, web-player, Docker Compose. **Parcial:** CI em GitHub Actions (lint/test/build), Redis/filas em prod. |
 | **19.2** | Fase 1 — Autenticação, tenants e dispositivos | **Feito (núcleo):** auth JWT, RBAC, sites, devices, pairing, heartbeat, `wakeMac` + WOL UDP. **Parcial:** Electron. |
-| **19.3** | Fase 2 — Biblioteca e playlists | **Parcial avançado:** upload multipart, vários tipos no player (imagem, vídeo, PDF, HTML, URL, **RTSP**), playlists + DnD no CMS, **cache offline leve** (Cache API + eviction por manifest). **RTSP:** servidor só configura `remoteUrl`; player liga directo à rede (sem proxy API). **Pendente:** media-worker ativo; decoder RTSP no electron-player. |
+| **19.3** | Fase 2 — Biblioteca e playlists | **Parcial avançado:** upload multipart, vários tipos no player (imagem, vídeo, PDF, HTML, URL, **RTSP**), playlists + DnD no CMS, **cache offline leve**. **RTSP:** servidor só configura `remoteUrl`; player liga directo à rede. **Distribuição:** `deploy/server-box` (Docker mini PC). **Pendente:** media-worker; decoder RTSP no electron-player. |
 | **19.4** | Fase 3 — Agendamento e publicação | **Parcial avançado:** `Publication` + publicar no CMS; **`ScheduleRule` + motor** (playlist, layout ou video wall); **`Campaign` + motor** (playlist promocional com prioridade sobre agenda); **ack de publicação**; **manifest com `manifestRevision`**; CMS campanhas + agendamento. **Pendente:** métricas de entrega, campanhas com layout/wall. |
 | **19.4b–19.5b** | **Layouts, zonas e video wall** | **Feito (L1–L5):** viewport, layouts multi-zona, fit, video wall, drift, WS sync, editor visual, agenda layout/wall, snap/guias, **templates custom por tenant**. |
 | **19.5** | Fase 4 — Controle remoto e monitoramento | **Parcial (MVP):** telemetria, overview, comandos (`wol`), **preview JPEG**, **realtime-gateway** com wall sync, painel de drift, **alertas automáticos** (`/alerts`). **Pendente:** dashboard agregado real (sem dados demo), e-mail/webhook. |
@@ -121,7 +121,7 @@ O próprio roadmap, em **§19** (início da secção), aponta para **este fichei
 | `/campaigns` | Operacional (CRUD, ativar/pausar, reaplicar) |
 | `/alerts` | Operacional (offline, playback, sync pendente, ack) |
 | `/dashboard` | Parcial (overview com dados demo em partes) |
-| `/settings` | Placeholder ou mínimo |
+| `/settings` | **Licença** operacional (HWID, serial, limites players) |
 
 ---
 
@@ -288,4 +288,22 @@ Integração de **streaming RTSP** como tipo de asset — o servidor **apenas co
 
 ---
 
-*Última atualização: 10 de julho de 2026 — RTSP, campanhas, alertas, templates custom (L5.4).*
+---
+
+## Distribuição e licenciamento (jul/2026 — em implementação)
+
+| Componente | Estado |
+|------------|--------|
+| `packages/license-core` | **Feito** — Ed25519, tiers Lite/Std/Elite, HWID |
+| API `LicenseModule` | **Feito** — status, apply, limite no `pair` |
+| `deploy/server-box` | **Feito** — compose, install.ps1/sh, volumes config |
+| `deploy/hwid/generate-hwid.mjs` | **Feito** — Win/Linux no host |
+| `apps/license-generator` | **MVP** — Electron gerador de serial |
+| CMS `/settings` | **Feito** — HWID, activar licença |
+| `docs/manual-instalacao-mini-pc.md` | **Feito** — guia cliente |
+| Imagens GHCR / release ZIP | **Pendente** |
+| Chave privada produção | **Pendente** (cofre fornecedor) |
+
+---
+
+*Última atualização: 10 de julho de 2026 — distribuição/licenciamento D1–D6 iniciado.*

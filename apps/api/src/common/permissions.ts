@@ -18,6 +18,8 @@ export const P = {
   CAMPAIGNS_WRITE: 'campaigns.write',
   ALERTS_READ: 'alerts.read',
   ALERTS_WRITE: 'alerts.write',
+  SETTINGS_READ: 'settings.read',
+  SETTINGS_WRITE: 'settings.write',
   MONITORING_READ: 'monitoring.read',
   MONITORING_WRITE: 'monitoring.write',
 } as const;

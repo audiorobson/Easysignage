@@ -26,6 +26,9 @@ importers:
       '@easysignage/device-protocol':
         specifier: workspace:*
         version: link:../../packages/device-protocol
+      '@easysignage/license-core':
+        specifier: workspace:*
+        version: link:../../packages/license-core
       '@easysignage/shared-types':
         specifier: workspace:*
         version: link:../../packages/shared-types
@@ -144,6 +147,9 @@ importers:
       '@easysignage/device-protocol':
         specifier: workspace:*
         version: link:../../packages/device-protocol
+      '@easysignage/license-core':
+        specifier: workspace:*
+        version: link:../../packages/license-core
       '@easysignage/shared-types':
         specifier: workspace:*
         version: link:../../packages/shared-types
@@ -184,6 +190,19 @@ importers:
       '@easysignage/shared-types':
         specifier: workspace:*
         version: link:../../packages/shared-types
+    devDependencies:
+      electron:
+        specifier: ^33.3.1
+        version: 33.4.11
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+
+  apps/license-generator:
+    dependencies:
+      '@easysignage/license-core':
+        specifier: workspace:*
+        version: link:../../packages/license-core
     devDependencies:
       electron:
         specifier: ^33.3.1
@@ -259,6 +278,24 @@ importers:
 
   packages/device-protocol:
     devDependencies:
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+
+  packages/license-core:
+    devDependencies:
+      '@types/jest':
+        specifier: ^30.0.0
+        version: 30.0.0
+      '@types/node':
+        specifier: ^22.10.2
+        version: 22.19.17
+      jest:
+        specifier: ^30.3.0
+        version: 30.3.0(@types/node@22.19.17)
+      ts-jest:
+        specifier: ^29.4.9
+        version: 29.4.9(@babel/core@7.29.0)(@jest/transform@30.3.0)(@jest/types@30.3.0)(babel-jest@30.3.0(@babel/core@7.29.0))(jest-util@30.3.0)(jest@30.3.0(@types/node@22.19.17))(typescript@5.9.3)
       typescript:
         specifier: ^5.7.2
         version: 5.9.3

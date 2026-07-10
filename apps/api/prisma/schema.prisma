@@ -545,3 +545,20 @@ model Alert {
   @@index([tenantId, status, lastSeenAt(sort: Desc)])
   @@map("alerts")
 }
+
+/** Estado de licenciamento da instalação (mini PC / server box). */
+model LicenseState {
+  id             String    @id @default("default")
+  hardwareId     String    @map("hardware_id")
+  tier           String
+  maxPlayers     Int       @map("max_players")
+  licenseKey     String?   @map("license_key")
+  customer       String?
+  issuedAt       DateTime? @map("issued_at")
+  expiresAt      DateTime? @map("expires_at")
+  lastValidated  DateTime  @default(now()) @map("last_validated")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  @@map("license_state")
+}

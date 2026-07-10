@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="pt">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>EasySignage — Gerador de licenças</title>
+    <style>
+      :root {
+        font-family: system-ui, sans-serif;
+        color: #0f172a;
+        background: #f1f5f9;
+      }
+      body {
+        margin: 0;
+        padding: 1.5rem;
+      }
+      h1 {
+        font-size: 1.25rem;
+        margin: 0 0 0.25rem;
+      }
+      p.lead {
+        color: #64748b;
+        margin: 0 0 1.25rem;
+        font-size: 0.9rem;
+      }
+      label {
+        display: block;
+        font-size: 0.8rem;
+        color: #475569;
+        margin-bottom: 0.35rem;
+      }
+      input,
+      select,
+      textarea {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 0.55rem 0.65rem;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        font: inherit;
+        margin-bottom: 0.85rem;
+      }
+      button {
+        background: #2563eb;
+        color: #fff;
+        border: none;
+        border-radius: 8px;
+        padding: 0.65rem 1rem;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      button:disabled {
+        opacity: 0.6;
+        cursor: wait;
+      }
+      .out {
+        margin-top: 1rem;
+        padding: 1rem;
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+      }
+      .out code {
+        display: block;
+        word-break: break-all;
+        font-size: 0.75rem;
+        margin-top: 0.5rem;
+      }
+      .err {
+        color: #b91c1c;
+        font-size: 0.875rem;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Gerador de licenças</h1>
+    <p class="lead">Uso exclusivo do fornecedor. Cole o Hardware ID do mini PC do cliente.</p>
+
+    <label for="hwid">Hardware ID</label>
+    <input id="hwid" placeholder="ES-…" autocomplete="off" />
+
+    <label for="tier">Plano</label>
+    <select id="tier">
+      <option value="LITE">Lite — 2 players</option>
+      <option value="STD" selected>Standard — 20 players</option>
+      <option value="ELITE">Elite — ilimitado</option>
+    </select>
+
+    <label for="customer">Cliente (opcional)</label>
+    <input id="customer" placeholder="Nome do cliente" />
+
+    <label for="expires">Validade (opcional)</label>
+    <input id="expires" type="date" />
+
+    <button type="button" id="btn">Gerar serial</button>
+    <p id="err" class="err" hidden></p>
+
+    <div id="out" class="out" hidden>
+      <strong id="tierLabel"></strong>
+      <p id="hint" style="margin: 0.35rem 0 0; font-size: 0.85rem; color: #64748b"></p>
+      <code id="serial"></code>
+      <button type="button" id="copy" style="margin-top: 0.75rem">Copiar serial</button>
+    </div>
+
+    <script>
+      const hwid = document.getElementById('hwid');
+      const tier = document.getElementById('tier');
+      const customer = document.getElementById('customer');
+      const expires = document.getElementById('expires');
+      const btn = document.getElementById('btn');
+      const err = document.getElementById('err');
+      const out = document.getElementById('out');
+      const serialEl = document.getElementById('serial');
+      const tierLabel = document.getElementById('tierLabel');
+      const hint = document.getElementById('hint');
+      const copyBtn = document.getElementById('copy');
+      let lastSerial = '';
+
+      btn.addEventListener('click', async () => {
+        err.hidden = true;
+        out.hidden = true;
+        btn.disabled = true;
+        try {
+          const result = await window.licenseGen.generate({
+            hwid: hwid.value,
+            tier: tier.value,
+            customer: customer.value || undefined,
+            expiresAt: expires.value ? expires.value + 'T23:59:59Z' : null,
+          });
+          lastSerial = result.serial;
+          tierLabel.textContent = result.tierLabel + ' — ' + result.maxPlayers + ' players';
+          hint.textContent = 'Grave em config/license.key no mini PC ou cole em Definições → Licença.';
+          serialEl.textContent = result.display;
+          out.hidden = false;
+        } catch (e) {
+          err.textContent = e.message || String(e);
+          err.hidden = false;
+        } finally {
+          btn.disabled = false;
+        }
+      });
+
+      copyBtn.addEventListener('click', async () => {
+        if (!lastSerial) return;
+        await navigator.clipboard.writeText(lastSerial);
+        copyBtn.textContent = 'Copiado!';
+        setTimeout(() => (copyBtn.textContent = 'Copiar serial'), 1500);
+      });
+    </script>
+  </body>
+</html>

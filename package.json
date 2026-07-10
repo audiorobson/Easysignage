@@ -8,6 +8,8 @@
     "docker:compose": "docker compose up --build",
     "docker:compose:detached": "docker compose up --build -d",
     "prisma:generate": "pnpm --filter @easysignage/api exec prisma generate",
+    "license:hwid": "node deploy/hwid/generate-hwid.mjs",
+    "license:gen-keys": "node deploy/keys/generate-dev-keys.mjs",
     "build": "turbo run build",
     "dev": "turbo run dev",
     "start": "turbo run start --filter=@easysignage/api --filter=@easysignage/cms",

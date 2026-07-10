@@ -8,9 +8,11 @@ WORKDIR /app
 FROM base AS builder
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY packages/shared-types ./packages/shared-types
+COPY packages/license-core ./packages/license-core
 COPY packages/device-protocol ./packages/device-protocol
 COPY apps/api ./apps/api
 RUN pnpm install --frozen-lockfile
+RUN pnpm --filter @easysignage/license-core build
 RUN pnpm --filter @easysignage/api build
 RUN pnpm --filter @easysignage/api deploy --prod /out
 

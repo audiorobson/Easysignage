@@ -23,6 +23,7 @@ import {
   type ContentDisplay,
 } from '@easysignage/shared-types';
 import { VideoWallsService } from '../video-walls/video-walls.service';
+import { LicenseService } from '../license/license.service';
 
 const PAIRING_TTL_MS = 30 * 60 * 1000;
 
@@ -92,7 +93,8 @@ function maskDevice(d: {
 export class DevicesService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly videoWalls: VideoWallsService
+    private readonly videoWalls: VideoWallsService,
+    private readonly license: LicenseService
   ) {}
 
   async list(tenantId: string, filters: DeviceListFilters = {}) {
@@ -742,6 +744,8 @@ export class DevicesService {
     if (!device) {
       throw new BadRequestException('Código inválido ou expirado');
     }
+
+    await this.license.assertCanPairAnotherDevice();
 
     const rawToken = generateDeviceToken();
     const tokenHash = hashToken(rawToken);

@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@easysignage/device-protocol": "workspace:*",
+    "@easysignage/license-core": "workspace:*",
     "@easysignage/shared-types": "workspace:*",
     "@fastify/multipart": "^8.3.0",
     "@fastify/static": "^7.0.4",

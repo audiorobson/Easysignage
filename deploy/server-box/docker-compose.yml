@@ -1,0 +1,64 @@
+# EasySignage Server Box — pacote para mini PC (LAN)
+# Pré-requisitos: Docker Desktop (Windows) ou Docker Engine (Linux)
+#
+# 1. Copie .env.example para .env e ajuste JWT_SECRET
+# 2. Execute install.ps1 (Windows) ou install.sh (Linux) na raiz desta pasta
+# 3. docker compose up -d
+# 4. CMS: http://localhost:3000 — copie o Hardware ID em Definições → Licença
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-easysignage}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+      POSTGRES_DB: ${POSTGRES_DB:-easysignage}
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-easysignage} -d ${POSTGRES_DB:-easysignage}']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  api:
+    image: easysignage-api:local
+    build:
+      context: ../..
+      dockerfile: docker/api.Dockerfile
+    ports:
+      - '3001:3001'
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-easysignage}:${POSTGRES_PASSWORD:-changeme}@postgres:5432/${POSTGRES_DB:-easysignage}
+      PORT: '3001'
+      JWT_SECRET: ${JWT_SECRET:?defina JWT_SECRET no .env}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
+      CMS_ORIGIN: ${CMS_ORIGIN:-http://localhost:3000}
+      SWAGGER: '0'
+      EASYSIGNAGE_HARDWARE_ID_FILE: /config/hardware.id
+      EASYSIGNAGE_LICENSE_FILE: /config/license.key
+    volumes:
+      - ./data/uploads:/app/uploads
+      - ./config:/config:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  cms:
+    image: easysignage-cms:local
+    build:
+      context: ../..
+      dockerfile: docker/cms.Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3001/api/v1}
+    ports:
+      - '3000:3000'
+    environment:
+      NODE_ENV: production
+    depends_on:
+      - api
+    restart: unless-stopped
+
+volumes: {}

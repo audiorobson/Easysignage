@@ -14,3 +14,7 @@ Thumbs.db
 apps/api/uploads
 apps/api/src/generated/prisma-client
 deploy-test
+deploy/keys/*.pem
+!deploy/keys/.gitkeep
+config/hardware.id
+config/license.key

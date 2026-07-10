@@ -34,6 +34,10 @@ services:
       CORS_ORIGINS: http://localhost:3000,http://127.0.0.1:3000,http://localhost:3010,http://127.0.0.1:3010
       CMS_ORIGIN: http://localhost:3000
       SWAGGER: "0"
+      EASYSIGNAGE_HARDWARE_ID_FILE: /config/hardware.id
+      EASYSIGNAGE_LICENSE_FILE: /config/license.key
+    volumes:
+      - ./config:/config:ro
     depends_on:
       postgres:
         condition: service_healthy

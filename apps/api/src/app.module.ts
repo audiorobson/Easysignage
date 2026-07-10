@@ -17,11 +17,13 @@ import { VideoWallsModule } from './video-walls/video-walls.module';
 import { RealtimeModule } from './realtime/realtime.module';
 import { CampaignsModule } from './campaigns/campaigns.module';
 import { AlertsModule } from './alerts/alerts.module';
+import { LicenseModule } from './license/license.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     PrismaModule,
+    LicenseModule,
     RealtimeModule,
     AuthModule,
     SitesModule,
