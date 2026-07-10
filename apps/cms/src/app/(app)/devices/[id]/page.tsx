@@ -4,12 +4,14 @@ import Link from 'next/link';
 import { useSearchParams, useParams } from 'next/navigation';
 import { useCallback, useEffect, useState, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Copy, ExternalLink, Trash2 } from 'lucide-react';
+import { ArrowLeft, Copy, ExternalLink, LayoutGrid, Trash2 } from 'lucide-react';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { ConnectionPill, StatusPill } from '@/components/ui/StatusPill';
 import { PublicationSyncBadge } from '@/components/ui/StatusBadge';
-import { deviceState, platformLabel, PLATFORM_OPTIONS } from '@/lib/device-labels';
+import { deviceState, displayOrientationLabel, platformLabel, PLATFORM_OPTIONS } from '@/lib/device-labels';
+import { DISPLAY_ORIENTATIONS, VIEWPORT_PRESETS, CONTENT_FIT_MODES, contentFitLabelPt, DEFAULT_CONTENT_FIT, layoutZoneStyle, type LayoutTemplateZone, type ContentFitMode } from '@easysignage/shared-types';
+import { buildDisplayBody, displayFromJson, sortZonesForCanvas, zoneColor } from '@/lib/layout-editor';
 import { api, getToken } from '@/lib/api';
 import { formatDateTimePtBr } from '@/lib/format-date';
 import { webPlayerPairingUrl } from '@/lib/player-url';
@@ -26,11 +28,27 @@ type DeviceMask = {
   lastSeenAt: string | null;
   pairingExpiresAt: string | null;
   wakeMac?: string | null;
+  viewportWidth?: number;
+  viewportHeight?: number;
+  displayOrientation?: string;
 };
 
 type AssetOption = { id: string; name: string };
 
 type PlaylistOption = { id: string; name: string; itemCount?: number };
+
+type DeviceLayoutRow = {
+  id: string;
+  templateId: string;
+  name: string | null;
+  revision: string;
+  zonesJson: {
+    zoneId: string;
+    source: { type: string; playlistId?: string; assetId?: string } | null;
+    display?: { fit?: string; targetWidth?: number; targetHeight?: number };
+  }[];
+  template: { id: string; slug: string; name: string; zonesJson: LayoutTemplateZone[] };
+};
 
 type PublicationRow = {
   id: string;
@@ -69,9 +87,26 @@ type AdminStatePayload = {
   } | null;
 };
 
+type DeviceTab = 'resumo' | 'ecra' | 'conteudo' | 'cadastro';
+
+const DEVICE_TABS: { id: DeviceTab; label: string; hint?: string }[] = [
+  { id: 'resumo', label: 'Resumo' },
+  { id: 'ecra', label: 'Ecrã & Layout', hint: 'Novo' },
+  { id: 'conteudo', label: 'Conteúdo' },
+  { id: 'cadastro', label: 'Cadastro' },
+];
+
 function DeviceDetailInner({ id }: { id: string }) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const tabFromQuery = searchParams.get('tab');
+  const initialTab: DeviceTab =
+    tabFromQuery === 'resumo' ||
+    tabFromQuery === 'ecra' ||
+    tabFromQuery === 'conteudo' ||
+    tabFromQuery === 'cadastro'
+      ? tabFromQuery
+      : 'ecra';
   const pairingFromQuery = searchParams.get('pairing');
   const pairingExp = searchParams.get('exp');
 
@@ -106,10 +141,24 @@ function DeviceDetailInner({ id }: { id: string }) {
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [pairSuccess, setPairSuccess] = useState(false);
   const [copyMsg, setCopyMsg] = useState<string | null>(null);
+  const [vpWidth, setVpWidth] = useState(1920);
+  const [vpHeight, setVpHeight] = useState(1080);
+  const [vpOrientation, setVpOrientation] = useState('landscape');
+  const [vpPreset, setVpPreset] = useState('custom');
+  const [savingViewport, setSavingViewport] = useState(false);
+  const [deviceLayout, setDeviceLayout] = useState<DeviceLayoutRow | null>(null);
+  const [contentFit, setContentFit] = useState<ContentFitMode>(DEFAULT_CONTENT_FIT);
+  const [contentTargetW, setContentTargetW] = useState('');
+  const [contentTargetH, setContentTargetH] = useState('');
+  const [deviceTab, setDeviceTab] = useState<DeviceTab>(initialTab);
 
   const load = useCallback(async () => {
-    const data = await api<AdminStatePayload>(`/devices/${id}/state`);
+    const [data, layout] = await Promise.all([
+      api<AdminStatePayload>(`/devices/${id}/state`),
+      api<DeviceLayoutRow | null>(`/devices/${id}/layout`).catch(() => null),
+    ]);
     setPayload(data);
+    setDeviceLayout(layout);
   }, [id]);
 
   const loadPublications = useCallback(async () => {
@@ -195,7 +244,18 @@ function DeviceDetailInner({ id }: { id: string }) {
   useEffect(() => {
     const raw = payload?.state?.currentItemJson;
     if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return;
-    const obj = raw as { type?: string; assetId?: string; playlistId?: string };
+    const obj = raw as {
+      type?: string;
+      assetId?: string;
+      playlistId?: string;
+      display?: unknown;
+    };
+    if (obj.display) {
+      const d = displayFromJson(obj.display);
+      setContentFit(d.fit);
+      setContentTargetW(d.targetWidth);
+      setContentTargetH(d.targetHeight);
+    }
     if (obj.type === 'playlist' && typeof obj.playlistId === 'string') {
       setContentMode('playlist');
       setSelectedPlaylistId(obj.playlistId);
@@ -237,6 +297,10 @@ function DeviceDetailInner({ id }: { id: string }) {
     setEditPlatform(device.platform || 'unknown');
     setEditStatus(device.status);
     setEditWakeMac(device.wakeMac ?? '');
+    setVpWidth(device.viewportWidth ?? 1920);
+    setVpHeight(device.viewportHeight ?? 1080);
+    setVpOrientation(device.displayOrientation ?? 'landscape');
+    setVpPreset('custom');
   }, [
     device?.id,
     device?.name,
@@ -244,7 +308,30 @@ function DeviceDetailInner({ id }: { id: string }) {
     device?.platform,
     device?.status,
     device?.wakeMac,
+    device?.viewportWidth,
+    device?.viewportHeight,
+    device?.displayOrientation,
   ]);
+
+  async function saveViewport() {
+    setSavingViewport(true);
+    setError(null);
+    try {
+      await api(`/devices/${id}/viewport`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          viewportWidth: vpWidth,
+          viewportHeight: vpHeight,
+          displayOrientation: vpOrientation,
+        }),
+      });
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erro');
+    } finally {
+      setSavingViewport(false);
+    }
+  }
 
   async function assignTestContent() {
     if (contentMode === 'asset' && !selectedAssetId) return;
@@ -252,10 +339,15 @@ function DeviceDetailInner({ id }: { id: string }) {
     setAssigning(true);
     setError(null);
     try {
+      const display = buildDisplayBody({
+        fit: contentFit,
+        targetWidth: contentTargetW,
+        targetHeight: contentTargetH,
+      });
       const body =
         contentMode === 'asset'
-          ? { assetId: selectedAssetId }
-          : { playlistId: selectedPlaylistId };
+          ? { assetId: selectedAssetId, display }
+          : { playlistId: selectedPlaylistId, display };
       await api(`/devices/${id}/test-content`, {
         method: 'PATCH',
         body: JSON.stringify(body),
@@ -275,10 +367,15 @@ function DeviceDetailInner({ id }: { id: string }) {
     setPublishing(true);
     setError(null);
     try {
-      const body: Record<string, string> =
+      const display = buildDisplayBody({
+        fit: contentFit,
+        targetWidth: contentTargetW,
+        targetHeight: contentTargetH,
+      });
+      const body: Record<string, unknown> =
         contentMode === 'asset'
-          ? { assetId: selectedAssetId }
-          : { playlistId: selectedPlaylistId };
+          ? { assetId: selectedAssetId, display }
+          : { playlistId: selectedPlaylistId, display };
       const label = publishLabel.trim();
       if (label) body.label = label;
       await api(`/devices/${id}/publish`, {
@@ -373,8 +470,8 @@ function DeviceDetailInner({ id }: { id: string }) {
   return (
     <>
       <PageHeader
-        title="Dispositivo"
-        lead="Detalhe, emparelhamento, conteúdo de teste e histórico de publicações."
+        title={device?.name ?? 'Dispositivo'}
+        lead="Viewport, layouts multi-zona, fit de conteúdo, pareamento e publicações."
         actions={
           <>
             {device && (
@@ -402,7 +499,37 @@ function DeviceDetailInner({ id }: { id: string }) {
         {!device && !error && <p className="text-muted">A carregar…</p>}
         {device && payload && (
           <>
-            {pairSuccess && (
+            <nav
+              className="filter-pills"
+              style={{ marginBottom: 'var(--space-6)' }}
+              aria-label="Secções do dispositivo"
+            >
+              {DEVICE_TABS.map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  aria-pressed={deviceTab === tab.id}
+                  className={deviceTab === tab.id ? 'is-active' : undefined}
+                  onClick={() => setDeviceTab(tab.id)}
+                >
+                  {tab.label}
+                  {tab.hint ? (
+                    <span
+                      style={{
+                        marginLeft: 6,
+                        fontSize: 10,
+                        fontWeight: 700,
+                        color: 'var(--color-primary-600, #2563eb)',
+                      }}
+                    >
+                      {tab.hint}
+                    </span>
+                  ) : null}
+                </button>
+              ))}
+            </nav>
+
+            {deviceTab === 'resumo' && pairSuccess && (
               <p
                 className="surface-card"
                 style={{
@@ -416,6 +543,8 @@ function DeviceDetailInner({ id }: { id: string }) {
               </p>
             )}
 
+            {deviceTab === 'resumo' && (
+              <>
             {(pairing || device.status === 'provisioned') && (
               <section
                 className="surface-card"
@@ -526,16 +655,292 @@ function DeviceDetailInner({ id }: { id: string }) {
               </dd>
             </dl>
 
+            <section style={{ marginTop: 'var(--space-8)' }}>
+              <h2 style={{ fontSize: 'var(--text-md)', fontWeight: 600, margin: '0 0 var(--space-3)' }}>
+                Estado operacional
+              </h2>
+              {payload.lastHeartbeat && (
+                <dl className="dl-grid" style={{ marginBottom: 'var(--space-4)' }}>
+                  <dt>Último heartbeat (registro)</dt>
+                  <dd>
+                    {formatDateTimePtBr(payload.lastHeartbeat.receivedAt)}
+                    {payload.lastHeartbeat.appVersion != null && (
+                      <span className="text-muted"> — app {payload.lastHeartbeat.appVersion}</span>
+                    )}
+                  </dd>
+                </dl>
+              )}
+              {payload.state && (
+                <dl className="dl-grid">
+                  {payload.state.expectedPublicationVersion != null && (
+                    <>
+                      <dt>Sincronização de publicação</dt>
+                      <dd>
+                        <PublicationSyncBadge
+                          synced={payload.state.publicationSynced}
+                          expectedVersion={payload.state.expectedPublicationVersion}
+                          appliedVersion={payload.state.appliedPublicationVersion}
+                        />
+                      </dd>
+                    </>
+                  )}
+                  {payload.state.appliedContentRevision && (
+                    <>
+                      <dt>Revisão de conteúdo (ack)</dt>
+                      <dd>
+                        <code style={{ fontSize: 12 }}>
+                          {payload.state.appliedContentRevision}
+                        </code>
+                        {payload.state.appliedAt && (
+                          <span className="text-muted">
+                            {' '}
+                            — {formatDateTimePtBr(payload.state.appliedAt)}
+                          </span>
+                        )}
+                      </dd>
+                    </>
+                  )}
+                  {payload.state.currentItemJson != null && (
+                    <>
+                      <dt>Conteúdo ativo</dt>
+                      <dd>
+                        <code style={{ fontSize: 12 }}>
+                          {JSON.stringify(payload.state.currentItemJson)}
+                        </code>
+                      </dd>
+                    </>
+                  )}
+                  {payload.state.lastSyncAt && (
+                    <>
+                      <dt>Última sincronização</dt>
+                      <dd>{formatDateTimePtBr(payload.state.lastSyncAt)}</dd>
+                    </>
+                  )}
+                  {payload.state.previewSnapshotAt && (
+                    <>
+                      <dt>Última pré-visualização (CMS)</dt>
+                      <dd>{formatDateTimePtBr(payload.state.previewSnapshotAt)}</dd>
+                    </>
+                  )}
+                  {payload.state.storageFreeMb != null && (
+                    <>
+                      <dt>Armazenamento livre</dt>
+                      <dd>{payload.state.storageFreeMb} MB</dd>
+                    </>
+                  )}
+                  {payload.state.cpuPercent != null && (
+                    <>
+                      <dt>CPU</dt>
+                      <dd>{payload.state.cpuPercent}%</dd>
+                    </>
+                  )}
+                  {payload.state.memoryPercent != null && (
+                    <>
+                      <dt>Memória</dt>
+                      <dd>{payload.state.memoryPercent}%</dd>
+                    </>
+                  )}
+                  {payload.state.networkStatus && (
+                    <>
+                      <dt>Rede</dt>
+                      <dd>{payload.state.networkStatus}</dd>
+                    </>
+                  )}
+                </dl>
+              )}
+              {!payload.lastHeartbeat &&
+                (!payload.state ||
+                  (!payload.state.lastSyncAt &&
+                    payload.state.storageFreeMb == null &&
+                    !payload.state.cpuPercent &&
+                    !payload.state.memoryPercent &&
+                    !payload.state.networkStatus)) && (
+                <p className="text-muted">Sem telemetria detalhada ainda (após pairing e heartbeats).</p>
+              )}
+            </section>
+              </>
+            )}
+
+            {deviceTab === 'ecra' && (
+              <>
             <section
               className="surface-form-card"
-              style={{ marginTop: 'var(--space-8)', maxWidth: 520 }}
+              style={{ marginTop: 'var(--space-2)', maxWidth: 560 }}
+            >
+              <h2 style={{ fontSize: 'var(--text-md)', fontWeight: 600, margin: '0 0 var(--space-2)' }}>
+                Ecrã (viewport)
+              </h2>
+              <p className="text-muted" style={{ marginTop: 0, marginBottom: 'var(--space-4)' }}>
+                Resolução lógica e orientação aplicadas pelo player. Base para layouts multi-zona.
+              </p>
+              <label className="field">
+                <span>Predefinição</span>
+                <select
+                  className="select"
+                  value={vpPreset}
+                  onChange={(e) => {
+                    const id = e.target.value;
+                    setVpPreset(id);
+                    const preset = VIEWPORT_PRESETS.find((p) => p.id === id);
+                    if (preset) {
+                      setVpWidth(preset.width);
+                      setVpHeight(preset.height);
+                      setVpOrientation(preset.orientation);
+                    }
+                  }}
+                >
+                  <option value="custom">Personalizado</option>
+                  {VIEWPORT_PRESETS.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div style={{ display: 'flex', gap: 'var(--space-4)', flexWrap: 'wrap' }}>
+                <label className="field" style={{ flex: '1 1 140px' }}>
+                  <span>Largura (px)</span>
+                  <input
+                    type="number"
+                    className="input"
+                    min={320}
+                    max={7680}
+                    value={vpWidth}
+                    onChange={(e) => {
+                      setVpPreset('custom');
+                      setVpWidth(Number(e.target.value));
+                    }}
+                  />
+                </label>
+                <label className="field" style={{ flex: '1 1 140px' }}>
+                  <span>Altura (px)</span>
+                  <input
+                    type="number"
+                    className="input"
+                    min={320}
+                    max={7680}
+                    value={vpHeight}
+                    onChange={(e) => {
+                      setVpPreset('custom');
+                      setVpHeight(Number(e.target.value));
+                    }}
+                  />
+                </label>
+              </div>
+              <label className="field">
+                <span>Orientação</span>
+                <select
+                  className="select"
+                  value={vpOrientation}
+                  onChange={(e) => {
+                    setVpPreset('custom');
+                    setVpOrientation(e.target.value);
+                  }}
+                >
+                  {DISPLAY_ORIENTATIONS.map((o) => (
+                    <option key={o} value={o}>
+                      {displayOrientationLabel(o)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div
+                className="surface-card"
+                style={{
+                  padding: 'var(--space-4)',
+                  marginBottom: 'var(--space-4)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  minHeight: 120,
+                  background: 'var(--color-surface-muted)',
+                }}
+              >
+                <div
+                  style={{
+                    width: Math.min(160, (vpWidth / vpHeight) * 90),
+                    height: Math.min(90, (vpHeight / vpWidth) * 160),
+                    maxWidth: '100%',
+                    border: '2px solid var(--color-primary-500, #2563eb)',
+                    borderRadius: 4,
+                    transform:
+                      vpOrientation === 'portrait' || vpOrientation === 'portrait_flipped'
+                        ? 'rotate(90deg)'
+                        : undefined,
+                  }}
+                  title={`${vpWidth}×${vpHeight}`}
+                />
+              </div>
+              <button
+                type="button"
+                className="btn btn--primary"
+                disabled={savingViewport}
+                onClick={() => void saveViewport()}
+              >
+                {savingViewport ? 'A guardar…' : 'Guardar ecrã'}
+              </button>
+            </section>
+
+            <section
+              className="surface-form-card"
+              style={{ marginTop: 'var(--space-8)', maxWidth: 640 }}
+            >
+              <h2 style={{ fontSize: 'var(--text-md)', fontWeight: 600, margin: '0 0 var(--space-2)' }}>
+                Layout multi-zona
+              </h2>
+              <p className="text-muted" style={{ marginTop: 0, marginBottom: 'var(--space-4)' }}>
+                Configure templates, playlists por zona e modo de exibição no editor visual.
+              </p>
+              {deviceLayout?.template ? (
+                <div
+                  className="layout-editor__canvas-wrap"
+                  style={{ aspectRatio: '16/9', maxWidth: 360, marginBottom: 'var(--space-4)' }}
+                >
+                  <div className="layout-editor__canvas">
+                    {sortZonesForCanvas(deviceLayout.template.zonesJson).map((z, i) => (
+                      <div
+                        key={z.zoneId}
+                        className="layout-editor__zone has-content"
+                        style={{
+                          ...layoutZoneStyle(z.frame),
+                          ['--zone-color' as string]: zoneColor(i),
+                          pointerEvents: 'none',
+                        }}
+                      >
+                        <span className="layout-editor__zone-label">{z.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+              {deviceLayout ? (
+                <p className="text-muted" style={{ marginTop: 0, marginBottom: 'var(--space-4)' }}>
+                  Ativo: <code>{deviceLayout.template.slug}</code> (rev. {deviceLayout.revision})
+                </p>
+              ) : (
+                <p className="text-muted" style={{ marginTop: 0, marginBottom: 'var(--space-4)' }}>
+                  Nenhum layout guardado neste dispositivo.
+                </p>
+              )}
+              <Link href={`/devices/${id}/layout`} className="btn btn--primary">
+                <LayoutGrid strokeWidth={2} aria-hidden />
+                Abrir editor visual de zonas
+              </Link>
+            </section>
+              </>
+            )}
+
+            {deviceTab === 'cadastro' && (
+            <section
+              className="surface-form-card"
+              style={{ marginTop: 'var(--space-2)', maxWidth: 520 }}
             >
               <h2 style={{ fontSize: 'var(--text-md)', fontWeight: 600, margin: '0 0 var(--space-4)' }}>
                 Editar cadastro
               </h2>
               <p className="text-muted" style={{ marginTop: 0, marginBottom: 'var(--space-4)' }}>
-                Nome, site, plataforma e estado cadastral. Para voltar a emparelhar o player no terminal, use
-                a secção <strong>Pareamento</strong> abaixo.
+                Nome, site, plataforma e estado cadastral. Para emparelhar o player, use a aba{' '}
+                <strong>Resumo</strong>.
               </p>
               <label className="field">
                 <span>Nome</span>
@@ -618,112 +1023,11 @@ function DeviceDetailInner({ id }: { id: string }) {
                 {savingEdit ? 'A guardar…' : 'Guardar alterações'}
               </button>
             </section>
+            )}
 
-            <section style={{ marginTop: 'var(--space-8)' }}>
-              <h2 style={{ fontSize: 'var(--text-md)', fontWeight: 600, margin: '0 0 var(--space-3)' }}>
-                Estado operacional
-              </h2>
-              {payload.lastHeartbeat && (
-                <dl className="dl-grid" style={{ marginBottom: 'var(--space-4)' }}>
-                  <dt>Último heartbeat (registro)</dt>
-                  <dd>
-                    {formatDateTimePtBr(payload.lastHeartbeat.receivedAt)}
-                    {payload.lastHeartbeat.appVersion != null && (
-                      <span className="text-muted"> — app {payload.lastHeartbeat.appVersion}</span>
-                    )}
-                  </dd>
-                </dl>
-              )}
-              {payload.state && (
-                <dl className="dl-grid">
-                  {payload.state.expectedPublicationVersion != null && (
-                    <>
-                      <dt>Sincronização de publicação</dt>
-                      <dd>
-                        <PublicationSyncBadge
-                          synced={payload.state.publicationSynced}
-                          expectedVersion={payload.state.expectedPublicationVersion}
-                          appliedVersion={payload.state.appliedPublicationVersion}
-                        />
-                      </dd>
-                    </>
-                  )}
-                  {payload.state.appliedContentRevision && (
-                    <>
-                      <dt>Revisão de conteúdo (ack)</dt>
-                      <dd>
-                        <code style={{ fontSize: 12 }}>
-                          {payload.state.appliedContentRevision}
-                        </code>
-                        {payload.state.appliedAt && (
-                          <span className="text-muted">
-                            {' '}
-                            — {formatDateTimePtBr(payload.state.appliedAt)}
-                          </span>
-                        )}
-                      </dd>
-                    </>
-                  )}
-                  {payload.state.currentItemJson != null && (
-                    <>
-                      <dt>Conteúdo (teste)</dt>
-                      <dd>
-                        <code style={{ fontSize: 12 }}>
-                          {JSON.stringify(payload.state.currentItemJson)}
-                        </code>
-                      </dd>
-                    </>
-                  )}
-                  {payload.state.lastSyncAt && (
-                    <>
-                      <dt>Última sincronização</dt>
-                      <dd>{formatDateTimePtBr(payload.state.lastSyncAt)}</dd>
-                    </>
-                  )}
-                  {payload.state.previewSnapshotAt && (
-                    <>
-                      <dt>Última pré-visualização (CMS)</dt>
-                      <dd>{formatDateTimePtBr(payload.state.previewSnapshotAt)}</dd>
-                    </>
-                  )}
-                  {payload.state.storageFreeMb != null && (
-                    <>
-                      <dt>Armazenamento livre</dt>
-                      <dd>{payload.state.storageFreeMb} MB</dd>
-                    </>
-                  )}
-                  {payload.state.cpuPercent != null && (
-                    <>
-                      <dt>CPU</dt>
-                      <dd>{payload.state.cpuPercent}%</dd>
-                    </>
-                  )}
-                  {payload.state.memoryPercent != null && (
-                    <>
-                      <dt>Memória</dt>
-                      <dd>{payload.state.memoryPercent}%</dd>
-                    </>
-                  )}
-                  {payload.state.networkStatus && (
-                    <>
-                      <dt>Rede</dt>
-                      <dd>{payload.state.networkStatus}</dd>
-                    </>
-                  )}
-                </dl>
-              )}
-              {!payload.lastHeartbeat &&
-                (!payload.state ||
-                  (!payload.state.lastSyncAt &&
-                    payload.state.storageFreeMb == null &&
-                    !payload.state.cpuPercent &&
-                    !payload.state.memoryPercent &&
-                    !payload.state.networkStatus)) && (
-                <p className="text-muted">Sem telemetria detalhada ainda (após pairing e heartbeats).</p>
-              )}
-            </section>
-
-            <section style={{ marginTop: 'var(--space-8)' }}>
+            {deviceTab === 'conteudo' && (
+              <>
+            <section style={{ marginTop: 'var(--space-2)' }}>
               <h2 style={{ fontSize: 'var(--text-md)', fontWeight: 600, margin: '0 0 var(--space-3)' }}>
                 Conteúdo de teste (player)
               </h2>
@@ -761,6 +1065,51 @@ function DeviceDetailInner({ id }: { id: string }) {
                       onChange={() => setContentMode('playlist')}
                     />
                     Playlist
+                  </label>
+                </div>
+              </div>
+              <div
+                className="surface-form-card"
+                style={{ marginBottom: 'var(--space-4)', maxWidth: 480, padding: 'var(--space-4)' }}
+              >
+                <label className="field">
+                  <span>Modo de exibição (fit)</span>
+                  <select
+                    className="select"
+                    value={contentFit}
+                    onChange={(e) => setContentFit(e.target.value as ContentFitMode)}
+                  >
+                    {CONTENT_FIT_MODES.map((f) => (
+                      <option key={f} value={f}>
+                        {contentFitLabelPt(f)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <div style={{ display: 'flex', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
+                  <label className="field" style={{ flex: '1 1 140px' }}>
+                    <span>Largura alvo (px)</span>
+                    <input
+                      type="number"
+                      className="input"
+                      min={1}
+                      max={7680}
+                      placeholder="Opcional"
+                      value={contentTargetW}
+                      onChange={(e) => setContentTargetW(e.target.value)}
+                    />
+                  </label>
+                  <label className="field" style={{ flex: '1 1 140px' }}>
+                    <span>Altura alvo (px)</span>
+                    <input
+                      type="number"
+                      className="input"
+                      min={1}
+                      max={7680}
+                      placeholder="Opcional"
+                      value={contentTargetH}
+                      onChange={(e) => setContentTargetH(e.target.value)}
+                    />
                   </label>
                 </div>
               </div>
@@ -913,6 +1262,8 @@ function DeviceDetailInner({ id }: { id: string }) {
                 </div>
               )}
             </section>
+              </>
+            )}
 
           </>
         )}

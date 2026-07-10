@@ -12,11 +12,15 @@ import { SitesModule } from './sites/sites.module';
 import { GroupsModule } from './groups/groups.module';
 import { SchedulesModule } from './schedules/schedules.module';
 import { MonitoringModule } from './monitoring/monitoring.module';
+import { LayoutTemplatesModule } from './layout-templates/layout-templates.module';
+import { VideoWallsModule } from './video-walls/video-walls.module';
+import { RealtimeModule } from './realtime/realtime.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     PrismaModule,
+    RealtimeModule,
     AuthModule,
     SitesModule,
     AssetsModule,
@@ -25,6 +29,8 @@ import { MonitoringModule } from './monitoring/monitoring.module';
     GroupsModule,
     SchedulesModule,
     MonitoringModule,
+    LayoutTemplatesModule,
+    VideoWallsModule,
     PublicModule,
     DeviceApiModule,
   ],

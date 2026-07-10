@@ -4,6 +4,8 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { DevicesService } from '../devices/devices.service';
+import { VideoWallsService } from '../video-walls/video-walls.service';
 import { CreateScheduleRuleDto } from './dto/create-schedule-rule.dto';
 import { UpdateScheduleRuleDto } from './dto/update-schedule-rule.dto';
 import { ScheduleEngineService } from './schedule-engine.service';
@@ -20,11 +22,40 @@ function assertTimeRange(startMin: number, endMin: number) {
   }
 }
 
+export type ScheduleContentPayload = {
+  playlistId: string | null;
+  layoutId: string | null;
+  videoWallId: string | null;
+};
+
+function resolveContentPayload(dto: {
+  playlistId?: string | null;
+  layoutId?: string | null;
+  videoWallId?: string | null;
+}): ScheduleContentPayload {
+  const hasPlaylist = dto.playlistId != null && dto.playlistId !== '';
+  const hasLayout = dto.layoutId != null && dto.layoutId !== '';
+  const hasWall = dto.videoWallId != null && dto.videoWallId !== '';
+  const modes = [hasPlaylist, hasLayout, hasWall].filter(Boolean).length;
+  if (modes !== 1) {
+    throw new BadRequestException(
+      'Informe exatamente um de: playlistId, layoutId ou videoWallId'
+    );
+  }
+  return {
+    playlistId: hasPlaylist ? dto.playlistId! : null,
+    layoutId: hasLayout ? dto.layoutId! : null,
+    videoWallId: hasWall ? dto.videoWallId! : null,
+  };
+}
+
 @Injectable()
 export class SchedulesService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly scheduleEngine: ScheduleEngineService
+    private readonly scheduleEngine: ScheduleEngineService,
+    private readonly devices: DevicesService,
+    private readonly videoWalls: VideoWallsService
   ) {}
 
   async list(tenantId: string) {
@@ -33,6 +64,14 @@ export class SchedulesService {
       orderBy: [{ priority: 'desc' }, { dayOfWeek: 'asc' }, { startMin: 'asc' }],
       include: {
         playlist: { select: { id: true, name: true } },
+        layout: {
+          select: {
+            id: true,
+            name: true,
+            template: { select: { slug: true, name: true } },
+          },
+        },
+        videoWall: { select: { id: true, name: true } },
         device: { select: { id: true, name: true } },
         group: { select: { id: true, name: true } },
       },
@@ -45,6 +84,14 @@ export class SchedulesService {
       where: { id, tenantId },
       include: {
         playlist: { select: { id: true, name: true } },
+        layout: {
+          select: {
+            id: true,
+            name: true,
+            template: { select: { slug: true, name: true } },
+          },
+        },
+        videoWall: { select: { id: true, name: true } },
         device: { select: { id: true, name: true } },
         group: { select: { id: true, name: true } },
       },
@@ -56,13 +103,22 @@ export class SchedulesService {
   async create(tenantId: string, dto: CreateScheduleRuleDto) {
     this.assertScope(dto.scope, dto.deviceId, dto.groupId);
     assertTimeRange(dto.startMin, dto.endMin);
-    await this.ensureRefs(tenantId, dto.playlistId, dto.scope, dto.deviceId, dto.groupId);
+    const content = resolveContentPayload(dto);
+    await this.ensureContentRefs(
+      tenantId,
+      content,
+      dto.scope,
+      dto.deviceId,
+      dto.groupId
+    );
 
     const row = await this.prisma.scheduleRule.create({
       data: {
         tenantId,
         name: dto.name?.trim() || null,
-        playlistId: dto.playlistId,
+        playlistId: content.playlistId,
+        layoutId: content.layoutId,
+        videoWallId: content.videoWallId,
         scope: dto.scope,
         deviceId: dto.scope === 'device' ? dto.deviceId! : null,
         groupId: dto.scope === 'group' ? dto.groupId! : null,
@@ -72,11 +128,7 @@ export class SchedulesService {
         priority: dto.priority ?? 0,
         enabled: dto.enabled ?? true,
       },
-      include: {
-        playlist: { select: { id: true, name: true } },
-        device: { select: { id: true, name: true } },
-        group: { select: { id: true, name: true } },
-      },
+      include: this.ruleInclude(),
     });
     const out = this.toRow(row);
     await this.scheduleEngine.applyForRuleScope(
@@ -95,7 +147,6 @@ export class SchedulesService {
     if (!existing) throw new NotFoundException('Regra não encontrada');
 
     const scope = (dto.scope ?? existing.scope) as 'device' | 'group';
-    const playlistId = dto.playlistId ?? existing.playlistId;
 
     let deviceId: string | null;
     let groupId: string | null;
@@ -118,7 +169,24 @@ export class SchedulesService {
     }
 
     this.assertScope(scope, deviceId ?? undefined, groupId ?? undefined);
-    await this.ensureRefs(tenantId, playlistId, scope, deviceId ?? undefined, groupId ?? undefined);
+
+    const content = resolveContentPayload({
+      playlistId:
+        dto.playlistId !== undefined ? dto.playlistId : existing.playlistId,
+      layoutId: dto.layoutId !== undefined ? dto.layoutId : existing.layoutId,
+      videoWallId:
+        dto.videoWallId !== undefined
+          ? dto.videoWallId
+          : existing.videoWallId,
+    });
+
+    await this.ensureContentRefs(
+      tenantId,
+      content,
+      scope,
+      deviceId ?? undefined,
+      groupId ?? undefined
+    );
 
     const startMin = dto.startMin ?? existing.startMin;
     const endMin = dto.endMin ?? existing.endMin;
@@ -132,7 +200,9 @@ export class SchedulesService {
         ...(dto.name !== undefined
           ? { name: dto.name === null ? null : dto.name.trim() || null }
           : {}),
-        ...(dto.playlistId != null ? { playlistId: dto.playlistId } : {}),
+        playlistId: content.playlistId,
+        layoutId: content.layoutId,
+        videoWallId: content.videoWallId,
         scope,
         deviceId,
         groupId,
@@ -142,11 +212,7 @@ export class SchedulesService {
         ...(dto.priority != null ? { priority: dto.priority } : {}),
         ...(dto.enabled != null ? { enabled: dto.enabled } : {}),
       },
-      include: {
-        playlist: { select: { id: true, name: true } },
-        device: { select: { id: true, name: true } },
-        group: { select: { id: true, name: true } },
-      },
+      include: this.ruleInclude(),
     });
 
     const out = this.toRow(row);
@@ -185,7 +251,6 @@ export class SchedulesService {
     );
   }
 
-  /** Reaplica agenda em todos os devices do tenant (útil após migração ou testes). */
   async reapplyAll(tenantId: string) {
     const devices = await this.prisma.device.findMany({
       where: { tenantId },
@@ -196,6 +261,22 @@ export class SchedulesService {
       devices.map((d) => d.id)
     );
     return { ok: true, devices: devices.length };
+  }
+
+  private ruleInclude() {
+    return {
+      playlist: { select: { id: true, name: true } },
+      layout: {
+        select: {
+          id: true,
+          name: true,
+          template: { select: { slug: true, name: true } },
+        },
+      },
+      videoWall: { select: { id: true, name: true } },
+      device: { select: { id: true, name: true } },
+      group: { select: { id: true, name: true } },
+    } as const;
   }
 
   private assertScope(
@@ -214,18 +295,13 @@ export class SchedulesService {
     }
   }
 
-  private async ensureRefs(
+  private async ensureContentRefs(
     tenantId: string,
-    playlistId: string,
+    content: ScheduleContentPayload,
     scope: 'device' | 'group',
     deviceId?: string,
     groupId?: string
   ) {
-    const pl = await this.prisma.playlist.findFirst({
-      where: { id: playlistId, tenantId },
-    });
-    if (!pl) throw new BadRequestException('Playlist inválida');
-
     if (scope === 'device' && deviceId) {
       const d = await this.prisma.device.findFirst({
         where: { id: deviceId, tenantId },
@@ -238,13 +314,66 @@ export class SchedulesService {
       });
       if (!g) throw new BadRequestException('Grupo inválido');
     }
+
+    if (content.playlistId) {
+      const pl = await this.prisma.playlist.findFirst({
+        where: { id: content.playlistId, tenantId },
+      });
+      if (!pl) throw new BadRequestException('Playlist inválida');
+      return;
+    }
+
+    if (content.layoutId) {
+      if (scope !== 'device' || !deviceId) {
+        throw new BadRequestException(
+          'layoutId só é suportado em regras com scope=device'
+        );
+      }
+      const layout = await this.prisma.deviceLayout.findFirst({
+        where: { id: content.layoutId, tenantId, deviceId },
+      });
+      if (!layout) {
+        throw new BadRequestException(
+          'Layout inválido ou não pertence a este device'
+        );
+      }
+      try {
+        await this.devices.buildLayoutCurrentItem(tenantId, content.layoutId);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : 'Layout sem conteúdo';
+        throw new BadRequestException(msg);
+      }
+      return;
+    }
+
+    if (content.videoWallId) {
+      const wall = await this.prisma.videoWall.findFirst({
+        where: { id: content.videoWallId, tenantId },
+      });
+      if (!wall) throw new BadRequestException('Video wall inválida');
+      if (!wall.playlistId) {
+        throw new BadRequestException('Video wall sem playlist definida');
+      }
+      if (scope === 'device' && deviceId) {
+        const tile = await this.prisma.videoWallTile.findFirst({
+          where: { wallId: content.videoWallId, deviceId },
+        });
+        if (!tile) {
+          throw new BadRequestException(
+            'Device não é tile desta video wall'
+          );
+        }
+      }
+    }
   }
 
   private toRow(r: {
     id: string;
     tenantId: string;
     name: string | null;
-    playlistId: string;
+    playlistId: string | null;
+    layoutId: string | null;
+    videoWallId: string | null;
     scope: string;
     deviceId: string | null;
     groupId: string | null;
@@ -255,7 +384,13 @@ export class SchedulesService {
     enabled: boolean;
     createdAt: Date;
     updatedAt: Date;
-    playlist: { id: string; name: string };
+    playlist: { id: string; name: string } | null;
+    layout: {
+      id: string;
+      name: string | null;
+      template: { slug: string; name: string };
+    } | null;
+    videoWall: { id: string; name: string } | null;
     device: { id: string; name: string } | null;
     group: { id: string; name: string } | null;
   }) {
@@ -267,11 +402,30 @@ export class SchedulesService {
           : r.scope === 'device'
             ? 'Device'
             : 'Grupo';
+
+    let contentType: 'playlist' | 'layout' | 'video_wall' = 'playlist';
+    let contentLabel = r.playlist?.name ?? '—';
+    if (r.layoutId && r.layout) {
+      contentType = 'layout';
+      contentLabel =
+        r.layout.name?.trim() ||
+        `${r.layout.template.name} (${r.layout.template.slug})`;
+    } else if (r.videoWallId && r.videoWall) {
+      contentType = 'video_wall';
+      contentLabel = r.videoWall.name;
+    }
+
     return {
       id: r.id,
       name: r.name,
       playlistId: r.playlistId,
+      layoutId: r.layoutId,
+      videoWallId: r.videoWallId,
+      contentType,
+      contentLabel,
       playlist: r.playlist,
+      layout: r.layout,
+      videoWall: r.videoWall,
       scope: r.scope as 'device' | 'group',
       deviceId: r.deviceId,
       groupId: r.groupId,

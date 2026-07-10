@@ -1,20 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '../generated/prisma-client';
 import { PrismaService } from '../prisma/prisma.service';
+import { DevicesService } from '../devices/devices.service';
+import { VideoWallsService } from '../video-walls/video-walls.service';
 
 export const SCHEDULE_CONTENT_SOURCE = 'schedule';
 
-export type SchedulePlaybackItem = {
-  type: 'playlist';
-  playlistId: string;
-  source: typeof SCHEDULE_CONTENT_SOURCE;
-  scheduleRuleId: string;
-};
-
-function isScheduleItem(item: unknown): item is SchedulePlaybackItem {
-  if (!item || typeof item !== 'object') return false;
-  const o = item as Record<string, unknown>;
-  return o.source === SCHEDULE_CONTENT_SOURCE;
+function isScheduleItem(item: unknown): boolean {
+  if (!item || typeof item !== 'object' || Array.isArray(item)) return false;
+  return (item as Record<string, unknown>).source === SCHEDULE_CONTENT_SOURCE;
 }
 
 function itemsEqual(a: unknown, b: unknown): boolean {
@@ -53,13 +47,16 @@ export function getLocalScheduleContext(
 
 @Injectable()
 export class ScheduleEngineService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly devices: DevicesService,
+    private readonly videoWalls: VideoWallsService
+  ) {}
 
   private timeZone(): string {
     return process.env.SCHEDULE_TIMEZONE?.trim() || 'Europe/Lisbon';
   }
 
-  /** Resolve a regra ativa com maior prioridade para o device neste instante. */
   async findActiveRule(
     tenantId: string,
     deviceId: string,
@@ -91,6 +88,63 @@ export class ScheduleEngineService {
     });
   }
 
+  private async buildScheduledItem(
+    tenantId: string,
+    deviceId: string,
+    rule: {
+      id: string;
+      playlistId: string | null;
+      layoutId: string | null;
+      videoWallId: string | null;
+    }
+  ): Promise<Record<string, unknown> | null> {
+    try {
+      if (rule.playlistId) {
+        return {
+          type: 'playlist',
+          playlistId: rule.playlistId,
+          source: SCHEDULE_CONTENT_SOURCE,
+          scheduleRuleId: rule.id,
+        };
+      }
+      if (rule.layoutId) {
+        const layout = await this.devices.buildLayoutCurrentItem(
+          tenantId,
+          rule.layoutId
+        );
+        const layoutDeviceId = await this.prisma.deviceLayout.findFirst({
+          where: { id: rule.layoutId, tenantId },
+          select: { deviceId: true },
+        });
+        if (layoutDeviceId?.deviceId !== deviceId) return null;
+        return {
+          ...layout,
+          source: SCHEDULE_CONTENT_SOURCE,
+          scheduleRuleId: rule.id,
+        };
+      }
+      if (rule.videoWallId) {
+        const tile = await this.prisma.videoWallTile.findFirst({
+          where: { wallId: rule.videoWallId, deviceId },
+        });
+        if (!tile) return null;
+        const wallItem = await this.videoWalls.buildTileCurrentItem(
+          tenantId,
+          rule.videoWallId,
+          deviceId
+        );
+        return {
+          ...wallItem,
+          source: SCHEDULE_CONTENT_SOURCE,
+          scheduleRuleId: rule.id,
+        };
+      }
+    } catch {
+      return null;
+    }
+    return null;
+  }
+
   private async resolveFallbackItem(
     tenantId: string,
     deviceId: string,
@@ -118,10 +172,6 @@ export class ScheduleEngineService {
     return null;
   }
 
-  /**
-   * Aplica ou remove conteúdo de agenda em `device_state.current_item_json`.
-   * Chamado no poll de estado / heartbeat do player.
-   */
   async applyForDevice(
     tenantId: string,
     deviceId: string,
@@ -135,13 +185,36 @@ export class ScheduleEngineService {
     const nowDate = new Date();
 
     if (rule) {
-      const scheduledItem: SchedulePlaybackItem = {
-        type: 'playlist',
-        playlistId: rule.playlistId,
-        source: SCHEDULE_CONTENT_SOURCE,
-        scheduleRuleId: rule.id,
-      };
+      const scheduledItem = await this.buildScheduledItem(
+        tenantId,
+        deviceId,
+        rule
+      );
 
+      if (!scheduledItem) {
+        if (!state?.activeScheduleRuleId) {
+          return { applied: false, activeRuleId: null };
+        }
+        const fallback = await this.resolveFallbackItem(
+          tenantId,
+          deviceId,
+          state
+        );
+        await this.prisma.deviceState.update({
+          where: { deviceId },
+          data: {
+            currentItemJson:
+              fallback === null || fallback === undefined
+                ? Prisma.JsonNull
+                : fallback,
+            activeScheduleRuleId: null,
+            lastSyncAt: nowDate,
+          },
+        });
+        return { applied: true, activeRuleId: null };
+      }
+
+      const itemJson = scheduledItem as Prisma.InputJsonValue;
       const alreadyActive =
         state?.activeScheduleRuleId === rule.id &&
         itemsEqual(state.currentItemJson, scheduledItem);
@@ -168,13 +241,13 @@ export class ScheduleEngineService {
         create: {
           deviceId,
           tenantId,
-          currentItemJson: scheduledItem as Prisma.InputJsonValue,
+          currentItemJson: itemJson,
           scheduleBaselineItemJson: baseline,
           activeScheduleRuleId: rule.id,
           lastSyncAt: nowDate,
         },
         update: {
-          currentItemJson: scheduledItem as Prisma.InputJsonValue,
+          currentItemJson: itemJson,
           ...(baseline != null ? { scheduleBaselineItemJson: baseline } : {}),
           activeScheduleRuleId: rule.id,
           lastSyncAt: nowDate,
@@ -212,7 +285,6 @@ export class ScheduleEngineService {
     }
   }
 
-  /** Após alteração de regras: reavalia devices afetados. */
   async applyForRuleScope(
     tenantId: string,
     scope: 'device' | 'group',

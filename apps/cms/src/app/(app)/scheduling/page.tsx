@@ -30,6 +30,7 @@ export default function SchedulingPage() {
   const [playlists, setPlaylists] = useState<Opt[]>([]);
   const [devices, setDevices] = useState<Opt[]>([]);
   const [groups, setGroups] = useState<Opt[]>([]);
+  const [videoWalls, setVideoWalls] = useState<Opt[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const [view, setView] = useState<'lista' | 'linha'>('linha');
@@ -44,16 +45,18 @@ export default function SchedulingPage() {
   const [reapplying, setReapplying] = useState(false);
 
   const load = useCallback(async () => {
-    const [r, p, d, g] = await Promise.all([
+    const [r, p, d, g, w] = await Promise.all([
       api<ScheduleRuleRow[]>('/schedules'),
       api<Opt[]>('/playlists'),
       api<{ id: string; name: string }[]>('/devices').catch(() => []),
       api<Opt[]>('/groups').catch(() => []),
+      api<{ id: string; name: string }[]>('/video-walls').catch(() => []),
     ]);
     setRules(r);
     setPlaylists(p.map((x) => ({ id: x.id, name: x.name })));
     setDevices(d.map((x) => ({ id: x.id, name: x.name })));
     setGroups(g);
+    setVideoWalls(w.map((x) => ({ id: x.id, name: x.name })));
   }, []);
 
   useEffect(() => {
@@ -287,7 +290,7 @@ export default function SchedulingPage() {
               <thead>
                 <tr>
                   <th>Nome</th>
-                  <th>Playlist</th>
+                  <th>Conteúdo</th>
                   <th>Alvo</th>
                   <th>Dia</th>
                   <th>Horário</th>
@@ -301,7 +304,7 @@ export default function SchedulingPage() {
                 {rules.length === 0 && (
                   <tr>
                     <td colSpan={9} className="text-muted">
-                      Sem regras. Crie uma para associar playlists a devices ou grupos.
+                      Sem regras. Crie uma para associar playlists, layouts ou video walls.
                     </td>
                   </tr>
                 )}
@@ -309,7 +312,18 @@ export default function SchedulingPage() {
                   <tr key={r.id}>
                     <td>{r.name || '—'}</td>
                     <td>
-                      <Link href={`/playlists/${r.playlistId}`}>{r.playlist.name}</Link>
+                      <span className="badge badge--neutral" style={{ marginRight: 6 }}>
+                        {r.contentType === 'playlist'
+                          ? 'Playlist'
+                          : r.contentType === 'layout'
+                            ? 'Layout'
+                            : 'Wall'}
+                      </span>
+                      {r.contentType === 'playlist' && r.playlistId ? (
+                        <Link href={`/playlists/${r.playlistId}`}>{r.contentLabel}</Link>
+                      ) : (
+                        r.contentLabel
+                      )}
                     </td>
                     <td>{r.targetLabel}</td>
                     <td>{isoDayLabel(r.dayOfWeek)}</td>
@@ -359,6 +373,7 @@ export default function SchedulingPage() {
         playlists={playlists}
         devices={devices}
         groups={groups}
+        videoWalls={videoWalls}
       />
 
       <ConfirmDialog

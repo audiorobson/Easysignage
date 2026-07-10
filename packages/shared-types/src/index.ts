@@ -27,3 +27,67 @@ export {
   resolveMimeAndExt,
   resolvePlayerKind,
 } from './media-formats.js';
+
+export {
+  type DeviceViewport,
+  type DisplayOrientation,
+  DISPLAY_ORIENTATIONS,
+  DEFAULT_DEVICE_VIEWPORT,
+  VIEWPORT_PRESETS,
+  computeViewportFitScale,
+  isDisplayOrientation,
+  normalizeDeviceViewport,
+  orientationRotateDeg,
+} from './display-viewport.js';
+
+export {
+  type ContentDisplay,
+  type ContentFitMode,
+  CONTENT_FIT_MODES,
+  DEFAULT_CONTENT_FIT,
+  contentDisplayHasTargetBox,
+  contentDisplayLayerStyle,
+  contentFitCssClass,
+  contentFitLabelPt,
+  isContentFitMode,
+  normalizeContentDisplay,
+} from './content-fit.js';
+
+export {
+  type LayoutCurrentItem,
+  type LayoutCurrentZone,
+  type LayoutFrameUnit,
+  type LayoutSource,
+  type LayoutTemplateZone,
+  type LayoutZoneBinding,
+  type LayoutZoneDisplay,
+  type LayoutZoneFrame,
+  SYSTEM_LAYOUT_TEMPLATES,
+  isLayoutCurrentItem,
+  layoutZoneStyle,
+} from './display-layout.js';
+
+export {
+  type VirtualCanvas,
+  type WallSync,
+  type WallTileCrop,
+  type WallTileCurrentItem,
+  type WallTilePosition,
+  type WallTileSource,
+  computeTileCrop,
+  isWallTileCurrentItem,
+  wallTileMediaTransform,
+} from './display-video-wall.js';
+
+export {
+  type WallPlaybackSync,
+  type WallPlaybackPosition,
+  type WallSlideTiming,
+  type WallTileSyncStatus,
+  classifyWallDrift,
+  computeWallDriftMs,
+  computeWallPlaybackAt,
+  isWallPlaybackSync,
+  parseWallSyncFromSnapshot,
+  wallSyncStatusLabelPt,
+} from './wall-sync.js';

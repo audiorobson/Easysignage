@@ -1,4 +1,6 @@
-import { IsInt, IsNumber, IsObject, IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsInt, IsNumber, IsObject, IsOptional, IsString, MaxLength, ValidateNested } from 'class-validator';
+import { Type } from 'class-transformer';
+import { PlaybackSyncDto } from './playback-sync.dto';
 
 export class HeartbeatDto {
   /** Versão da app do player (ex.: 0.0.1). */
@@ -29,4 +31,10 @@ export class HeartbeatDto {
   @IsOptional()
   @IsObject()
   metrics?: Record<string, unknown>;
+
+  /** Sync de video wall ou zona — drift reportado pelo player. */
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => PlaybackSyncDto)
+  playbackSync?: PlaybackSyncDto;
 }

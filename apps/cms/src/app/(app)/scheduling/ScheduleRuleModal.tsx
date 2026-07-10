@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { Modal } from '@/components/ui/Modal';
 import { api } from '@/lib/api';
-import type { ScheduleRuleRow } from './types';
+import type { DeviceLayoutOption, ScheduleContentType, ScheduleRuleRow } from './types';
 import { ISO_DAY_OPTIONS, parseTimeToMin, formatMinutes } from './schedule-utils';
 
 type Opt = { id: string; name: string };
@@ -17,7 +17,14 @@ type Props = {
   playlists: Opt[];
   devices: Opt[];
   groups: Opt[];
+  videoWalls: Opt[];
 };
+
+const CONTENT_OPTIONS: { value: ScheduleContentType; label: string }[] = [
+  { value: 'playlist', label: 'Playlist' },
+  { value: 'layout', label: 'Layout multi-zona' },
+  { value: 'video_wall', label: 'Video wall' },
+];
 
 export function ScheduleRuleModal({
   open,
@@ -28,9 +35,14 @@ export function ScheduleRuleModal({
   playlists,
   devices,
   groups,
+  videoWalls,
 }: Props) {
   const [name, setName] = useState('');
+  const [contentType, setContentType] = useState<ScheduleContentType>('playlist');
   const [playlistId, setPlaylistId] = useState('');
+  const [layoutId, setLayoutId] = useState('');
+  const [videoWallId, setVideoWallId] = useState('');
+  const [deviceLayout, setDeviceLayout] = useState<DeviceLayoutOption | null>(null);
   const [scope, setScope] = useState<'device' | 'group'>('device');
   const [deviceId, setDeviceId] = useState('');
   const [groupId, setGroupId] = useState('');
@@ -48,13 +60,15 @@ export function ScheduleRuleModal({
     setError(null);
     if (mode === 'edit' && editing) {
       setName(editing.name ?? '');
-      setPlaylistId(editing.playlistId);
+      setContentType(editing.contentType);
+      setPlaylistId(editing.playlistId ?? '');
+      setLayoutId(editing.layoutId ?? '');
+      setVideoWallId(editing.videoWallId ?? '');
       setScope(editing.scope);
       setDeviceId(editing.deviceId ?? '');
       setGroupId(editing.groupId ?? '');
       setDays([editing.dayOfWeek]);
-      const full =
-        editing.startMin === 0 && editing.endMin === 1440;
+      const full = editing.startMin === 0 && editing.endMin === 1440;
       setAllDay(full);
       setStartT(formatMinutes(editing.startMin));
       setEndT(formatMinutes(editing.endMin));
@@ -62,7 +76,10 @@ export function ScheduleRuleModal({
       setEnabled(editing.enabled);
     } else {
       setName('');
+      setContentType('playlist');
       setPlaylistId(playlists[0]?.id ?? '');
+      setLayoutId('');
+      setVideoWallId(videoWalls[0]?.id ?? '');
       setScope('device');
       setDeviceId(devices[0]?.id ?? '');
       setGroupId(groups[0]?.id ?? '');
@@ -73,7 +90,38 @@ export function ScheduleRuleModal({
       setPriority(0);
       setEnabled(true);
     }
-  }, [open, mode, editing, playlists, devices, groups]);
+  }, [open, mode, editing, playlists, devices, groups, videoWalls]);
+
+  useEffect(() => {
+    if (!open || contentType !== 'layout' || scope !== 'device' || !deviceId) {
+      setDeviceLayout(null);
+      setLayoutId('');
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const row = await api<DeviceLayoutOption | null>(`/devices/${deviceId}/layout`);
+        if (cancelled) return;
+        setDeviceLayout(row);
+        setLayoutId(row?.id ?? '');
+      } catch {
+        if (!cancelled) {
+          setDeviceLayout(null);
+          setLayoutId('');
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, contentType, scope, deviceId]);
+
+  useEffect(() => {
+    if (contentType === 'layout' && scope === 'group') {
+      setScope('device');
+    }
+  }, [contentType, scope]);
 
   function toggleDay(v: number) {
     if (mode === 'edit') {
@@ -85,10 +133,42 @@ export function ScheduleRuleModal({
     );
   }
 
+  function buildPayload() {
+    const base: Record<string, unknown> = {
+      name: name.trim() || undefined,
+      scope,
+      deviceId: scope === 'device' ? deviceId : null,
+      groupId: scope === 'group' ? groupId : null,
+      priority,
+      enabled,
+    };
+    if (contentType === 'playlist') {
+      return { ...base, playlistId, layoutId: null, videoWallId: null };
+    }
+    if (contentType === 'layout') {
+      return { ...base, playlistId: null, layoutId, videoWallId: null };
+    }
+    return { ...base, playlistId: null, layoutId: null, videoWallId };
+  }
+
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
-    if (!playlistId) {
+    if (contentType === 'playlist' && !playlistId) {
       setError('Escolha uma playlist');
+      return;
+    }
+    if (contentType === 'layout') {
+      if (scope !== 'device' || !deviceId) {
+        setError('Layout exige alvo «Device»');
+        return;
+      }
+      if (!layoutId) {
+        setError('Este device não tem layout guardado — configure em Ecrã & Layout');
+        return;
+      }
+    }
+    if (contentType === 'video_wall' && !videoWallId) {
+      setError('Escolha uma video wall');
       return;
     }
     if (scope === 'device' && !deviceId) {
@@ -124,20 +204,15 @@ export function ScheduleRuleModal({
     setSaving(true);
     setError(null);
     try {
+      const payload = buildPayload();
       if (mode === 'edit' && editing) {
         await api(`/schedules/${editing.id}`, {
           method: 'PATCH',
           body: JSON.stringify({
-            name: name.trim() || null,
-            playlistId,
-            scope,
-            deviceId: scope === 'device' ? deviceId : null,
-            groupId: scope === 'group' ? groupId : null,
+            ...payload,
             dayOfWeek: days[0],
             startMin,
             endMin,
-            priority,
-            enabled,
           }),
         });
       } else {
@@ -145,16 +220,10 @@ export function ScheduleRuleModal({
           await api('/schedules', {
             method: 'POST',
             body: JSON.stringify({
-              name: name.trim() || undefined,
-              playlistId,
-              scope,
-              deviceId: scope === 'device' ? deviceId : undefined,
-              groupId: scope === 'group' ? groupId : undefined,
+              ...payload,
               dayOfWeek,
               startMin,
               endMin,
-              priority,
-              enabled,
             }),
           });
         }
@@ -174,7 +243,7 @@ export function ScheduleRuleModal({
       title={mode === 'create' ? 'Novo agendamento' : 'Editar agendamento'}
       titleId="schedule-modal-title"
       onClose={onClose}
-      maxWidth={480}
+      maxWidth={520}
       scrollable
     >
       <form onSubmit={(e) => void onSubmit(e)}>
@@ -191,21 +260,80 @@ export function ScheduleRuleModal({
         </label>
 
         <label className="field">
-          <span>Playlist</span>
+          <span>Tipo de conteúdo</span>
           <select
             className="select"
-            value={playlistId}
-            onChange={(e) => setPlaylistId(e.target.value)}
-            required
+            value={contentType}
+            onChange={(e) => setContentType(e.target.value as ScheduleContentType)}
           >
-            <option value="">Escolher…</option>
-            {playlists.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
+            {CONTENT_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
               </option>
             ))}
           </select>
         </label>
+
+        {contentType === 'playlist' && (
+          <label className="field">
+            <span>Playlist</span>
+            <select
+              className="select"
+              value={playlistId}
+              onChange={(e) => setPlaylistId(e.target.value)}
+              required
+            >
+              <option value="">Escolher…</option>
+              {playlists.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+
+        {contentType === 'layout' && (
+          <div className="field">
+            <span className="field-label">Layout do device</span>
+            {deviceLayout ? (
+              <p style={{ margin: '6px 0 0', fontSize: 14 }}>
+                <strong>
+                  {deviceLayout.name?.trim() ||
+                    `${deviceLayout.template.name} (${deviceLayout.template.slug})`}
+                </strong>
+              </p>
+            ) : (
+              <p className="text-muted" style={{ margin: '6px 0 0', fontSize: 13 }}>
+                {deviceId
+                  ? 'Sem layout guardado — abra o editor em Ecrã & Layout'
+                  : 'Escolha um device abaixo'}
+              </p>
+            )}
+          </div>
+        )}
+
+        {contentType === 'video_wall' && (
+          <label className="field">
+            <span>Video wall</span>
+            <select
+              className="select"
+              value={videoWallId}
+              onChange={(e) => setVideoWallId(e.target.value)}
+              required
+            >
+              <option value="">Escolher…</option>
+              {videoWalls.map((w) => (
+                <option key={w.id} value={w.id}>
+                  {w.name}
+                </option>
+              ))}
+            </select>
+            <p className="text-muted" style={{ fontSize: 12, marginTop: 6 }}>
+              Em grupos, só devices que são tiles da parede recebem o conteúdo.
+            </p>
+          </label>
+        )}
 
         <fieldset style={{ border: 'none', margin: 0, padding: 0 }}>
           <span className="field" style={{ display: 'block', marginBottom: 8 }}>
@@ -221,12 +349,20 @@ export function ScheduleRuleModal({
               />
               Device
             </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <label
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                opacity: contentType === 'layout' ? 0.45 : 1,
+              }}
+            >
               <input
                 type="radio"
                 name="scope"
                 checked={scope === 'group'}
                 onChange={() => setScope('group')}
+                disabled={contentType === 'layout'}
               />
               Grupo
             </label>

@@ -128,3 +128,23 @@ export interface DeviceCommandAckPayload {
 
 }
 
+export {
+  type RealtimeAuthCms,
+  type RealtimeAuthDevice,
+  type RealtimeAuthError,
+  type RealtimeAuthOk,
+  type RealtimeClientMessage,
+  type RealtimeHello,
+  type RealtimeInternalBroadcast,
+  type RealtimePing,
+  type RealtimePong,
+  type RealtimeServerMessage,
+  type RealtimeSubscribeWall,
+  type RealtimeSubscribed,
+  type RealtimeUnsubscribeWall,
+  type RealtimeWallSync,
+  type RealtimeWallTick,
+  isRealtimeServerMessage,
+  parseRealtimeClientMessage,
+} from './realtime.js';
+

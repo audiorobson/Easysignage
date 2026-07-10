@@ -109,11 +109,18 @@ export function ScheduleTimeline({ rules, title }: Props) {
                 {dayRules.map((r) => {
                   const top = (r.startMin / 1440) * 100;
                   const h = ((r.endMin - r.startMin) / 1440) * 100;
-                  const bg = colorForId(r.playlistId);
+                  const colorKey = r.playlistId ?? r.layoutId ?? r.videoWallId ?? r.id;
+                  const bg = colorForId(colorKey);
+                  const typeLabel =
+                    r.contentType === 'playlist'
+                      ? 'Playlist'
+                      : r.contentType === 'layout'
+                        ? 'Layout'
+                        : 'Wall';
                   return (
                     <div
                       key={r.id}
-                      title={`${r.playlist.name} · ${formatMinutes(r.startMin)}–${formatMinutes(r.endMin)} · ${r.enabled ? 'ativo' : 'inativo'}`}
+                      title={`${typeLabel}: ${r.contentLabel} · ${formatMinutes(r.startMin)}–${formatMinutes(r.endMin)} · ${r.enabled ? 'ativo' : 'inativo'}`}
                       style={{
                         position: 'absolute',
                         left: 4,
@@ -131,7 +138,7 @@ export function ScheduleTimeline({ rules, title }: Props) {
                         opacity: r.enabled ? 1 : 0.45,
                       }}
                     >
-                      {r.playlist.name}
+                      {r.contentLabel}
                     </div>
                   );
                 })}
@@ -144,7 +151,7 @@ export function ScheduleTimeline({ rules, title }: Props) {
         className="text-muted"
         style={{ margin: 0, padding: '0.5rem 1rem', fontSize: '0.75rem' }}
       >
-        Eixo vertical: 24h. Blocos = playlist no intervalo. Cores por playlist.
+        Eixo vertical: 24h. Blocos = conteúdo no intervalo (playlist, layout ou wall).
       </p>
     </div>
   );

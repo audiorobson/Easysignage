@@ -1,4 +1,12 @@
 import { useEffect, useRef, type CSSProperties, type RefObject } from 'react';
+import {
+  contentDisplayHasTargetBox,
+  contentDisplayLayerStyle,
+  contentFitCssClass,
+  DEFAULT_CONTENT_FIT,
+  normalizeContentDisplay,
+  type ContentDisplay,
+} from '@easysignage/shared-types';
 import type { LoadedMedia, MediaKind } from './mediaLoader';
 
 type TransitionKind = 'none' | 'fade' | 'slide-left' | 'slide-right' | 'zoom';
@@ -9,6 +17,7 @@ export function SlideLayer({
   transition,
   transitionMs,
   loopVideo,
+  display,
   imageRef,
   videoRef,
   audioRef,
@@ -19,12 +28,16 @@ export function SlideLayer({
   transition: TransitionKind;
   transitionMs: number;
   loopVideo: boolean;
+  display?: ContentDisplay | null;
   imageRef?: RefObject<HTMLImageElement | null>;
   videoRef?: RefObject<HTMLVideoElement | null>;
   audioRef?: RefObject<HTMLAudioElement | null>;
   onAnimationEnd?: () => void;
 }) {
   const layerRef = useRef<HTMLDivElement>(null);
+  const normalized = normalizeContentDisplay(display ?? undefined);
+  const fit = normalized.fit ?? DEFAULT_CONTENT_FIT;
+  const hasTarget = contentDisplayHasTargetBox(normalized);
 
   useEffect(() => {
     const el = layerRef.current;
@@ -42,27 +55,42 @@ export function SlideLayer({
       ? ''
       : `player-stage__layer--${phase}-${transition}`;
 
-  const style: CSSProperties | undefined =
-    transition !== 'none' && phase !== 'static'
+  const style: CSSProperties = {
+    ...contentDisplayLayerStyle(normalized),
+    ...(transition !== 'none' && phase !== 'static'
       ? { ['--es-slide-transition' as string]: `${transitionMs}ms` }
-      : undefined;
+      : {}),
+  };
+
+  const layerClass = [
+    'player-stage__layer',
+    animClass,
+    contentFitCssClass(fit),
+    hasTarget ? 'player-stage__layer--has-target' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
 
   return (
     <div
       ref={layerRef}
-      className={`player-stage__layer ${animClass}`.trim()}
+      className={layerClass}
       style={style}
       aria-hidden={phase === 'leave'}
     >
-      <MediaContent
-        kind={media.kind}
-        blobUrl={media.blobUrl}
-        frameUrl={media.frameUrl}
-        loopVideo={loopVideo}
-        imageRef={imageRef}
-        videoRef={videoRef}
-        audioRef={audioRef}
-      />
+      <div
+        className={`player-stage__media-box${hasTarget ? ' player-stage__media-box--target' : ''}`}
+      >
+        <MediaContent
+          kind={media.kind}
+          blobUrl={media.blobUrl}
+          frameUrl={media.frameUrl}
+          loopVideo={loopVideo}
+          imageRef={imageRef}
+          videoRef={videoRef}
+          audioRef={audioRef}
+        />
+      </div>
     </div>
   );
 }

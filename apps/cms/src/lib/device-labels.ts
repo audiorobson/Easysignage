@@ -58,3 +58,14 @@ export function playlistStatus(v: string): string {
 export const PLATFORM_OPTIONS = Object.entries(PLATFORM_LABELS).filter(
   ([key]) => key !== 'unknown'
 );
+
+export const DISPLAY_ORIENTATION_LABELS: Record<string, string> = {
+  landscape: 'Paisagem (0°)',
+  portrait: 'Retrato (90°)',
+  landscape_flipped: 'Paisagem invertida (180°)',
+  portrait_flipped: 'Retrato invertido (270°)',
+};
+
+export function displayOrientationLabel(v: string): string {
+  return DISPLAY_ORIENTATION_LABELS[v] ?? v;
+}

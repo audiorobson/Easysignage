@@ -1293,6 +1293,13 @@ Ordem pensada para **fechar Fase 2** e **abrir Fase 3** sem retrabalho estrutura
    - CDN ou object storage para assets; reduzir streaming direto pela API Nest.  
    - Ajustar **intervalos** de polling/heartbeat por ambiente; opcionalmente empurrar atualizações via **realtime-gateway** já presente no monorepo.
 
+5. **Layouts, zonas e video wall (§19.4b–19.5b)** — após consolidação de mídia e pareamento  
+   - **L1:** viewport (orientação + resolução) no device e player.  
+   - **L2:** templates multi-zona + `current_item_json.type = "layout"`.  
+   - **L3:** modos de fit (native, contain, cover, stretch).  
+   - **L4:** video wall sincronizada (tiles + `sync.epochMs`).  
+   - Plano detalhado: [`docs/planejamento-layouts-zonas-video-wall.md`](docs/planejamento-layouts-zonas-video-wall.md).
+
 **Entregue nesta linha:** primeiro modelo de **Publication** (histórico + publicação ativa); sync do player continua via `current_item_json` (sem mudança no web player).
 
 **Próximo incremento único recomendado:** **(A)** vídeo + multipart **ou** **(B)** agendamento mínimo + janela de ativação **ou** **(C)** player lê `publicationId`/versão para invalidar cache — conforme prioridade.
@@ -1613,6 +1620,50 @@ Para considerar a interface da Fase 1 alinhada ao plano:
 
 ---
 
+## 19.9 Layouts, zonas e video wall (§19.4b–19.5b)
+
+> **Planejamento detalhado:** [`docs/planejamento-layouts-zonas-video-wall.md`](docs/planejamento-layouts-zonas-video-wall.md)
+
+### Objetivo
+
+Permitir que operadores configurem **como** o conteúdo ocupa o ecrã — não apenas **o quê** reproduzir:
+
+- **Orientação e resolução** por dispositivo (retrato, paisagem, virado).
+- **Zonas** com subdivisões pré-definidas e fontes distintas por zona.
+- **Modo de exibição** por zona/fonte (nativo, esticado, letterbox, etc.).
+- **Video wall** — vários devices como tiles sincronizados de um canvas virtual.
+
+### Posição no roadmap
+
+| Relação | Notas |
+|---------|-------|
+| **§8.7 `screens`** | Materializa a tabela `screens` do modelo lógico; pode fundir-se em `Device` + `DeviceLayout` no MVP |
+| **§19.3–19.4** | Estende `current_item_json`, `Publication` e agenda — **retrocompatível** com `asset`/`playlist` full-screen |
+| **§19.5** | Video wall usa telemetria de drift + comandos; evolui para WebSocket no `realtime-gateway` |
+| **§19.8 UI** | Fases UI-4b (editor de layout), UI-5b (monitorização de wall) |
+
+### Macrofases de entrega
+
+| Fase | Nome | Entregável principal |
+|------|------|----------------------|
+| **L1** | Viewport | `orientation` + resolução lógica; player com rotação CSS |
+| **L2** | Zonas | `LayoutTemplate` + `type: "layout"` + player multi-zona |
+| **L3** | Fit | `ContentFitMode` + resolução alvo opcional |
+| **L4** | Video wall | `VideoWall` + tiles + sync por `epochMs` |
+| **L5** | Polimento | Templates tenant, editor avançado, wall + agenda |
+
+### Critérios de pronto (resumo)
+
+- **L1:** CMS define retrato 1080×1920; player exibe rodado; online/preview coerentes.
+- **L2:** Template `split_h_2` com duas playlists em loop independente.
+- **L4:** Parede 2×1 com imagem/vídeo contínuo; drift de arranque &lt; 100 ms (MVP).
+
+### Estado (jul/2026)
+
+**Não iniciado** — especificação e integração documentadas; implementação após consolidação de mídia, design enterprise e pareamento (estado atual do repositório).
+
+---
+
 ## 20. Distribuição por Times
 
 ## 20.1 Backend Team
@@ -1630,6 +1681,7 @@ Responsável por:
 - interface de gestão
 - dashboards
 - editor de playlists
+- editor de layouts/zonas e video walls (§19.9)
 - monitoramento
 - UX operacional
 
@@ -1639,6 +1691,7 @@ Responsável por:
 - Web runtime
 - sync engine
 - playback engine
+- viewport, multi-zona e video wall tile (§19.9)
 - cache
 - commands
 - health monitor

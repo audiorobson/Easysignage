@@ -46,7 +46,87 @@ body {
   min-height: 100vh;
 }
 
-/* —— Stage (conteúdo em fullscreen) —— */
+/* —— Viewport lógico (orientação + resolução) —— */
+.player-viewport-frame {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: var(--es-bg-deep);
+}
+
+.player-viewport-canvas {
+  position: relative;
+  flex-shrink: 0;
+  transform-origin: center center;
+  background: #000;
+  overflow: hidden;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+.player-viewport-canvas .player-stage {
+  position: absolute;
+  inset: 0;
+}
+
+/* —— Layout multi-zona (L2) —— */
+.player-layout-stage {
+  position: absolute;
+  inset: 0;
+}
+
+.player-layout-zone {
+  position: absolute;
+  overflow: hidden;
+  box-sizing: border-box;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* —— Video wall tile (L4) —— */
+.player-wall-tile-stage {
+  position: absolute;
+  inset: 0;
+}
+
+.player-wall-tile-viewport {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.player-wall-tile-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  overflow: hidden;
+}
+
+.player-wall-tile-sync-wait {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 14px;
+  letter-spacing: 0.02em;
+}
+
+.player-zone {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.player-zone__layers {
+  position: absolute;
+  inset: 0;
+}
+
+/* —— Stage (conteúdo) —— */
 .player-stage {
   position: fixed;
   inset: 0;
@@ -149,18 +229,100 @@ body {
   to { opacity: 0; transform: scale(0.96); }
 }
 
+.player-stage__media-box {
+  position: absolute;
+  inset: 0;
+}
+
+.player-stage__media-box--target {
+  position: relative;
+  inset: unset;
+  width: min(var(--es-target-w, 100%), 100%);
+  height: min(var(--es-target-h, 100%), 100%);
+  max-width: 100%;
+  max-height: 100%;
+  margin: auto;
+  align-self: center;
+}
+
+.player-stage__layer--has-target {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .player-stage__media {
+  background: #000;
+}
+
+.player-stage__layer--fit-contain .player-stage__media,
+.player-stage__layer--fit-contain .player-stage__frame {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
   object-fit: contain;
-  background: #000;
+}
+
+.player-stage__layer--fit-cover .player-stage__media,
+.player-stage__layer--fit-cover .player-stage__frame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.player-stage__layer--fit-stretch .player-stage__media,
+.player-stage__layer--fit-stretch .player-stage__frame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
+}
+
+.player-stage__layer--fit-native,
+.player-stage__layer--fit-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.player-stage__layer--fit-native .player-stage__media-box,
+.player-stage__layer--fit-center .player-stage__media-box {
+  position: relative;
+  inset: unset;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.player-stage__layer--fit-native .player-stage__media,
+.player-stage__layer--fit-center .player-stage__media {
+  position: relative;
+  inset: unset;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: none;
+}
+
+.player-stage__layer--fit-native .player-stage__frame,
+.player-stage__layer--fit-center .player-stage__frame {
+  position: relative;
+  inset: unset;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 100%;
 }
 
 .player-stage__frame {
   border: none;
-  object-fit: contain;
 }
 
 .player-stage__frame--text {

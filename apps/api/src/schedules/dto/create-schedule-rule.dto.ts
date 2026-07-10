@@ -1,12 +1,23 @@
 import { IsBoolean, IsIn, IsInt, IsOptional, IsString, IsUUID, Max, Min } from 'class-validator';
 
+export type ScheduleContentKind = 'playlist' | 'layout' | 'video_wall';
+
 export class CreateScheduleRuleDto {
   @IsOptional()
   @IsString()
   name?: string;
 
+  @IsOptional()
   @IsUUID()
-  playlistId!: string;
+  playlistId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  layoutId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  videoWallId?: string;
 
   @IsIn(['device', 'group'])
   scope!: 'device' | 'group';

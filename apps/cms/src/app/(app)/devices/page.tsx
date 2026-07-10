@@ -258,7 +258,7 @@ export default function DevicesPage() {
                         <PlatformIcon platform={d.platform} />
                         <div>
                           <div className="cell-primary">
-                            <Link href={`/devices/${d.id}`}>{d.name}</Link>
+                            <Link href={`/devices/${d.id}?tab=ecra`}>{d.name}</Link>
                           </div>
                           <div className="cell-sub">{d.id.slice(0, 8)}</div>
                         </div>
@@ -286,10 +286,10 @@ export default function DevicesPage() {
                         }}
                       >
                         <Link
-                          href={`/devices/${d.id}`}
+                          href={`/devices/${d.id}?tab=ecra`}
                           className="btn btn--icon"
-                          aria-label="Editar"
-                          title="Editar"
+                          aria-label="Ecrã e layout"
+                          title="Ecrã e layout"
                         >
                           <Pencil aria-hidden />
                         </Link>

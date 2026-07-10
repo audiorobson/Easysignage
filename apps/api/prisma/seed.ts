@@ -1,5 +1,6 @@
 import { PrismaClient } from '../src/generated/prisma-client';
 import * as bcrypt from 'bcrypt';
+import { SYSTEM_LAYOUT_TEMPLATES } from '@easysignage/shared-types';
 
 const prisma = new PrismaClient();
 
@@ -104,6 +105,25 @@ async function main() {
         name: 'Matriz',
         code: 'HQ',
         timezone: 'America/Sao_Paulo',
+      },
+    });
+  }
+
+  for (const tpl of SYSTEM_LAYOUT_TEMPLATES) {
+    await prisma.layoutTemplate.upsert({
+      where: { slug: tpl.slug },
+      update: {
+        name: tpl.name,
+        description: tpl.description,
+        zonesJson: tpl.zones,
+        sortOrder: tpl.sortOrder,
+      },
+      create: {
+        slug: tpl.slug,
+        name: tpl.name,
+        description: tpl.description,
+        zonesJson: tpl.zones,
+        sortOrder: tpl.sortOrder,
       },
     });
   }

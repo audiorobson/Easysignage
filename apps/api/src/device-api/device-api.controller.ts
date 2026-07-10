@@ -29,6 +29,7 @@ import {
 } from '../telemetry/dto/telemetry-batch.dto';
 import { computeContentRevision } from './content-revision';
 import { HeartbeatDto } from './dto/heartbeat.dto';
+import { normalizeDeviceViewport } from '@easysignage/shared-types';
 
 @ApiTags('device')
 @ApiBearerAuth('device-token')
@@ -128,6 +129,42 @@ export class DeviceApiController {
       },
     });
 
+    if (body.playbackSync?.wallId) {
+      const ps = body.playbackSync;
+      const existing = await this.prisma.deviceState.findUnique({
+        where: { deviceId: device.id },
+        select: { telemetrySnapshotJson: true },
+      });
+      const prev =
+        (existing?.telemetrySnapshotJson as Record<string, unknown> | null) ?? {};
+      const wallSync = {
+        wallId: ps.wallId,
+        itemIndex: ps.itemIndex ?? 0,
+        positionMs: ps.positionMs ?? 0,
+        driftMs: ps.driftMs ?? 0,
+        ...(ps.syncEpochMs != null ? { syncEpochMs: ps.syncEpochMs } : {}),
+        reportedAt: new Date().toISOString(),
+      };
+      const snap = {
+        ...prev,
+        wallSync,
+        playbackSync: wallSync,
+      } as Prisma.InputJsonValue;
+      await this.prisma.deviceState.upsert({
+        where: { deviceId: device.id },
+        create: {
+          deviceId: device.id,
+          tenantId: device.tenantId,
+          telemetrySnapshotJson: snap,
+          telemetryUpdatedAt: new Date(),
+        },
+        update: {
+          telemetrySnapshotJson: snap,
+          telemetryUpdatedAt: new Date(),
+        },
+      });
+    }
+
     if (
       body.appliedPublicationVersion != null ||
       (body.appliedContentRevision != null &&
@@ -188,20 +225,15 @@ export class DeviceApiController {
 
     let playlistStamp = '';
     const item = row?.currentItemJson as Record<string, unknown> | null;
-    if (
-      item &&
-      item['type'] === 'playlist' &&
-      typeof item['playlistId'] === 'string'
-    ) {
-      const pl = await this.prisma.playlist.findFirst({
-        where: { id: item['playlistId'], tenantId: device.tenantId },
-        select: { updatedAt: true },
-      });
-      playlistStamp = pl?.updatedAt.toISOString() ?? '';
-    }
+    playlistStamp = await this.resolvePlaylistStamp(device.tenantId, item);
 
     return {
       deviceId: device.id,
+      viewport: normalizeDeviceViewport({
+        viewportWidth: device.viewportWidth,
+        viewportHeight: device.viewportHeight,
+        displayOrientation: device.displayOrientation,
+      }),
       currentPublicationId: row?.currentPublicationId ?? null,
       publicationVersion: row?.currentPublication?.version ?? null,
       lastSyncAt: row?.lastSyncAt ?? null,
@@ -235,5 +267,64 @@ export class DeviceApiController {
     @Res({ passthrough: false }) reply: FastifyReply
   ) {
     await this.assets.sendFileForDevice(device.tenantId, assetId, reply);
+  }
+
+  private async resolvePlaylistStamp(
+    tenantId: string,
+    item: Record<string, unknown> | null
+  ): Promise<string> {
+    if (!item) return '';
+    if (item['type'] === 'playlist' && typeof item['playlistId'] === 'string') {
+      const pl = await this.prisma.playlist.findFirst({
+        where: { id: item['playlistId'], tenantId },
+        select: { updatedAt: true },
+      });
+      return pl?.updatedAt.toISOString() ?? '';
+    }
+    if (item['type'] === 'layout' && Array.isArray(item['zones'])) {
+      const ids = new Set<string>();
+      for (const raw of item['zones']) {
+        if (!raw || typeof raw !== 'object' || Array.isArray(raw)) continue;
+        const src = (raw as Record<string, unknown>)['source'];
+        if (!src || typeof src !== 'object' || Array.isArray(src)) continue;
+        const s = src as Record<string, unknown>;
+        if (s['type'] === 'playlist' && typeof s['playlistId'] === 'string') {
+          ids.add(s['playlistId']);
+        }
+      }
+      if (!ids.size) {
+        return typeof item['revision'] === 'string' ? item['revision'] : '';
+      }
+      const rows = await this.prisma.playlist.findMany({
+        where: { tenantId, id: { in: [...ids] } },
+        select: { id: true, updatedAt: true },
+        orderBy: { id: 'asc' },
+      });
+      return rows.map((r) => `${r.id}:${r.updatedAt.toISOString()}`).join('|');
+    }
+    if (item['type'] === 'wall_tile') {
+      const wallId = typeof item['wallId'] === 'string' ? item['wallId'] : '';
+      const revision =
+        typeof item['wallRevision'] === 'string' ? item['wallRevision'] : '';
+      const sync = item['sync'];
+      let epoch = '';
+      if (sync && typeof sync === 'object' && !Array.isArray(sync)) {
+        const e = (sync as Record<string, unknown>)['epochMs'];
+        if (typeof e === 'number') epoch = String(e);
+      }
+      const src = item['source'];
+      if (src && typeof src === 'object' && !Array.isArray(src)) {
+        const s = src as Record<string, unknown>;
+        if (s['type'] === 'playlist' && typeof s['playlistId'] === 'string') {
+          const pl = await this.prisma.playlist.findFirst({
+            where: { id: s['playlistId'], tenantId },
+            select: { updatedAt: true },
+          });
+          return `${wallId}:${revision}:${epoch}:${pl?.updatedAt.toISOString() ?? ''}`;
+        }
+      }
+      return `${wallId}:${revision}:${epoch}`;
+    }
+    return '';
   }
 }

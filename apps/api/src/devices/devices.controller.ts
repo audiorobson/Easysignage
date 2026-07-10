@@ -7,6 +7,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Put,
   Query,
   UseGuards,
 } from '@nestjs/common';
@@ -21,6 +22,8 @@ import { CreateDeviceDto } from './dto/create-device.dto';
 import { UpdateDeviceDto } from './dto/update-device.dto';
 import { AssignTestContentDto } from './dto/assign-test-content.dto';
 import { PublishDeviceDto } from './dto/publish-device.dto';
+import { UpdateDeviceViewportDto } from './dto/update-device-viewport.dto';
+import { UpsertDeviceLayoutDto } from './dto/upsert-device-layout.dto';
 
 @ApiTags('devices')
 @ApiBearerAuth('access-token')
@@ -94,6 +97,35 @@ export class DevicesController {
     @Param('id', ParseUUIDPipe) id: string
   ) {
     return this.devices.listPublications(user.tenantId, id);
+  }
+
+  @Patch(':id/viewport')
+  @RequirePermissions(P.DEVICES_WRITE)
+  updateViewport(
+    @CurrentUser() user: JwtUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateDeviceViewportDto
+  ) {
+    return this.devices.updateViewport(user.tenantId, id, dto);
+  }
+
+  @Get(':id/layout')
+  @RequirePermissions(P.DEVICES_READ)
+  getLayout(
+    @CurrentUser() user: JwtUser,
+    @Param('id', ParseUUIDPipe) id: string
+  ) {
+    return this.devices.getDeviceLayout(user.tenantId, id);
+  }
+
+  @Put(':id/layout')
+  @RequirePermissions(P.DEVICES_WRITE)
+  upsertLayout(
+    @CurrentUser() user: JwtUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpsertDeviceLayoutDto
+  ) {
+    return this.devices.upsertDeviceLayout(user.tenantId, id, dto);
   }
 
   @Patch(':id')

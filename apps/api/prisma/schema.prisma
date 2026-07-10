@@ -28,6 +28,9 @@ model Tenant {
   scheduleRules ScheduleRule[]
   deviceTelemetryEvents DeviceTelemetryEvent[]
   deviceCommands        DeviceCommand[]
+  layoutTemplates       LayoutTemplate[]
+  deviceLayouts         DeviceLayout[]
+  videoWalls            VideoWall[]
 
   @@map("tenants")
 }
@@ -70,6 +73,7 @@ model Playlist {
   tenant Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   items  PlaylistItem[]
   scheduleRules ScheduleRule[]
+  videoWalls VideoWall[]
 
   @@index([tenantId, createdAt])
   @@map("playlists")
@@ -167,6 +171,7 @@ model Site {
   tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   coverAsset Asset?   @relation("SiteCoverAsset", fields: [coverAssetId], references: [id], onDelete: SetNull)
   devices    Device[]
+  videoWalls VideoWall[]
 
   @@index([tenantId, createdAt])
   @@map("sites")
@@ -186,6 +191,12 @@ model Device {
   pairingExpiresAt DateTime? @map("pairing_expires_at")
   /** MAC para Wake-on-LAN (mesma LAN que o servidor que envia o magic packet). */
   wakeMac          String?   @map("wake_mac")
+  /** Largura lógica do canvas de desenho (px). */
+  viewportWidth    Int       @default(1920) @map("viewport_width")
+  /** Altura lógica do canvas de desenho (px). */
+  viewportHeight   Int       @default(1080) @map("viewport_height")
+  /** landscape | portrait | landscape_flipped | portrait_flipped */
+  displayOrientation String  @default("landscape") @map("display_orientation")
   lastSeenAt       DateTime? @map("last_seen_at")
   createdAt        DateTime  @default(now()) @map("created_at")
   updatedAt        DateTime  @updatedAt @map("updated_at")
@@ -199,9 +210,99 @@ model Device {
   scheduleRules ScheduleRule[]
   telemetryEvents DeviceTelemetryEvent[]
   commands        DeviceCommand[]
+  deviceLayout    DeviceLayout?
+  videoWallTile   VideoWallTile?
 
   @@index([tenantId, lastSeenAt])
   @@map("devices")
+}
+
+/** Catálogo de templates de layout (sistema + custom por tenant). */
+model LayoutTemplate {
+  id          String   @id @default(uuid()) @db.Uuid
+  tenantId    String?  @map("tenant_id") @db.Uuid
+  slug        String   @unique
+  name        String
+  description String?
+  zonesJson   Json     @map("zones_json")
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  tenant        Tenant?        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  deviceLayouts DeviceLayout[]
+
+  @@index([tenantId, sortOrder])
+  @@map("layout_templates")
+}
+
+/** Layout ativo num dispositivo (bindings por zona). */
+model DeviceLayout {
+  id         String   @id @default(uuid()) @db.Uuid
+  tenantId   String   @map("tenant_id") @db.Uuid
+  deviceId   String   @unique @map("device_id") @db.Uuid
+  templateId String   @map("template_id") @db.Uuid
+  name       String?
+  zonesJson  Json     @map("zones_json")
+  revision   String
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  tenant   Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  device   Device         @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  template LayoutTemplate @relation(fields: [templateId], references: [id], onDelete: Restrict)
+  scheduleRules ScheduleRule[]
+
+  @@index([tenantId])
+  @@map("device_layouts")
+}
+
+/** Video wall — grelha de devices com canvas virtual partido em tiles. */
+model VideoWall {
+  id                 String   @id @default(uuid()) @db.Uuid
+  tenantId           String   @map("tenant_id") @db.Uuid
+  siteId             String   @map("site_id") @db.Uuid
+  name               String
+  gridRows           Int      @map("grid_rows")
+  gridCols           Int      @map("grid_cols")
+  virtualWidth       Int      @map("virtual_width")
+  virtualHeight      Int      @map("virtual_height")
+  displayOrientation String   @default("landscape") @map("display_orientation")
+  /** draft | active | paused */
+  status             String   @default("draft")
+  playlistId         String?  @map("playlist_id") @db.Uuid
+  syncEpochMs        BigInt?  @map("sync_epoch_ms")
+  syncToleranceMs    Int      @default(80) @map("sync_tolerance_ms")
+  revision           String
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  tenant Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  site   Site            @relation(fields: [siteId], references: [id], onDelete: Restrict)
+  playlist Playlist?     @relation(fields: [playlistId], references: [id], onDelete: SetNull)
+  tiles  VideoWallTile[]
+  scheduleRules ScheduleRule[]
+
+  @@index([tenantId, createdAt])
+  @@index([siteId])
+  @@map("video_walls")
+}
+
+/** Mapeamento device → posição na grelha da parede. */
+model VideoWallTile {
+  id        String   @id @default(uuid()) @db.Uuid
+  wallId    String   @map("wall_id") @db.Uuid
+  deviceId  String   @unique @map("device_id") @db.Uuid
+  row       Int
+  col       Int
+  createdAt DateTime @default(now()) @map("created_at")
+
+  wall   VideoWall @relation(fields: [wallId], references: [id], onDelete: Cascade)
+  device Device    @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@unique([wallId, row, col])
+  @@index([wallId])
+  @@map("video_wall_tiles")
 }
 
 model DeviceGroup {
@@ -334,26 +435,30 @@ model DeviceCommand {
  * `startMin` / `endMin`: minutos desde 00:00; fim exclusivo (ex.: dia inteiro 0–1440).
  */
 model ScheduleRule {
-  id         String   @id @default(uuid()) @db.Uuid
-  tenantId   String   @map("tenant_id") @db.Uuid
-  name       String?
-  playlistId String   @map("playlist_id") @db.Uuid
+  id          String   @id @default(uuid()) @db.Uuid
+  tenantId    String   @map("tenant_id") @db.Uuid
+  name        String?
+  playlistId  String?  @map("playlist_id") @db.Uuid
+  layoutId    String?  @map("layout_id") @db.Uuid
+  videoWallId String?  @map("video_wall_id") @db.Uuid
   /// "device" | "group"
-  scope      String
-  deviceId   String?  @map("device_id") @db.Uuid
-  groupId    String?  @map("group_id") @db.Uuid
-  dayOfWeek  Int      @map("day_of_week")
-  startMin   Int      @map("start_min")
-  endMin     Int      @map("end_min")
-  priority   Int      @default(0)
-  enabled    Boolean  @default(true)
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
+  scope       String
+  deviceId    String?  @map("device_id") @db.Uuid
+  groupId     String?  @map("group_id") @db.Uuid
+  dayOfWeek   Int      @map("day_of_week")
+  startMin    Int      @map("start_min")
+  endMin      Int      @map("end_min")
+  priority    Int      @default(0)
+  enabled     Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
 
-  tenant   Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  playlist Playlist     @relation(fields: [playlistId], references: [id], onDelete: Cascade)
-  device   Device?      @relation(fields: [deviceId], references: [id], onDelete: Cascade)
-  group    DeviceGroup? @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  tenant    Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  playlist  Playlist?     @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+  layout    DeviceLayout? @relation(fields: [layoutId], references: [id], onDelete: Cascade)
+  videoWall VideoWall?    @relation(fields: [videoWallId], references: [id], onDelete: Cascade)
+  device    Device?       @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  group     DeviceGroup?  @relation(fields: [groupId], references: [id], onDelete: Cascade)
 
   @@index([tenantId, enabled])
   @@index([tenantId, deviceId, dayOfWeek])

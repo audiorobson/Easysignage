@@ -8,7 +8,14 @@ import {
   useState,
 } from 'react';
 
-import { isPlayableInPlayer } from '@easysignage/shared-types';
+import { isPlayableInPlayer, isLayoutCurrentItem, isWallTileCurrentItem, normalizeContentDisplay, type ContentDisplay, type WallPlaybackSync } from '@easysignage/shared-types';
+import {
+  computeViewportFitScale,
+  DEFAULT_DEVICE_VIEWPORT,
+  normalizeDeviceViewport,
+  orientationRotateDeg,
+  type DeviceViewport,
+} from '@easysignage/shared-types';
 import {
   clearDeviceAssetCache,
   evictDeviceAssetCacheExcept,
@@ -24,6 +31,8 @@ import {
   type MediaKind,
 } from './mediaLoader';
 import { SlideLayer } from './SlideLayer';
+import { LayoutStage } from './LayoutStage';
+import { WallTileStage } from './WallTileStage';
 
 const API =
   import.meta.env.VITE_API_URL?.replace(/\/$/, '') ?? 'http://localhost:3001/api/v1';
@@ -61,6 +70,7 @@ type CurrentItem = {
   assetId?: string;
   playlistId?: string;
   kind?: string;
+  display?: ContentDisplay;
 } | null;
 
 type ManifestItem = {
@@ -179,6 +189,8 @@ export function App() {
   );
   const [heartbeatStatus, setHeartbeatStatus] = useState<string | null>(null);
   const [contentHint, setContentHint] = useState<string | null>(null);
+  const [viewport, setViewport] = useState<DeviceViewport>(DEFAULT_DEVICE_VIEWPORT);
+  const [viewportScale, setViewportScale] = useState(1);
 
   const [currentItem, setCurrentItem] = useState<CurrentItem>(null);
   /** Quando o estado no servidor muda (sync, playlist, publicação), força novo fetch do manifest. */
@@ -192,6 +204,7 @@ export function App() {
     publicationVersion: number | null;
     contentRevision: string | null;
   }>({ publicationVersion: null, contentRevision: null });
+  const wallPlaybackSyncRef = useRef<WallPlaybackSync | null>(null);
   const [playlistManifest, setPlaylistManifest] = useState<PlaylistManifest | null>(null);
   const [slideIndex, setSlideIndex] = useState(0);
 
@@ -241,6 +254,7 @@ export function App() {
     setCurrentItem(null);
     setPlaylistManifest(null);
     setSlideIndex(0);
+    wallPlaybackSyncRef.current = null;
     clearStage();
     setConfigOpen(true);
     clearHideTimer();
@@ -382,6 +396,7 @@ export function App() {
     const token = deviceToken ?? localStorage.getItem('device_token');
     if (!token) return;
     const ack = appliedAckRef.current;
+    const wallSync = wallPlaybackSyncRef.current;
     const res = await fetch(`${API}/device/heartbeat`, {
       method: 'POST',
       headers: {
@@ -395,6 +410,17 @@ export function App() {
           : {}),
         ...(ack.contentRevision
           ? { appliedContentRevision: ack.contentRevision }
+          : {}),
+        ...(wallSync
+          ? {
+              playbackSync: {
+                wallId: wallSync.wallId,
+                itemIndex: wallSync.itemIndex,
+                positionMs: wallSync.positionMs,
+                driftMs: wallSync.driftMs,
+                syncEpochMs: wallSync.syncEpochMs,
+              },
+            }
           : {}),
         metrics: buildMetrics(),
       }),
@@ -455,6 +481,7 @@ export function App() {
           currentItem?: CurrentItem;
           contentRevision?: string;
           publicationVersion?: number | null;
+          viewport?: { width: number; height: number; orientation: string };
           message?: string;
         };
         if (cancelled) return;
@@ -487,6 +514,15 @@ export function App() {
           setContentRevision(rev);
         }
         setServerPublicationVersion(pubVer);
+        if (data.viewport) {
+          setViewport(
+            normalizeDeviceViewport({
+              viewportWidth: data.viewport.width,
+              viewportHeight: data.viewport.height,
+              displayOrientation: data.viewport.orientation,
+            })
+          );
+        }
         setCurrentItem((data.currentItem as CurrentItem) ?? null);
         setErr(null);
       } catch {
@@ -504,18 +540,42 @@ export function App() {
     };
   }, [deviceToken, handleAuthFailure]);
 
+  useEffect(() => {
+    function updateScale() {
+      setViewportScale(
+        computeViewportFitScale(viewport, window.innerWidth, window.innerHeight)
+      );
+    }
+    updateScale();
+    window.addEventListener('resize', updateScale);
+    return () => window.removeEventListener('resize', updateScale);
+  }, [viewport]);
+
   const playlistId =
     currentItem?.type === 'playlist' && currentItem.playlistId ? currentItem.playlistId : null;
+
+  const layoutItem = isLayoutCurrentItem(currentItem) ? currentItem : null;
+  const wallTileItem = isWallTileCurrentItem(currentItem) ? currentItem : null;
+
+  const contentDisplay = useMemo(
+    () =>
+      layoutItem || wallTileItem
+        ? undefined
+        : normalizeContentDisplay(
+            currentItem && typeof currentItem === 'object' ? currentItem.display : undefined
+          ),
+    [currentItem, layoutItem, wallTileItem]
+  );
 
   useEffect(() => {
     setSlideIndex(0);
     clearStage();
-  }, [playlistId, contentRevision, clearStage]);
+  }, [playlistId, layoutItem?.revision, wallTileItem?.wallRevision, contentRevision, clearStage]);
 
   useEffect(() => {
     const token = deviceToken ?? localStorage.getItem('device_token');
-    if (!token || !playlistId) {
-      setPlaylistManifest(null);
+    if (!token || !playlistId || layoutItem || wallTileItem) {
+      if (!playlistId) setPlaylistManifest(null);
       return;
     }
     let cancelled = false;
@@ -618,7 +678,7 @@ export function App() {
 
   useEffect(() => {
     const token = deviceToken ?? localStorage.getItem('device_token');
-    if (!token) return;
+    if (!token || layoutItem || wallTileItem) return;
     const keepIds = new Set<string>();
     if (singleAssetId) keepIds.add(singleAssetId);
     for (const s of playableSlides) keepIds.add(s.assetId);
@@ -627,15 +687,16 @@ export function App() {
       ...playlistFileUrls(playableSlides),
       ...(singleAssetId ? [deviceAssetFileUrl(singleAssetId)] : []),
     ]);
-  }, [contentRevision, singleAssetId, playableSlides, deviceToken]);
+  }, [contentRevision, singleAssetId, playableSlides, deviceToken, layoutItem, wallTileItem]);
 
   useEffect(() => {
     const token = deviceToken ?? localStorage.getItem('device_token');
-    if (!token || !playableSlides.length) return;
+    if (!token || layoutItem || wallTileItem || !playableSlides.length) return;
     preloadSlides(token, playableSlides);
   }, [playableSlides, deviceToken, contentRevision]);
 
   useEffect(() => {
+    if (layoutItem || wallTileItem) return;
     if (!playlistId || !playableSlides.length) return;
     const idx = slideIndex % playableSlides.length;
     const slide = playableSlides[idx]!;
@@ -646,6 +707,7 @@ export function App() {
   }, [slideIndex, playlistId, playableSlides, playlistManifest?.name, applyMedia]);
 
   useEffect(() => {
+    if (layoutItem || wallTileItem) return;
     if (playlistId || !singleAssetId) {
       if (!playlistId && !singleAssetId) clearStage();
       return;
@@ -654,6 +716,7 @@ export function App() {
   }, [singleAssetId, singleAssetKind, playlistId, contentRevision, applyMedia, clearStage]);
 
   useEffect(() => {
+    if (layoutItem || wallTileItem) return;
     if (playlistId) {
       if (!playableSlides.length && playlistManifest) {
         setContentHint(
@@ -670,6 +733,8 @@ export function App() {
       clearStage();
     }
   }, [
+    layoutItem,
+    wallTileItem,
     playlistId,
     playableSlides,
     playlistManifest,
@@ -680,6 +745,7 @@ export function App() {
 
   /** Avança slide pela duração do item — não depender de `currentItem` (poll recria o objeto). */
   useEffect(() => {
+    if (layoutItem || wallTileItem) return;
     if (!playlistId || !playableSlides.length) {
       return;
     }
@@ -688,7 +754,18 @@ export function App() {
     const sec = sl.durationSec ?? defaultDurationSec(sl.kind);
     const t = window.setTimeout(() => setSlideIndex((s) => s + 1), Math.max(1, sec) * 1000);
     return () => clearTimeout(t);
-  }, [playlistId, playableSlides, slideIndex]);
+  }, [playlistId, playableSlides, slideIndex, layoutItem, wallTileItem]);
+
+  useEffect(() => {
+    if (wallTileItem) {
+      setContentHint(
+        `Video wall — tile (${wallTileItem.tile.row + 1},${wallTileItem.tile.col + 1}) de ${wallTileItem.tile.rows}×${wallTileItem.tile.cols}`
+      );
+      return;
+    }
+    if (!layoutItem) return;
+    setContentHint(`Layout ${layoutItem.templateSlug} — ${layoutItem.zones.length} zona(s)`);
+  }, [layoutItem, wallTileItem]);
 
   useEffect(() => {
     const token = deviceToken ?? localStorage.getItem('device_token');
@@ -750,17 +827,52 @@ export function App() {
     localStorage.setItem('player_transition_ms', String(ms));
   }
 
-  const hasMedia = Boolean(displayMedia || leaveMedia || enterMedia);
+  const hasMedia = Boolean(
+    layoutItem || wallTileItem || displayMedia || leaveMedia || enterMedia
+  );
   const showSlideCaption = Boolean(
-    playlistId && hasMedia && contentHint && !configOpen
+    !layoutItem && !wallTileItem && playlistId && hasMedia && contentHint && !configOpen
   );
   const showFooterPulse = Boolean(deviceToken && !configOpen);
   const loopVideo = !playlistId;
+  const vpRotate = orientationRotateDeg(viewport.orientation);
 
   return (
     <div className="player-root">
-      <div className="player-stage">
-        <div className="player-stage__layers">
+      <div className="player-viewport-frame">
+        <div
+          className={`player-viewport-canvas player-viewport-canvas--${viewport.orientation}`}
+          style={{
+            width: viewport.width,
+            height: viewport.height,
+            transform: `rotate(${vpRotate}deg) scale(${viewportScale})`,
+          }}
+        >
+          <div className="player-stage">
+            {wallTileItem && deviceToken ? (
+              <WallTileStage
+                tile={wallTileItem}
+                deviceToken={deviceToken}
+                contentRevision={contentRevision}
+                transitionKind={transitionKind}
+                transitionMs={transitionMs}
+                onReady={markContentApplied}
+                onSyncReport={(sync) => {
+                  wallPlaybackSyncRef.current = sync;
+                }}
+              />
+            ) : layoutItem && deviceToken ? (
+              <LayoutStage
+                layout={layoutItem}
+                deviceToken={deviceToken}
+                contentRevision={contentRevision}
+                transitionKind={transitionKind}
+                transitionMs={transitionMs}
+                onAllZonesReady={markContentApplied}
+              />
+            ) : (
+              <>
+            <div className="player-stage__layers">
           {leaveMedia && enterMedia && (
             <SlideLayer
               media={leaveMedia}
@@ -768,6 +880,7 @@ export function App() {
               transition={transitionKind}
               transitionMs={transitionMs}
               loopVideo={loopVideo}
+              display={contentDisplay}
             />
           )}
           {enterMedia ? (
@@ -777,6 +890,7 @@ export function App() {
               transition={transitionKind}
               transitionMs={transitionMs}
               loopVideo={loopVideo}
+              display={contentDisplay}
               imageRef={imageRef}
               videoRef={videoRef}
               audioRef={audioRef}
@@ -790,6 +904,7 @@ export function App() {
                 transition={transitionKind}
                 transitionMs={transitionMs}
                 loopVideo={loopVideo}
+                display={contentDisplay}
                 imageRef={imageRef}
                 videoRef={videoRef}
                 audioRef={audioRef}
@@ -809,6 +924,10 @@ export function App() {
             </div>
           </div>
         )}
+              </>
+            )}
+          </div>
+        </div>
       </div>
 
       {showSlideCaption && (
@@ -857,6 +976,12 @@ export function App() {
               <p className="player-config__subtitle">
                 Pareamento e reprodução. API: <code>{API}</code>
               </p>
+
+              {deviceToken && (
+                <p className="player-msg player-msg--hint" style={{ marginTop: 0 }}>
+                  Ecrã: {viewport.width}×{viewport.height} — {viewport.orientation}
+                </p>
+              )}
 
               {deviceToken && contentHint && !hasMedia && (
                 <p className="player-msg player-msg--hint" style={{ marginTop: 0 }}>

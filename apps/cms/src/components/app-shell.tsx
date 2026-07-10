@@ -9,6 +9,7 @@ import {
   MapPin,
   FolderOpen,
   ListVideo,
+  Grid2x2,
   CalendarDays,
   Users,
   Megaphone,
@@ -25,6 +26,7 @@ type NavItem = { href: string; label: string; Icon: LucideIcon; soon?: boolean }
 const NAV_OPERACAO: NavItem[] = [
   { href: '/dashboard', label: 'Dashboard', Icon: LayoutDashboard },
   { href: '/devices', label: 'Dispositivos', Icon: MonitorPlay },
+  { href: '/video-walls', label: 'Video walls', Icon: Grid2x2 },
   { href: '/monitoring', label: 'Monitorização', Icon: Activity },
   { href: '/sites', label: 'Sites', Icon: MapPin },
 ];

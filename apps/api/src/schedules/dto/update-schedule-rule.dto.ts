@@ -7,7 +7,15 @@ export class UpdateScheduleRuleDto {
 
   @IsOptional()
   @IsUUID()
-  playlistId?: string;
+  playlistId?: string | null;
+
+  @IsOptional()
+  @IsUUID()
+  layoutId?: string | null;
+
+  @IsOptional()
+  @IsUUID()
+  videoWallId?: string | null;
 
   @IsOptional()
   @IsIn(['device', 'group'])
