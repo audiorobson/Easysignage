@@ -3,7 +3,11 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { Eye, Pencil, Plus, Trash2 } from 'lucide-react';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { PageHeader } from '@/components/ui/PageHeader';
 import { api, getToken } from '@/lib/api';
+import { playlistStatus } from '@/lib/device-labels';
 import { formatDateTimePtBr } from '@/lib/format-date';
 import { PlaylistPreviewModal } from './PlaylistPreviewModal';
 
@@ -23,6 +27,10 @@ export default function PlaylistsPage() {
   const [error, setError] = useState<string | null>(null);
   const [previewId, setPreviewId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
 
   const refreshList = useCallback(async () => {
     try {
@@ -54,18 +62,14 @@ export default function PlaylistsPage() {
     };
   }, [router]);
 
-  async function deletePlaylist(id: string, name: string) {
-    if (
-      !confirm(
-        `Eliminar a playlist «${name}»? Os itens desta sequência serão removidos.`
-      )
-    ) {
-      return;
-    }
+  async function deletePlaylistConfirmed() {
+    if (!confirmDelete) return;
+    const { id } = confirmDelete;
     setDeletingId(id);
     setError(null);
     try {
       await api(`/playlists/${id}`, { method: 'DELETE' });
+      setConfirmDelete(null);
       setItems((prev) => (prev ? prev.filter((p) => p.id !== id) : prev));
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erro');
@@ -77,24 +81,20 @@ export default function PlaylistsPage() {
 
   return (
     <>
-      <header className="page-header">
-        <div>
-          <h1>Playlists</h1>
-          <p className="page-header__lead">
-            Sequências de conteúdo (imagens, vídeo, HTML) para atribuir a dispositivos ou grupos.
-          </p>
-        </div>
-        <div className="page-header__actions">
-          <Link href="/playlists/new" className="btn btn--gradient">
-            <i className="fa-solid fa-plus" aria-hidden />
+      <PageHeader
+        title="Playlists"
+        lead="Sequências de conteúdo (imagens, vídeo, HTML) para atribuir a dispositivos ou grupos."
+        actions={
+          <Link href="/playlists/new" className="btn btn--primary">
+            <Plus strokeWidth={2.1} aria-hidden />
             Nova playlist
           </Link>
-        </div>
-      </header>
+        }
+      />
 
       <section>
         {error && <p className="text-danger">{error}</p>}
-        {!items && !error && <p className="text-muted">Carregando…</p>}
+        {!items && !error && <p className="text-muted">A carregar…</p>}
         {items && items.length === 0 && (
           <p className="text-muted">Nenhuma playlist. Crie uma para agrupar assets em sequência.</p>
         )}
@@ -116,7 +116,7 @@ export default function PlaylistsPage() {
                   <td>
                     <Link href={`/playlists/${p.id}`}>{p.name}</Link>
                   </td>
-                  <td>{p.status}</td>
+                  <td>{playlistStatus(p.status)}</td>
                   <td>{p.itemCount}</td>
                   <td>{formatDateTimePtBr(p.updatedAt)}</td>
                   <td>
@@ -134,7 +134,7 @@ export default function PlaylistsPage() {
                         title="Modo teste — pré-visualizar"
                         onClick={() => setPreviewId(p.id)}
                       >
-                        <i className="fa-solid fa-eye" aria-hidden />
+                        <Eye size={17} strokeWidth={1.9} aria-hidden />
                         <span className="sr-only">Pré-visualizar</span>
                       </button>
                       <Link
@@ -142,7 +142,7 @@ export default function PlaylistsPage() {
                         className="btn btn--ghost"
                         title="Editar playlist"
                       >
-                        <i className="fa-solid fa-pen" aria-hidden />
+                        <Pencil size={17} strokeWidth={1.9} aria-hidden />
                         <span className="sr-only">Editar</span>
                       </Link>
                       <button
@@ -150,12 +150,14 @@ export default function PlaylistsPage() {
                         className="btn btn--ghost"
                         title="Eliminar playlist"
                         disabled={deletingId === p.id}
-                        onClick={() => void deletePlaylist(p.id, p.name)}
+                        onClick={() =>
+                          setConfirmDelete({ id: p.id, name: p.name })
+                        }
                       >
                         {deletingId === p.id ? (
                           '…'
                         ) : (
-                          <i className="fa-solid fa-trash" aria-hidden />
+                          <Trash2 size={17} strokeWidth={1.9} aria-hidden />
                         )}
                         <span className="sr-only">Eliminar</span>
                       </button>
@@ -172,6 +174,20 @@ export default function PlaylistsPage() {
       <PlaylistPreviewModal
         playlistId={previewId}
         onClose={() => setPreviewId(null)}
+      />
+
+      <ConfirmDialog
+        open={confirmDelete !== null}
+        title="Eliminar playlist"
+        message={
+          confirmDelete
+            ? `Eliminar «${confirmDelete.name}»? Os itens desta sequência serão removidos.`
+            : ''
+        }
+        confirmLabel="Eliminar"
+        loading={deletingId !== null}
+        onConfirm={() => void deletePlaylistConfirmed()}
+        onCancel={() => setConfirmDelete(null)}
       />
     </>
   );

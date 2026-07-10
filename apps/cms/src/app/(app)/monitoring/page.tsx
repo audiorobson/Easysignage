@@ -3,6 +3,10 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { Tv } from 'lucide-react';
+import { StatusPill } from '@/components/ui/StatusPill';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { deviceState, platformLabel, type BadgeTone } from '@/lib/device-labels';
 import { API_BASE, api, fetchApi, getToken } from '@/lib/api';
 import { formatDateTimePtBr } from '@/lib/format-date';
 
@@ -57,6 +61,17 @@ const BORDER: Record<
     hint: 'Sem heartbeat há mais de 24 horas (ou nunca contactou).',
   },
 };
+
+function borderTone(status: BorderStatus): BadgeTone {
+  switch (status) {
+    case 'online':
+      return 'success';
+    case 'fault':
+      return 'danger';
+    case 'offline_long':
+      return 'neutral';
+  }
+}
 
 function MonitoringPreviewImage({
   deviceId,
@@ -190,9 +205,10 @@ function MonitoringScreen({
           <MonitoringPreviewImage deviceId={deviceId} enabled />
         ) : (
           <>
-            <i
-              className="fa-solid fa-tv"
-              style={{ fontSize: 'clamp(2rem, 6vw, 3rem)', color: 'rgba(248, 250, 252, 0.35)' }}
+            <Tv
+              size={48}
+              strokeWidth={1.5}
+              style={{ color: 'rgba(248, 250, 252, 0.35)' }}
               aria-hidden
             />
             <span
@@ -328,15 +344,15 @@ export default function MonitoringPage() {
 
   return (
     <>
-      <header className="page-header">
-        <div>
-          <h1>Monitorização</h1>
-          <p className="page-header__lead">
-            Pré-visualização JPEG do player atualiza a cada ~{Math.round(PREVIEW_POLL_MS / 1000)} s; dados
-            de telemetria na grelha a cada 30 s.
-          </p>
-        </div>
-      </header>
+      <PageHeader
+        title="Monitorização"
+        lead={`Pré-visualização JPEG do player atualiza a cada ~${Math.round(PREVIEW_POLL_MS / 1000)} s; dados de telemetria na grelha a cada 30 s.`}
+        actions={
+          <Link href="/dashboard" className="btn btn--secondary">
+            Dashboard
+          </Link>
+        }
+      />
 
       <section
         className="surface-card"
@@ -376,19 +392,12 @@ export default function MonitoringPage() {
       </section>
 
       {error && <p className="text-danger">{error}</p>}
-      {!rows && !error && <p className="text-muted">Carregando…</p>}
+      {!rows && !error && <p className="text-muted">A carregar…</p>}
       {rows && rows.length === 0 && (
-        <p className="text-muted">Sem devices. Adicione devices e pareamento para ver telemetria.</p>
+        <p className="text-muted">Sem dispositivos. Adicione players e pareamento para ver telemetria.</p>
       )}
       {rows && rows.length > 0 && (
-        <div
-          className="monitoring-theme-dark"
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 'var(--space-6)',
-          }}
-        >
+        <div className="monitoring-grid">
           {rows.map((r) => (
             <article
               key={r.deviceId}
@@ -417,14 +426,20 @@ export default function MonitoringPage() {
                     style={{
                       display: 'flex',
                       flexWrap: 'wrap',
-                      alignItems: 'baseline',
-                      justifyContent: 'space-between',
+                      alignItems: 'center',
                       gap: '0.5rem',
+                      justifyContent: 'space-between',
                     }}
                   >
-                    <h2 style={{ margin: 0, fontSize: '1.125rem', fontWeight: 700 }}>
-                      {r.name}
-                    </h2>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                      <h2 style={{ margin: 0, fontSize: '1.125rem', fontWeight: 700 }}>
+                        {r.name}
+                      </h2>
+                      <StatusPill
+                        label={BORDER[r.borderStatus].label}
+                        tone={borderTone(r.borderStatus)}
+                      />
+                    </div>
                     <Link
                       href={`/devices/${r.deviceId}`}
                       className="btn btn--ghost"
@@ -434,7 +449,12 @@ export default function MonitoringPage() {
                     </Link>
                   </div>
                   <p className="text-muted" style={{ margin: '0.35rem 0 0', fontSize: '0.8125rem' }}>
-                    {r.site?.name ?? '—'} · {r.platform} · estado CMS: <code>{r.status}</code>
+                    {r.site?.name ?? '—'} · {platformLabel(r.platform)} ·{' '}
+                    <StatusPill
+                      label={deviceState(r.status).label}
+                      tone={deviceState(r.status).tone}
+                      dot={false}
+                    />
                   </p>
                   <dl
                     style={{

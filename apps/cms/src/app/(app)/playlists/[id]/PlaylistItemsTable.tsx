@@ -18,6 +18,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useCallback, useEffect, useState } from 'react';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { api } from '@/lib/api';
 
 type ItemRow = {
@@ -118,6 +119,8 @@ export function PlaylistItemsTable({
 }: Props) {
   const [items, setItems] = useState(initialItems);
   const [savingOrder, setSavingOrder] = useState(false);
+  const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
+  const [removingId, setRemovingId] = useState<string | null>(null);
 
   useEffect(() => {
     setItems(initialItems);
@@ -184,15 +187,18 @@ export function PlaylistItemsTable({
   }
 
   async function removeItem(itemId: string) {
-    if (!confirm('Remover este item da playlist?')) return;
     onError('');
+    setRemovingId(itemId);
     try {
       await api(`/playlists/${playlistId}/items/${itemId}`, {
         method: 'DELETE',
       });
+      setConfirmRemoveId(null);
       await load();
     } catch (e) {
       onError(e instanceof Error ? e.message : 'Erro');
+    } finally {
+      setRemovingId(null);
     }
   }
 
@@ -235,7 +241,7 @@ export function PlaylistItemsTable({
                   item={it}
                   index={idx}
                   onUpdateDuration={updateItemDuration}
-                  onRemove={removeItem}
+                  onRemove={setConfirmRemoveId}
                 />
               ))}
             </SortableContext>
@@ -243,6 +249,18 @@ export function PlaylistItemsTable({
         </table>
         </div>
       </DndContext>
+
+      <ConfirmDialog
+        open={confirmRemoveId !== null}
+        title="Remover item"
+        message="Remover este item da playlist?"
+        confirmLabel="Remover"
+        loading={removingId !== null}
+        onConfirm={() => {
+          if (confirmRemoveId) void removeItem(confirmRemoveId);
+        }}
+        onCancel={() => setConfirmRemoveId(null)}
+      />
     </>
   );
 }

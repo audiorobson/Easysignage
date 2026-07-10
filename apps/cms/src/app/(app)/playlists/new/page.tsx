@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { ArrowLeft } from 'lucide-react';
+import { PageHeader } from '@/components/ui/PageHeader';
 import { api, getToken } from '@/lib/api';
 
 export default function NewPlaylistPage() {
@@ -38,20 +40,16 @@ export default function NewPlaylistPage() {
 
   return (
     <>
-      <header className="page-header">
-        <div>
-          <h1>Nova playlist</h1>
-          <p className="page-header__lead">
-            Defina um nome e, opcionalmente, uma descrição interna para a sequência de conteúdos.
-          </p>
-        </div>
-        <div className="page-header__actions">
+      <PageHeader
+        title="Nova playlist"
+        lead="Defina um nome e, opcionalmente, uma descrição interna para a sequência de conteúdos."
+        actions={
           <Link href="/playlists" className="btn btn--ghost">
-            <i className="fa-solid fa-arrow-left" aria-hidden />
+            <ArrowLeft size={17} strokeWidth={1.9} aria-hidden />
             Voltar
           </Link>
-        </div>
-      </header>
+        }
+      />
 
       <form onSubmit={onSubmit} className="surface-form-card">
         <label className="field">
@@ -75,8 +73,8 @@ export default function NewPlaylistPage() {
           />
         </label>
         {error && <p className="text-danger">{error}</p>}
-        <button type="submit" disabled={loading || !name.trim()} className="btn btn--gradient">
-          {loading ? 'Criando…' : 'Criar playlist'}
+        <button type="submit" disabled={loading || !name.trim()} className="btn btn--primary">
+          {loading ? 'A criar…' : 'Criar playlist'}
         </button>
       </form>
     </>

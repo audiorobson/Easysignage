@@ -3,6 +3,9 @@
 import Link from 'next/link';
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { ArrowLeft, Trash2 } from 'lucide-react';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { PageHeader } from '@/components/ui/PageHeader';
 import { api, getToken } from '@/lib/api';
 import { formatDateTimePtBr } from '@/lib/format-date';
 
@@ -63,6 +66,7 @@ export default function GroupDetailPage() {
   const [assigning, setAssigning] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [bulkResult, setBulkResult] = useState<BulkResult | null>(null);
+  const [confirmDeleteGroup, setConfirmDeleteGroup] = useState(false);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -234,15 +238,18 @@ export default function GroupDetailPage() {
 
   async function deleteGroup() {
     if (!id || !group) return;
-    if (!window.confirm(`Eliminar o grupo «${group.name}»? Os dispositivos não são eliminados.`)) {
-      return;
-    }
+    setConfirmDeleteGroup(true);
+  }
+
+  async function deleteGroupConfirmed() {
+    if (!id || !group) return;
     setError(null);
     try {
       await api(`/groups/${id}`, { method: 'DELETE' });
       router.push('/groups');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro');
+      setConfirmDeleteGroup(false);
     }
   }
 
@@ -260,24 +267,22 @@ export default function GroupDetailPage() {
 
   return (
     <>
-      <header className="page-header">
-        <div>
-          <h1>{group?.name ?? 'Grupo'}</h1>
-          <p className="page-header__lead">
-            Membros, conteúdo de teste e publicação conjunta para este conjunto de dispositivos.
-          </p>
-        </div>
-        <div className="page-header__actions">
-          <Link href="/groups" className="btn btn--ghost">
-            <i className="fa-solid fa-arrow-left" aria-hidden />
-            Lista
-          </Link>
-          <button type="button" className="btn btn--ghost" onClick={() => void deleteGroup()}>
-            <i className="fa-solid fa-trash" aria-hidden />
-            Eliminar grupo
-          </button>
-        </div>
-      </header>
+      <PageHeader
+        title={group?.name ?? 'Grupo'}
+        lead="Membros, conteúdo de teste e publicação conjunta para este conjunto de dispositivos."
+        actions={
+          <>
+            <Link href="/groups" className="btn btn--ghost">
+              <ArrowLeft size={17} strokeWidth={1.9} aria-hidden />
+              Lista
+            </Link>
+            <button type="button" className="btn btn--ghost" onClick={() => void deleteGroup()}>
+              <Trash2 size={17} strokeWidth={1.9} aria-hidden />
+              Eliminar grupo
+            </button>
+          </>
+        }
+      />
 
       {loadErr && <p className="text-danger">{loadErr}</p>}
       {error && <p className="text-danger">{error}</p>}
@@ -570,7 +575,20 @@ export default function GroupDetailPage() {
         </>
       )}
 
-      {!group && !loadErr && <p className="text-muted">Carregando…</p>}
+      {!group && !loadErr && <p className="text-muted">A carregar…</p>}
+
+      <ConfirmDialog
+        open={confirmDeleteGroup}
+        title="Eliminar grupo"
+        message={
+          group
+            ? `Eliminar «${group.name}»? Os dispositivos não são eliminados.`
+            : ''
+        }
+        confirmLabel="Eliminar"
+        onConfirm={() => void deleteGroupConfirmed()}
+        onCancel={() => setConfirmDeleteGroup(false)}
+      />
     </>
   );
 }

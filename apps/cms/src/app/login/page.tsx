@@ -2,6 +2,7 @@
 
 import { FormEvent, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { MonitorPlay } from 'lucide-react';
 import { api, setToken } from '@/lib/api';
 
 export default function LoginPage() {
@@ -34,7 +35,17 @@ export default function LoginPage() {
   return (
     <main className="login-screen">
       <form className="login-card" onSubmit={onSubmit}>
-        <h1>EasySignage CMS</h1>
+        <div className="login-card__brand">
+          <span className="login-card__mark" aria-hidden>
+            <MonitorPlay size={22} strokeWidth={2} />
+          </span>
+          <div>
+            <h1 style={{ margin: 0, fontSize: 'var(--text-xl)' }}>EasySignage</h1>
+            <p className="text-muted" style={{ margin: '4px 0 0', fontSize: 13 }}>
+              CMS — operador de rede
+            </p>
+          </div>
+        </div>
         <label className="field">
           <span>Tenant (slug)</span>
           <input
@@ -55,7 +66,7 @@ export default function LoginPage() {
           />
         </label>
         <label className="field">
-          <span>Senha</span>
+          <span>Palavra-passe</span>
           <input
             type="password"
             className="input"
@@ -64,9 +75,17 @@ export default function LoginPage() {
             autoComplete="current-password"
           />
         </label>
-        {error && <p className="text-danger" style={{ marginBottom: 'var(--space-4)' }}>{error}</p>}
-        <button type="submit" disabled={loading} className="btn btn--primary btn--block">
-          {loading ? 'Entrando…' : 'Entrar'}
+        {error && (
+          <p className="text-danger" style={{ marginBottom: 'var(--space-4)' }}>
+            {error}
+          </p>
+        )}
+        <button
+          type="submit"
+          disabled={loading}
+          className="btn btn--brand btn--block"
+        >
+          {loading ? 'A entrar…' : 'Entrar'}
         </button>
       </form>
     </main>

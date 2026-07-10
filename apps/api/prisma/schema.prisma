@@ -36,7 +36,7 @@ model Asset {
   id         String   @id @default(uuid()) @db.Uuid
   tenantId   String   @map("tenant_id") @db.Uuid
   name       String
-  /** image | video | pdf | html | url (referência externa) */
+  /** image | video | audio | pdf | html | text | url (referência externa) */
   kind       String
   mimeType   String   @map("mime_type")
   /** Ficheiro em disco; nulo quando só `remoteUrl` */

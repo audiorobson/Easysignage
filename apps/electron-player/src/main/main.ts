@@ -3,7 +3,7 @@ import path from 'node:path';
 
 /** Mesma UI do web-player (Vite). Ex.: `WEB_PLAYER_URL=http://localhost:5173 pnpm exec electron .` */
 function playerUrl(): string {
-  return process.env.WEB_PLAYER_URL?.trim() || 'http://localhost:5173';
+  return process.env.WEB_PLAYER_URL?.trim() || 'http://localhost:3010';
 }
 
 function createWindow() {

@@ -3,6 +3,10 @@
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { FormEvent, useCallback, useEffect, useState } from 'react';
+import { ArrowLeft } from 'lucide-react';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { playlistStatus } from '@/lib/device-labels';
 import { api, getToken } from '@/lib/api';
 import { PlaylistItemsTable } from './PlaylistItemsTable';
 
@@ -41,6 +45,7 @@ export default function PlaylistDetailPage() {
   const [addDuration, setAddDuration] = useState('');
   const [adding, setAdding] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const load = useCallback(async () => {
     const p = await api<PlaylistDetail>(`/playlists/${id}`);
@@ -134,7 +139,6 @@ export default function PlaylistDetailPage() {
   }
 
   async function removePlaylist() {
-    if (!confirm('Eliminar esta playlist? Os itens serão removidos.')) return;
     setDeleting(true);
     setError(null);
     try {
@@ -142,6 +146,7 @@ export default function PlaylistDetailPage() {
       router.push('/playlists');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erro');
+      setConfirmDelete(false);
     } finally {
       setDeleting(false);
     }
@@ -149,24 +154,20 @@ export default function PlaylistDetailPage() {
 
   return (
     <>
-      <header className="page-header">
-        <div>
-          <h1>Playlist</h1>
-          <p className="page-header__lead">
-            Editar metadados e ordenar itens (assets) na sequência de reprodução.
-          </p>
-        </div>
-        <div className="page-header__actions">
+      <PageHeader
+        title="Playlist"
+        lead="Editar metadados e ordenar itens (assets) na sequência de reprodução."
+        actions={
           <Link href="/playlists" className="btn btn--ghost">
-            <i className="fa-solid fa-arrow-left" aria-hidden />
+            <ArrowLeft size={17} strokeWidth={1.9} aria-hidden />
             Lista
           </Link>
-        </div>
-      </header>
+        }
+      />
 
       <section>
         {error && <p className="text-danger">{error}</p>}
-        {!data && !error && <p className="text-muted">Carregando…</p>}
+        {!data && !error && <p className="text-muted">A carregar…</p>}
         {data && (
           <>
             <form onSubmit={saveMeta} className="surface-form-card" style={{ marginBottom: 'var(--space-8)' }}>
@@ -195,8 +196,8 @@ export default function PlaylistDetailPage() {
                   value={status}
                   onChange={(e) => setStatus(e.target.value)}
                 >
-                  <option value="draft">draft</option>
-                  <option value="published">published</option>
+                  <option value="draft">{playlistStatus('draft')}</option>
+                  <option value="published">{playlistStatus('published')}</option>
                 </select>
               </label>
               <button type="submit" className="btn btn--primary" disabled={saving}>
@@ -274,7 +275,7 @@ export default function PlaylistDetailPage() {
                 type="button"
                 className="btn btn--ghost"
                 disabled={deleting}
-                onClick={() => void removePlaylist()}
+                onClick={() => setConfirmDelete(true)}
               >
                 {deleting ? 'A eliminar…' : 'Eliminar playlist'}
               </button>
@@ -282,6 +283,16 @@ export default function PlaylistDetailPage() {
           </>
         )}
       </section>
+
+      <ConfirmDialog
+        open={confirmDelete}
+        title="Eliminar playlist"
+        message="Eliminar esta playlist? Os itens serão removidos."
+        confirmLabel="Eliminar"
+        loading={deleting}
+        onConfirm={() => void removePlaylist()}
+        onCancel={() => setConfirmDelete(false)}
+      />
     </>
   );
 }

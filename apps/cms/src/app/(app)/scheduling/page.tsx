@@ -3,6 +3,15 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import {
+  GanttChart,
+  List,
+  Pencil,
+  Plus,
+  Trash2,
+} from 'lucide-react';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { PageHeader } from '@/components/ui/PageHeader';
 import { api, getToken } from '@/lib/api';
 import { formatDateTimePtBr } from '@/lib/format-date';
 import { ScheduleRuleModal } from './ScheduleRuleModal';
@@ -31,6 +40,7 @@ export default function SchedulingPage() {
   const [modalMode, setModalMode] = useState<'create' | 'edit'>('create');
   const [editing, setEditing] = useState<ScheduleRuleRow | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [confirmDeleteRuleId, setConfirmDeleteRuleId] = useState<string | null>(null);
   const [reapplying, setReapplying] = useState(false);
 
   const load = useCallback(async () => {
@@ -91,11 +101,11 @@ export default function SchedulingPage() {
   }, [rules]);
 
   async function removeRule(id: string) {
-    if (!confirm('Eliminar esta regra de agendamento?')) return;
     setDeletingId(id);
     setError(null);
     try {
       await api(`/schedules/${id}`, { method: 'DELETE' });
+      setConfirmDeleteRuleId(null);
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erro');
@@ -118,43 +128,39 @@ export default function SchedulingPage() {
 
   return (
     <>
-      <header className="page-header">
-        <div>
-          <h1>Agendamento</h1>
-          <p className="page-header__lead">
-            Associe playlists a devices ou grupos por dia da semana e horário — rotinas
-            tipo «segundas playlist A, terças playlist B». O player pode usar estas regras
-            O player aplica a playlist ativa em cada poll de estado (~3 s).
-          </p>
-        </div>
-        <div className="page-header__actions">
-          <button
-            type="button"
-            className="btn btn--ghost"
-            disabled={reapplying}
-            onClick={() => {
-              void (async () => {
-                setReapplying(true);
-                setError(null);
-                try {
-                  await api('/schedules/reapply', { method: 'POST' });
-                  await load();
-                } catch (e) {
-                  setError(e instanceof Error ? e.message : 'Erro');
-                } finally {
-                  setReapplying(false);
-                }
-              })();
-            }}
-          >
-            {reapplying ? 'A aplicar…' : 'Reaplicar agenda'}
-          </button>
-          <button type="button" className="btn btn--gradient" onClick={openCreate}>
-            <i className="fa-solid fa-plus" aria-hidden />
-            Novo agendamento
-          </button>
-        </div>
-      </header>
+      <PageHeader
+        title="Agendamento"
+        lead="Associe playlists a devices ou grupos por dia da semana e horário — rotinas tipo «segundas playlist A, terças playlist B». O player aplica a playlist ativa em cada poll de estado (~3 s)."
+        actions={
+          <>
+            <button
+              type="button"
+              className="btn btn--ghost"
+              disabled={reapplying}
+              onClick={() => {
+                void (async () => {
+                  setReapplying(true);
+                  setError(null);
+                  try {
+                    await api('/schedules/reapply', { method: 'POST' });
+                    await load();
+                  } catch (e) {
+                    setError(e instanceof Error ? e.message : 'Erro');
+                  } finally {
+                    setReapplying(false);
+                  }
+                })();
+              }}
+            >
+              {reapplying ? 'A aplicar…' : 'Reaplicar agenda'}
+            </button>
+            <button type="button" className="btn btn--primary" onClick={openCreate}>
+              <Plus strokeWidth={2.1} aria-hidden />
+              Novo agendamento
+            </button>
+          </>
+        }
+      />
 
       {stats && (
         <section
@@ -200,7 +206,7 @@ export default function SchedulingPage() {
             className={`btn ${view === 'linha' ? 'btn--primary' : 'btn--ghost'}`}
             onClick={() => setView('linha')}
           >
-            <i className="fa-solid fa-chart-gantt" aria-hidden />
+            <GanttChart size={17} strokeWidth={1.9} aria-hidden />
             Linha do tempo semanal
           </button>
           <button
@@ -208,13 +214,13 @@ export default function SchedulingPage() {
             className={`btn ${view === 'lista' ? 'btn--primary' : 'btn--ghost'}`}
             onClick={() => setView('lista')}
           >
-            <i className="fa-solid fa-table-list" aria-hidden />
+            <List size={17} strokeWidth={1.9} aria-hidden />
             Lista e edição
           </button>
         </div>
 
         {error && <p className="text-danger">{error}</p>}
-        {!rules && !error && <p className="text-muted">Carregando…</p>}
+        {!rules && !error && <p className="text-muted">A carregar…</p>}
 
         {view === 'linha' && rules && (
           <div>
@@ -323,16 +329,16 @@ export default function SchedulingPage() {
                           title="Editar"
                           onClick={() => openEdit(r)}
                         >
-                          <i className="fa-solid fa-pen" aria-hidden />
+                          <Pencil size={17} strokeWidth={1.9} aria-hidden />
                         </button>
                         <button
                           type="button"
                           className="btn btn--ghost"
                           title="Eliminar"
                           disabled={deletingId === r.id}
-                          onClick={() => void removeRule(r.id)}
+                          onClick={() => setConfirmDeleteRuleId(r.id)}
                         >
-                          {deletingId === r.id ? '…' : <i className="fa-solid fa-trash" aria-hidden />}
+                          {deletingId === r.id ? '…' : <Trash2 size={17} strokeWidth={1.9} aria-hidden />}
                         </button>
                       </div>
                     </td>
@@ -353,6 +359,18 @@ export default function SchedulingPage() {
         playlists={playlists}
         devices={devices}
         groups={groups}
+      />
+
+      <ConfirmDialog
+        open={confirmDeleteRuleId !== null}
+        title="Eliminar agendamento"
+        message="Eliminar esta regra de agendamento?"
+        confirmLabel="Eliminar"
+        loading={deletingId !== null}
+        onConfirm={() => {
+          if (confirmDeleteRuleId) void removeRule(confirmDeleteRuleId);
+        }}
+        onCancel={() => setConfirmDeleteRuleId(null)}
       />
     </>
   );

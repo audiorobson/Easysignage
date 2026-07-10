@@ -3,6 +3,9 @@
 import Link from 'next/link';
 import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { ArrowLeft } from 'lucide-react';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { PLATFORM_OPTIONS } from '@/lib/device-labels';
 import { api, getToken } from '@/lib/api';
 
 type Site = { id: string; name: string };
@@ -65,20 +68,16 @@ export default function NewDevicePage() {
 
   return (
     <>
-      <header className="page-header">
-        <div>
-          <h1>Novo dispositivo</h1>
-          <p className="page-header__lead">
-            Registe o player no site e obtenha um código de emparelhamento para o terminal.
-          </p>
-        </div>
-        <div className="page-header__actions">
+      <PageHeader
+        title="Novo dispositivo"
+        lead="Registe o player no site e obtenha um código de emparelhamento para o terminal."
+        actions={
           <Link href="/devices" className="btn btn--ghost">
-            <i className="fa-solid fa-arrow-left" aria-hidden />
+            <ArrowLeft size={17} strokeWidth={1.9} aria-hidden />
             Voltar
           </Link>
-        </div>
-      </header>
+        }
+      />
 
       <form onSubmit={onSubmit} className="surface-form-card">
         <label className="field">
@@ -113,15 +112,16 @@ export default function NewDevicePage() {
             value={platform}
             onChange={(e) => setPlatform(e.target.value)}
           >
-            <option value="electron">electron</option>
-            <option value="web">web</option>
-            <option value="android_browser">android_browser</option>
-            <option value="tv_browser">tv_browser</option>
+            {PLATFORM_OPTIONS.map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
           </select>
         </label>
         {error && <p className="text-danger">{error}</p>}
-        <button type="submit" disabled={loading || !siteId} className="btn btn--gradient">
-          {loading ? 'Criando…' : 'Criar e obter código'}
+        <button type="submit" disabled={loading || !siteId} className="btn btn--primary">
+          {loading ? 'A criar…' : 'Criar e obter código'}
         </button>
       </form>
     </>

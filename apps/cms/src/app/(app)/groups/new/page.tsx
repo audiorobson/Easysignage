@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { ArrowLeft } from 'lucide-react';
+import { PageHeader } from '@/components/ui/PageHeader';
 import { api, getToken } from '@/lib/api';
 
 export default function NewGroupPage() {
@@ -38,20 +40,16 @@ export default function NewGroupPage() {
 
   return (
     <>
-      <header className="page-header">
-        <div>
-          <h1>Novo grupo</h1>
-          <p className="page-header__lead">
-            Crie um conjunto de dispositivos para publicações e testes em bloco.
-          </p>
-        </div>
-        <div className="page-header__actions">
+      <PageHeader
+        title="Novo grupo"
+        lead="Crie um conjunto de dispositivos para publicações e testes em bloco."
+        actions={
           <Link href="/groups" className="btn btn--ghost">
-            <i className="fa-solid fa-arrow-left" aria-hidden />
+            <ArrowLeft size={17} strokeWidth={1.9} aria-hidden />
             Voltar
           </Link>
-        </div>
-      </header>
+        }
+      />
 
       <form onSubmit={onSubmit} className="surface-form-card">
         <label className="field">
@@ -74,8 +72,8 @@ export default function NewGroupPage() {
           />
         </label>
         {error && <p className="text-danger">{error}</p>}
-        <div className="page-header__actions" style={{ marginTop: 'var(--space-4)' }}>
-          <button type="submit" className="btn btn--gradient" disabled={loading}>
+        <div className="form-actions">
+          <button type="submit" className="btn btn--primary" disabled={loading}>
             {loading ? 'A criar…' : 'Criar grupo'}
           </button>
         </div>

@@ -4,9 +4,15 @@ import Link from 'next/link';
 import { useSearchParams, useParams } from 'next/navigation';
 import { useCallback, useEffect, useState, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
-import { ConnectionBadge, PublicationSyncBadge } from '@/components/ui/StatusBadge';
+import { ArrowLeft, Copy, ExternalLink, Trash2 } from 'lucide-react';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { ConnectionPill, StatusPill } from '@/components/ui/StatusPill';
+import { PublicationSyncBadge } from '@/components/ui/StatusBadge';
+import { deviceState, platformLabel, PLATFORM_OPTIONS } from '@/lib/device-labels';
 import { api, getToken } from '@/lib/api';
 import { formatDateTimePtBr } from '@/lib/format-date';
+import { webPlayerPairingUrl } from '@/lib/player-url';
 
 type DeviceMask = {
   id: string;
@@ -24,7 +30,7 @@ type DeviceMask = {
 
 type AssetOption = { id: string; name: string };
 
-type PlaylistOption = { id: string; name: string };
+type PlaylistOption = { id: string; name: string; itemCount?: number };
 
 type PublicationRow = {
   id: string;
@@ -97,6 +103,9 @@ function DeviceDetailInner({ id }: { id: string }) {
   const [editWakeMac, setEditWakeMac] = useState('');
   const [savingEdit, setSavingEdit] = useState(false);
   const [removing, setRemoving] = useState(false);
+  const [confirmRemove, setConfirmRemove] = useState(false);
+  const [pairSuccess, setPairSuccess] = useState(false);
+  const [copyMsg, setCopyMsg] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const data = await api<AdminStatePayload>(`/devices/${id}/state`);
@@ -201,6 +210,26 @@ function DeviceDetailInner({ id }: { id: string }) {
 
   const device = payload?.device;
 
+  /** Atualização em tempo real durante pareamento ou enquanto aguarda ligação. */
+  useEffect(() => {
+    if (!getToken() || !device) return;
+    const awaitingPair = device.status === 'provisioned' || pairing !== null;
+    const pollMs = awaitingPair ? 4000 : 15000;
+    const id = window.setInterval(() => {
+      void load().catch(() => undefined);
+    }, pollMs);
+    return () => window.clearInterval(id);
+  }, [device?.status, device?.id, pairing, load]);
+
+  useEffect(() => {
+    if (device?.status === 'active' && pairing) {
+      setPairing(null);
+      setPairSuccess(true);
+      const t = window.setTimeout(() => setPairSuccess(false), 12000);
+      return () => window.clearTimeout(t);
+    }
+  }, [device?.status, pairing]);
+
   useEffect(() => {
     if (!device) return;
     setEditName(device.name);
@@ -264,6 +293,17 @@ function DeviceDetailInner({ id }: { id: string }) {
     }
   }
 
+  async function copyPairingCode() {
+    if (!pairing?.code) return;
+    try {
+      await navigator.clipboard.writeText(pairing.code);
+      setCopyMsg('Código copiado.');
+      window.setTimeout(() => setCopyMsg(null), 2500);
+    } catch {
+      setCopyMsg('Não foi possível copiar.');
+    }
+  }
+
   async function regenerate() {
     setLoadingPair(true);
     setError(null);
@@ -315,12 +355,8 @@ function DeviceDetailInner({ id }: { id: string }) {
     }
   }
 
-  async function removeDevice() {
+  async function removeDeviceConfirmed() {
     if (!device) return;
-    const ok = window.confirm(
-      `Eliminar o dispositivo «${device.name}»? Esta ação não pode ser desfeita.`
-    );
-    if (!ok) return;
     setRemoving(true);
     setError(null);
     try {
@@ -328,6 +364,7 @@ function DeviceDetailInner({ id }: { id: string }) {
       router.push('/devices');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erro ao eliminar');
+      setConfirmRemove(false);
     } finally {
       setRemoving(false);
     }
@@ -335,39 +372,119 @@ function DeviceDetailInner({ id }: { id: string }) {
 
   return (
     <>
-      <header className="page-header">
-        <div>
-          <h1>Dispositivo</h1>
-          <p className="page-header__lead">
-            Detalhe, emparelhamento, conteúdo de teste e histórico de publicações.
-          </p>
-        </div>
-        <div className="page-header__actions">
-          {device && (
-            <button
-              type="button"
-              className="btn btn--ghost"
-              style={{ color: 'var(--color-danger-text)' }}
-              disabled={removing}
-              onClick={() => void removeDevice()}
-            >
-              {removing ? 'A remover…' : 'Eliminar dispositivo'}
-            </button>
-          )}
-          <Link href="/devices" className="btn btn--ghost">
-            <i className="fa-solid fa-arrow-left" aria-hidden />
-            Lista
-          </Link>
-        </div>
-      </header>
+      <PageHeader
+        title="Dispositivo"
+        lead="Detalhe, emparelhamento, conteúdo de teste e histórico de publicações."
+        actions={
+          <>
+            {device && (
+              <button
+                type="button"
+                className="btn btn--ghost"
+                style={{ color: 'var(--color-danger-text)' }}
+                disabled={removing}
+                onClick={() => setConfirmRemove(true)}
+              >
+                <Trash2 size={17} strokeWidth={1.9} aria-hidden />
+                {removing ? 'A remover…' : 'Eliminar dispositivo'}
+              </button>
+            )}
+            <Link href="/devices" className="btn btn--ghost">
+              <ArrowLeft size={17} strokeWidth={1.9} aria-hidden />
+              Lista
+            </Link>
+          </>
+        }
+      />
 
       <section>
         {error && <p className="text-danger">{error}</p>}
-        {!device && !error && <p className="text-muted">Carregando…</p>}
+        {!device && !error && <p className="text-muted">A carregar…</p>}
         {device && payload && (
           <>
+            {pairSuccess && (
+              <p
+                className="surface-card"
+                style={{
+                  padding: 'var(--space-4)',
+                  marginBottom: 'var(--space-4)',
+                  borderColor: 'var(--color-success-border, #86efac)',
+                  color: 'var(--color-success-text)',
+                }}
+              >
+                Player emparelhado com sucesso. Pode atribuir conteúdo abaixo.
+              </p>
+            )}
+
+            {(pairing || device.status === 'provisioned') && (
+              <section
+                className="surface-card"
+                style={{ padding: 'var(--space-5)', marginBottom: 'var(--space-6)' }}
+              >
+                <h2 style={{ fontSize: 'var(--text-md)', fontWeight: 600, margin: '0 0 var(--space-2)' }}>
+                  Ligar player
+                </h2>
+                <p className="text-muted" style={{ margin: '0 0 var(--space-4)' }}>
+                  Abra o web player com o código ou copie-o para o terminal. O estado atualiza
+                  automaticamente quando o player emparelhar.
+                </p>
+                {pairing ? (
+                  <>
+                    <div
+                      style={{
+                        fontSize: 28,
+                        letterSpacing: 4,
+                        fontWeight: 700,
+                        fontFamily: 'ui-monospace, monospace',
+                      }}
+                    >
+                      {pairing.code}
+                    </div>
+                    {pairing.expiresAt && (
+                      <p className="text-muted" style={{ margin: 'var(--space-2) 0 var(--space-4)' }}>
+                        Expira: {formatDateTimePtBr(pairing.expiresAt)}
+                      </p>
+                    )}
+                    <div className="form-actions" style={{ marginTop: 0 }}>
+                      <button type="button" className="btn btn--primary" onClick={() => void copyPairingCode()}>
+                        <Copy size={17} strokeWidth={1.9} aria-hidden />
+                        Copiar código
+                      </button>
+                      <a
+                        href={webPlayerPairingUrl(pairing.code)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn btn--secondary"
+                      >
+                        <ExternalLink size={17} strokeWidth={1.9} aria-hidden />
+                        Abrir player
+                      </a>
+                    </div>
+                    {copyMsg && (
+                      <p className="text-muted" style={{ margin: 'var(--space-3) 0 0', fontSize: 'var(--text-sm)' }}>
+                        {copyMsg}
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  <p className="text-muted" style={{ margin: 0 }}>
+                    Sem código ativo. Gere um novo código para emparelhar ou reconfigurar o terminal.
+                  </p>
+                )}
+                <button
+                  type="button"
+                  onClick={regenerate}
+                  disabled={loadingPair}
+                  className="btn btn--ghost"
+                  style={{ marginTop: 'var(--space-4)' }}
+                >
+                  {loadingPair ? 'A gerar…' : 'Gerar código de pareamento'}
+                </button>
+              </section>
+            )}
+
             <p style={{ marginBottom: 'var(--space-4)' }}>
-              <ConnectionBadge online={payload.online} />
+              <ConnectionPill state={payload.online ? 'on' : 'off'} />
               <span className="text-muted" style={{ marginLeft: 'var(--space-3)' }}>
                 (último heartbeat nos últimos 5 min)
               </span>
@@ -383,9 +500,14 @@ function DeviceDetailInner({ id }: { id: string }) {
               <dt>Site</dt>
               <dd>{device.siteName ?? device.siteId}</dd>
               <dt>Plataforma</dt>
-              <dd>{device.platform}</dd>
-              <dt>Status cadastral</dt>
-              <dd>{device.status}</dd>
+              <dd>{platformLabel(device.platform)}</dd>
+              <dt>Estado cadastral</dt>
+              <dd>
+                <StatusPill
+                  label={deviceState(device.status).label}
+                  tone={deviceState(device.status).tone}
+                />
+              </dd>
               {device.serialNumber && (
                 <>
                   <dt>Número de série</dt>
@@ -450,11 +572,12 @@ function DeviceDetailInner({ id }: { id: string }) {
                   value={editPlatform}
                   onChange={(e) => setEditPlatform(e.target.value)}
                 >
-                  <option value="electron">electron</option>
-                  <option value="web">web</option>
-                  <option value="android_browser">android_browser</option>
-                  <option value="tv_browser">tv_browser</option>
-                  <option value="unknown">unknown</option>
+                  {PLATFORM_OPTIONS.map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                  <option value="unknown">{platformLabel('unknown')}</option>
                 </select>
               </label>
               <label className="field">
@@ -464,9 +587,11 @@ function DeviceDetailInner({ id }: { id: string }) {
                   value={editStatus}
                   onChange={(e) => setEditStatus(e.target.value)}
                 >
-                  <option value="provisioned">provisioned (aguarda pareamento)</option>
-                  <option value="active">active</option>
-                  <option value="disabled">disabled</option>
+                  <option value="provisioned">
+                    {deviceState('provisioned').label} (aguarda pareamento)
+                  </option>
+                  <option value="active">{deviceState('active').label}</option>
+                  <option value="disabled">{deviceState('disabled').label}</option>
                 </select>
               </label>
               <label className="field">
@@ -486,7 +611,7 @@ function DeviceDetailInner({ id }: { id: string }) {
               </label>
               <button
                 type="button"
-                className="btn btn--gradient"
+                className="btn btn--primary"
                 disabled={savingEdit}
                 onClick={() => void saveCadastro()}
               >
@@ -704,6 +829,9 @@ function DeviceDetailInner({ id }: { id: string }) {
                       {playlists.map((p) => (
                         <option key={p.id} value={p.id}>
                           {p.name}
+                          {p.itemCount != null
+                            ? ` (${p.itemCount} ${p.itemCount === 1 ? 'item' : 'itens'})`
+                            : ''}
                         </option>
                       ))}
                     </select>
@@ -786,50 +914,23 @@ function DeviceDetailInner({ id }: { id: string }) {
               )}
             </section>
 
-            <section style={{ marginTop: 'var(--space-8)' }}>
-              <h2 style={{ fontSize: 'var(--text-md)', fontWeight: 600, margin: '0 0 var(--space-3)' }}>
-                Pareamento (reconfigurar player)
-              </h2>
-              <p className="text-muted">
-                Informe o código no player (Web ou Electron). Válido por ~30 minutos após criar ou
-                regenerar. Se precisar de um novo código — por exemplo após mudar de máquina — use o botão
-                abaixo; o estado volta a <code>provisioned</code> até o player emparelhar de novo.
-              </p>
-              {pairing && (
-                <div className="surface-card">
-                  <div className="text-muted" style={{ fontSize: 'var(--text-xs)' }}>
-                    Código
-                  </div>
-                  <div
-                    style={{
-                      fontSize: 28,
-                      letterSpacing: 4,
-                      fontWeight: 700,
-                      color: 'var(--color-text)',
-                    }}
-                  >
-                    {pairing.code}
-                  </div>
-                  {pairing.expiresAt && (
-                    <div className="text-muted" style={{ marginTop: 'var(--space-2)' }}>
-                      Expira: {formatDateTimePtBr(pairing.expiresAt)}
-                    </div>
-                  )}
-                </div>
-              )}
-              <button
-                type="button"
-                onClick={regenerate}
-                disabled={loadingPair}
-                className="btn btn--ghost"
-                style={{ marginTop: 'var(--space-4)' }}
-              >
-                {loadingPair ? 'A gerar…' : 'Reconfigurar pareamento (novo código)'}
-              </button>
-            </section>
           </>
         )}
       </section>
+
+      <ConfirmDialog
+        open={confirmRemove}
+        title="Eliminar dispositivo"
+        message={
+          device
+            ? `Eliminar «${device.name}»? Esta ação não pode ser desfeita.`
+            : ''
+        }
+        confirmLabel="Eliminar"
+        loading={removing}
+        onConfirm={() => void removeDeviceConfirmed()}
+        onCancel={() => setConfirmRemove(false)}
+      />
     </>
   );
 }
@@ -839,7 +940,7 @@ export default function DeviceDetailPage() {
   const id = params.id as string;
 
   return (
-    <Suspense fallback={<p className="text-muted">Carregando…</p>}>
+    <Suspense fallback={<p className="text-muted">A carregar…</p>}>
       <DeviceDetailInner id={id} />
     </Suspense>
   );

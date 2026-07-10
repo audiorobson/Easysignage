@@ -1,4 +1,6 @@
 import type { ReactNode } from 'react';
+import type { BadgeTone } from '@/lib/device-labels';
+import { ConnectionPill, StatusPill } from '@/components/ui/StatusPill';
 
 export type StatusBadgeVariant =
   | 'success'
@@ -7,26 +9,32 @@ export type StatusBadgeVariant =
   | 'info'
   | 'neutral';
 
-const CLASS: Record<StatusBadgeVariant, string> = {
-  success: 'badge badge--success',
-  danger: 'badge badge--danger',
-  warning: 'badge badge--warning',
-  info: 'badge badge--info',
-  neutral: 'badge badge--neutral',
+const VARIANT_TONE: Record<StatusBadgeVariant, BadgeTone> = {
+  success: 'success',
+  danger: 'danger',
+  warning: 'warning',
+  info: 'info',
+  neutral: 'neutral',
 };
 
 export function StatusBadge({
   variant,
   children,
   title,
+  dot = true,
 }: {
   variant: StatusBadgeVariant;
   children: ReactNode;
   title?: string;
+  dot?: boolean;
 }) {
   return (
-    <span className={CLASS[variant]} title={title}>
-      {children}
+    <span title={title}>
+      <StatusPill
+        label={typeof children === 'string' ? children : String(children)}
+        tone={VARIANT_TONE[variant]}
+        dot={dot}
+      />
     </span>
   );
 }
@@ -43,20 +51,26 @@ export function PublicationSyncBadge({
 }) {
   if (expectedVersion == null) {
     return (
-      <StatusBadge variant="neutral" title="Nenhuma publicação ativa no servidor">
-        Sem publicação ativa
-      </StatusBadge>
+      <StatusPill
+        label="Sem publicação ativa"
+        tone="neutral"
+        title="Nenhuma publicação ativa no servidor"
+      />
     );
   }
   const title = synced
     ? `O player confirmou a versão ${expectedVersion}`
     : `Servidor: v${expectedVersion} — player: v${appliedVersion ?? 'pendente'}`;
   return (
-    <StatusBadge variant={synced ? 'success' : 'warning'} title={title}>
-      {synced
-        ? `Publicação v${expectedVersion} sincronizada`
-        : `Publicação pendente (v${expectedVersion})`}
-    </StatusBadge>
+    <StatusPill
+      label={
+        synced
+          ? `Publicação v${expectedVersion} sincronizada`
+          : `Publicação pendente (v${expectedVersion})`
+      }
+      tone={synced ? 'success' : 'warning'}
+      title={title}
+    />
   );
 }
 
@@ -68,9 +82,5 @@ export function ConnectionBadge({
   online: boolean;
   title?: string;
 }) {
-  return (
-    <StatusBadge variant={online ? 'success' : 'danger'} title={title}>
-      {online ? 'Online' : 'Offline'}
-    </StatusBadge>
-  );
+  return <ConnectionPill state={online ? 'on' : 'off'} title={title} />;
 }

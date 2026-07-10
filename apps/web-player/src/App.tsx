@@ -8,11 +8,22 @@ import {
   useState,
 } from 'react';
 
+import { isPlayableInPlayer } from '@easysignage/shared-types';
 import {
   clearDeviceAssetCache,
   evictDeviceAssetCacheExcept,
-  fetchDeviceAssetCached,
 } from './deviceAssetCache';
+import {
+  clearMediaCache,
+  getCachedMedia,
+  loadMedia,
+  playlistFileUrls,
+  preloadSlides,
+  revokeMediaCache,
+  type LoadedMedia,
+  type MediaKind,
+} from './mediaLoader';
+import { SlideLayer } from './SlideLayer';
 
 const API =
   import.meta.env.VITE_API_URL?.replace(/\/$/, '') ?? 'http://localhost:3001/api/v1';
@@ -23,6 +34,27 @@ const PREVIEW_INTERVAL_SEC = 1;
 const STATE_POLL_SEC = 3;
 const APP_VERSION = '0.0.1';
 const CONFIG_HIDE_MS = 10_000;
+
+type TransitionKind = 'none' | 'fade' | 'slide-left' | 'slide-right' | 'zoom';
+
+const TRANSITION_OPTIONS: { value: TransitionKind; label: string }[] = [
+  { value: 'none', label: 'Instantânea (pré-carregada)' },
+  { value: 'fade', label: 'Fade (dissolver)' },
+  { value: 'slide-left', label: 'Deslizar ←' },
+  { value: 'slide-right', label: 'Deslizar →' },
+  { value: 'zoom', label: 'Zoom suave' },
+];
+
+function readTransition(): TransitionKind {
+  const v = localStorage.getItem('player_transition');
+  if (v && TRANSITION_OPTIONS.some((o) => o.value === v)) return v as TransitionKind;
+  return 'fade';
+}
+
+function readTransitionMs(): number {
+  const n = Number(localStorage.getItem('player_transition_ms'));
+  return n >= 150 && n <= 1200 ? n : 450;
+}
 
 type CurrentItem = {
   type?: string;
@@ -51,8 +83,6 @@ type PlaylistManifest = {
   items: ManifestItem[];
 };
 
-type MediaKind = 'image' | 'video' | 'pdf' | 'html' | 'url';
-
 function buildMetrics(): Record<string, unknown> | undefined {
   try {
     const m = (performance as { memory?: { usedJSHeapSize: number } }).memory;
@@ -64,7 +94,7 @@ function buildMetrics(): Record<string, unknown> | undefined {
 }
 
 function isPlayableKind(kind: string): boolean {
-  return ['image', 'video', 'pdf', 'html', 'url'].includes(kind);
+  return kind === 'url' || isPlayableInPlayer(kind);
 }
 
 function drawStageToJpegBlob(
@@ -118,10 +148,14 @@ function defaultDurationSec(kind: string): number {
       return 10;
     case 'video':
       return 30;
+    case 'audio':
+      return 60;
     case 'pdf':
       return 45;
     case 'html':
       return 60;
+    case 'text':
+      return 20;
     case 'url':
       return 30;
     default:
@@ -145,7 +179,6 @@ export function App() {
   );
   const [heartbeatStatus, setHeartbeatStatus] = useState<string | null>(null);
   const [contentHint, setContentHint] = useState<string | null>(null);
-  const blobUrlRef = useRef<string | null>(null);
 
   const [currentItem, setCurrentItem] = useState<CurrentItem>(null);
   /** Quando o estado no servidor muda (sync, playlist, publicação), força novo fetch do manifest. */
@@ -162,24 +195,30 @@ export function App() {
   const [playlistManifest, setPlaylistManifest] = useState<PlaylistManifest | null>(null);
   const [slideIndex, setSlideIndex] = useState(0);
 
-  const [mediaKind, setMediaKind] = useState<MediaKind | null>(null);
-  const [blobUrl, setBlobUrl] = useState<string | null>(null);
-  const [frameUrl, setFrameUrl] = useState<string | null>(null);
+  const [transitionKind, setTransitionKind] = useState<TransitionKind>(readTransition);
+  const [transitionMs, setTransitionMs] = useState(readTransitionMs);
+  const [displayMedia, setDisplayMedia] = useState<LoadedMedia | null>(null);
+  const [leaveMedia, setLeaveMedia] = useState<LoadedMedia | null>(null);
+  const [enterMedia, setEnterMedia] = useState<LoadedMedia | null>(null);
+  const displayMediaRef = useRef<LoadedMedia | null>(null);
+  const enterMediaRef = useRef<LoadedMedia | null>(null);
+  const transitioningRef = useRef(false);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const audioRef = useRef<HTMLAudioElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
 
   const [configOpen, setConfigOpen] = useState(() => !localStorage.getItem('device_token'));
   const topUiRef = useRef<HTMLDivElement>(null);
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const autoPairAttemptedRef = useRef(false);
 
-  const revokeBlob = useCallback(() => {
-    if (blobUrlRef.current) {
-      URL.revokeObjectURL(blobUrlRef.current);
-      blobUrlRef.current = null;
-    }
-    setBlobUrl(null);
-    setFrameUrl(null);
-    setMediaKind(null);
+  const clearStage = useCallback(() => {
+    setDisplayMedia(null);
+    setLeaveMedia(null);
+    setEnterMedia(null);
+    displayMediaRef.current = null;
+    enterMediaRef.current = null;
+    transitioningRef.current = false;
   }, []);
 
   const clearHideTimer = useCallback(() => {
@@ -188,6 +227,29 @@ export function App() {
       hideTimerRef.current = null;
     }
   }, []);
+
+  const invalidateSession = useCallback((message?: string) => {
+    void clearDeviceAssetCache();
+    clearMediaCache();
+    localStorage.removeItem('device_token');
+    setDeviceToken(null);
+    lastContentRevisionRef.current = null;
+    appliedAckRef.current = { publicationVersion: null, contentRevision: null };
+    setContentRevision(null);
+    setServerPublicationVersion(null);
+    setHeartbeatStatus(null);
+    setCurrentItem(null);
+    setPlaylistManifest(null);
+    setSlideIndex(0);
+    clearStage();
+    setConfigOpen(true);
+    clearHideTimer();
+    if (message) setErr(message);
+  }, [clearStage, clearHideTimer]);
+
+  const handleAuthFailure = useCallback(() => {
+    invalidateSession('Sessão expirada ou inválida. Introduza um novo código do CMS.');
+  }, [invalidateSession]);
 
   const scheduleHideConfig = useCallback(() => {
     clearHideTimer();
@@ -244,8 +306,77 @@ export function App() {
   }, [deviceToken, configOpen, scheduleHideConfig, clearHideTimer]);
 
   useEffect(() => {
-    return () => revokeBlob();
-  }, [revokeBlob]);
+    return () => clearMediaCache();
+  }, []);
+
+  const markContentApplied = useCallback(() => {
+    const rev = lastContentRevisionRef.current;
+    if (!rev) return;
+    appliedAckRef.current = {
+      publicationVersion: serverPublicationVersion,
+      contentRevision: rev,
+    };
+  }, [serverPublicationVersion]);
+
+  useEffect(() => {
+    displayMediaRef.current = displayMedia;
+  }, [displayMedia]);
+
+  useEffect(() => {
+    enterMediaRef.current = enterMedia;
+  }, [enterMedia]);
+
+  const finishTransition = useCallback(() => {
+    const media = enterMediaRef.current;
+    if (!media) return;
+    setDisplayMedia(media);
+    displayMediaRef.current = media;
+    setLeaveMedia(null);
+    setEnterMedia(null);
+    enterMediaRef.current = null;
+    transitioningRef.current = false;
+    markContentApplied();
+  }, [markContentApplied]);
+
+  const applyMedia = useCallback(
+    async (assetId: string, kindHint?: string) => {
+      const token = deviceToken ?? localStorage.getItem('device_token');
+      if (!token) return;
+      try {
+        let media = getCachedMedia(assetId);
+        if (!media) {
+          media = await loadMedia(token, { assetId, kind: kindHint ?? 'image' });
+        }
+        const current = displayMediaRef.current;
+        if (!current) {
+          setDisplayMedia(media);
+          displayMediaRef.current = media;
+          setContentHint(null);
+          markContentApplied();
+          return;
+        }
+        if (current.assetId === media.assetId) return;
+        if (transitionKind === 'none') {
+          setDisplayMedia(media);
+          displayMediaRef.current = media;
+          markContentApplied();
+          return;
+        }
+        if (transitioningRef.current) finishTransition();
+        transitioningRef.current = true;
+        setLeaveMedia(current);
+        setEnterMedia(media);
+        window.setTimeout(() => {
+          if (transitioningRef.current && enterMediaRef.current) {
+            finishTransition();
+          }
+        }, transitionMs + 80);
+      } catch {
+        setContentHint('Falha ao carregar mídia');
+      }
+    },
+    [deviceToken, transitionKind, transitionMs, markContentApplied, finishTransition]
+  );
 
   const sendHeartbeat = useCallback(async () => {
     const token = deviceToken ?? localStorage.getItem('device_token');
@@ -268,10 +399,14 @@ export function App() {
         metrics: buildMetrics(),
       }),
     });
+    if (res.status === 401 || res.status === 403) {
+      handleAuthFailure();
+      throw new Error('Não autorizado');
+    }
     const data = await res.json();
     if (!res.ok) throw new Error(data.message ?? `HTTP ${res.status}`);
     return data.serverTime as string;
-  }, [deviceToken]);
+  }, [deviceToken, handleAuthFailure]);
 
   useEffect(() => {
     if (!deviceToken) {
@@ -323,6 +458,10 @@ export function App() {
           message?: string;
         };
         if (cancelled) return;
+        if (res.status === 401 || res.status === 403) {
+          handleAuthFailure();
+          return;
+        }
         if (!res.ok) {
           setContentHint(data?.message ?? `Estado HTTP ${res.status}`);
           setCurrentItem(null);
@@ -363,14 +502,15 @@ export function App() {
       cancelled = true;
       window.clearInterval(id);
     };
-  }, [deviceToken]);
+  }, [deviceToken, handleAuthFailure]);
 
   const playlistId =
     currentItem?.type === 'playlist' && currentItem.playlistId ? currentItem.playlistId : null;
 
   useEffect(() => {
     setSlideIndex(0);
-  }, [playlistId]);
+    clearStage();
+  }, [playlistId, contentRevision, clearStage]);
 
   useEffect(() => {
     const token = deviceToken ?? localStorage.getItem('device_token');
@@ -386,6 +526,10 @@ export function App() {
         });
         const data = (await res.json()) as PlaylistManifest & { message?: string };
         if (cancelled) return;
+        if (res.status === 401 || res.status === 403) {
+          handleAuthFailure();
+          return;
+        }
         if (!res.ok) {
           setContentHint(data?.message ?? `Playlist HTTP ${res.status}`);
           setPlaylistManifest(null);
@@ -403,7 +547,55 @@ export function App() {
     return () => {
       cancelled = true;
     };
-  }, [playlistId, deviceToken, contentRevision]);
+  }, [playlistId, deviceToken, contentRevision, handleAuthFailure]);
+
+  const performPair = useCallback(
+    async (code: string) => {
+      const res = await fetch(`${API}/public/devices/pair`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          pairingCode: code.trim().toUpperCase(),
+          platform,
+          ...(name.trim() ? { name: name.trim() } : {}),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.message ?? `HTTP ${res.status}`);
+      }
+      localStorage.setItem('device_token', data.accessToken);
+      setDeviceToken(data.accessToken);
+      setMsg('Pareado. A sincronizar conteúdo…');
+      setConfigOpen(true);
+      scheduleHideConfig();
+      void sendHeartbeat().catch(() => undefined);
+    },
+    [platform, name, scheduleHideConfig, sendHeartbeat]
+  );
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('pair')?.trim().toUpperCase();
+    if (code) setPairingCode(code);
+  }, []);
+
+  useEffect(() => {
+    if (autoPairAttemptedRef.current || deviceToken) return;
+    const code = new URLSearchParams(window.location.search)
+      .get('pair')
+      ?.trim()
+      .toUpperCase();
+    if (!code || code.length < 6) return;
+    autoPairAttemptedRef.current = true;
+    setLoading(true);
+    setErr(null);
+    void performPair(code)
+      .catch((e) => {
+        setErr(e instanceof Error ? e.message : 'Falha no pareamento automático');
+      })
+      .finally(() => setLoading(false));
+  }, [deviceToken, performPair]);
 
   const playableSlides = useMemo(() => {
     if (!playlistManifest?.items.length) return [];
@@ -422,174 +614,68 @@ export function App() {
     return null;
   }, [currentItem?.type, currentItem?.assetId]);
 
-  /** Mantém no cache só os ficheiros do manifesto/conteúdo atual. */
-  useEffect(() => {
-    const keep = new Set<string>();
-    if (singleAssetId) {
-      keep.add(deviceAssetFileUrl(singleAssetId));
-    }
-    for (const slide of playableSlides) {
-      if (slide.kind !== 'url') {
-        keep.add(deviceAssetFileUrl(slide.assetId));
-      }
-    }
-    void evictDeviceAssetCacheExcept([...keep]);
-  }, [contentRevision, singleAssetId, playableSlides]);
+  const singleAssetKind = currentItem?.kind ?? 'image';
 
-  const markContentApplied = useCallback(() => {
-    const rev = lastContentRevisionRef.current;
-    if (!rev) return;
-    appliedAckRef.current = {
-      publicationVersion: serverPublicationVersion,
-      contentRevision: rev,
-    };
-  }, [serverPublicationVersion]);
-
-  const activeAssetId = useMemo(() => {
-    if (playlistId && playableSlides.length) {
-      const idx = slideIndex % playableSlides.length;
-      return playableSlides[idx]?.assetId ?? null;
-    }
-    return singleAssetId;
-  }, [playlistId, playableSlides, slideIndex, singleAssetId]);
-
-  /** Carrega meta + ficheiro ou URL externa para o asset atual (item único ou slide). */
   useEffect(() => {
     const token = deviceToken ?? localStorage.getItem('device_token');
-    if (!token) {
-      revokeBlob();
+    if (!token) return;
+    const keepIds = new Set<string>();
+    if (singleAssetId) keepIds.add(singleAssetId);
+    for (const s of playableSlides) keepIds.add(s.assetId);
+    revokeMediaCache(keepIds);
+    void evictDeviceAssetCacheExcept([
+      ...playlistFileUrls(playableSlides),
+      ...(singleAssetId ? [deviceAssetFileUrl(singleAssetId)] : []),
+    ]);
+  }, [contentRevision, singleAssetId, playableSlides, deviceToken]);
+
+  useEffect(() => {
+    const token = deviceToken ?? localStorage.getItem('device_token');
+    if (!token || !playableSlides.length) return;
+    preloadSlides(token, playableSlides);
+  }, [playableSlides, deviceToken, contentRevision]);
+
+  useEffect(() => {
+    if (!playlistId || !playableSlides.length) return;
+    const idx = slideIndex % playableSlides.length;
+    const slide = playableSlides[idx]!;
+    setContentHint(
+      `${playlistManifest?.name ?? ''} — ${idx + 1}/${playableSlides.length}`
+    );
+    void applyMedia(slide.assetId, slide.kind);
+  }, [slideIndex, playlistId, playableSlides, playlistManifest?.name, applyMedia]);
+
+  useEffect(() => {
+    if (playlistId || !singleAssetId) {
+      if (!playlistId && !singleAssetId) clearStage();
       return;
     }
+    void applyMedia(singleAssetId, singleAssetKind);
+  }, [singleAssetId, singleAssetKind, playlistId, contentRevision, applyMedia, clearStage]);
 
+  useEffect(() => {
     if (playlistId) {
-      if (!playableSlides.length) {
-        if (playlistManifest) {
-          setContentHint(
-            'Nenhum item reproduzível (imagens, vídeo, PDF, HTML ou URL).'
-          );
-        }
-        revokeBlob();
-        return;
+      if (!playableSlides.length && playlistManifest) {
+        setContentHint(
+          playlistManifest.items.length === 0
+            ? 'Playlist vazia — adicione itens no CMS (Playlists).'
+            : 'Nenhum item reproduzível (imagem, vídeo, áudio, PDF, HTML, texto ou URL).'
+        );
+        clearStage();
       }
-    } else if (!singleAssetId) {
-      revokeBlob();
+      return;
+    }
+    if (!singleAssetId && deviceToken) {
       setContentHint('Sem conteúdo atribuído (CMS → dispositivo).');
-      return;
+      clearStage();
     }
-
-    const assetId = activeAssetId;
-    if (!assetId) {
-      revokeBlob();
-      return;
-    }
-
-    let caption = '';
-    if (playlistId && playableSlides.length) {
-      const idx = slideIndex % playableSlides.length;
-      caption = `${playlistManifest?.name ?? ''} — ${idx + 1}/${playableSlides.length}`;
-    }
-
-    let cancelled = false;
-
-    (async () => {
-      try {
-        setContentHint(caption ? `A carregar… ${caption}` : 'A carregar…');
-        const metaRes = await fetch(`${API}/device/assets/${assetId}/meta`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (cancelled) return;
-        if (!metaRes.ok) {
-          setContentHint(`Meta HTTP ${metaRes.status}`);
-          revokeBlob();
-          return;
-        }
-        const meta = (await metaRes.json()) as {
-          kind: string;
-          mimeType?: string;
-          remoteUrl?: string | null;
-        };
-
-        if (meta.kind === 'url' && meta.remoteUrl) {
-          revokeBlob();
-          if (cancelled) return;
-          blobUrlRef.current = null;
-          setBlobUrl(null);
-          setFrameUrl(meta.remoteUrl);
-          setMediaKind('url');
-          setContentHint(caption || 'URL externo');
-          markContentApplied();
-          return;
-        }
-
-        const fr = await fetchDeviceAssetCached(
-          `${API}/device/assets/${assetId}/file`,
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          }
-        );
-        if (cancelled) return;
-        if (!fr.ok) {
-          setContentHint(`Ficheiro HTTP ${fr.status}`);
-          revokeBlob();
-          return;
-        }
-        let blob = await fr.blob();
-        if (cancelled) return;
-        /** MIME explícito: respostas em stream por vezes deixam blob.type vazio; o Chrome não abre PDF no iframe sem tipo. */
-        const headerType =
-          fr.headers.get('content-type')?.split(';')[0]?.trim() ?? '';
-        const canonical =
-          meta.kind === 'pdf'
-            ? 'application/pdf'
-            : meta.kind === 'html'
-              ? 'text/html'
-              : '';
-        const effectiveType =
-          canonical ||
-          blob.type ||
-          headerType ||
-          meta.mimeType ||
-          'application/octet-stream';
-        const needsRetype =
-          !blob.type ||
-          blob.type === 'application/octet-stream' ||
-          (Boolean(canonical) && blob.type !== canonical);
-        if (needsRetype) {
-          blob = new Blob([await blob.arrayBuffer()], { type: effectiveType });
-        }
-        if (cancelled) return;
-        revokeBlob();
-        const url = URL.createObjectURL(blob);
-        blobUrlRef.current = url;
-        setBlobUrl(url);
-        setFrameUrl(null);
-        const k = meta.kind as MediaKind;
-        setMediaKind(
-          ['image', 'video', 'pdf', 'html'].includes(k) ? k : 'image'
-        );
-        setContentHint(caption || null);
-        markContentApplied();
-      } catch {
-        if (!cancelled) {
-          setContentHint('Falha ao carregar mídia');
-          revokeBlob();
-        }
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
   }, [
-    activeAssetId,
     playlistId,
-    singleAssetId,
-    playlistManifest,
     playableSlides,
-    slideIndex,
+    playlistManifest,
+    singleAssetId,
     deviceToken,
-    revokeBlob,
-    markContentApplied,
+    clearStage,
   ]);
 
   /** Avança slide pela duração do item — não depender de `currentItem` (poll recria o objeto). */
@@ -605,22 +691,13 @@ export function App() {
   }, [playlistId, playableSlides, slideIndex]);
 
   useEffect(() => {
-    if (mediaKind === 'video' && blobUrl && videoRef.current) {
-      void videoRef.current.play().catch(() => {
-        /* autoplay policy */
-      });
-    }
-  }, [mediaKind, blobUrl]);
-
-  useEffect(() => {
     const token = deviceToken ?? localStorage.getItem('device_token');
-    if (!token || (mediaKind !== 'image' && mediaKind !== 'video')) {
-      return;
-    }
+    const kind = displayMedia?.kind ?? null;
+    if (!token || (kind !== 'image' && kind !== 'video')) return;
     const tick = () => {
       void (async () => {
         const blob = await drawStageToJpegBlob(
-          mediaKind,
+          kind,
           imageRef.current,
           videoRef.current,
           0.72
@@ -635,14 +712,14 @@ export function App() {
             body: fd,
           });
         } catch {
-          /* rede indisponível — não inundar UI */
+          /* ignore */
         }
       })();
     };
     tick();
     const id = window.setInterval(tick, PREVIEW_INTERVAL_SEC * 1000);
     return () => window.clearInterval(id);
-  }, [deviceToken, mediaKind, blobUrl]);
+  }, [deviceToken, displayMedia?.kind, displayMedia?.assetId]);
 
   async function onPair(e: FormEvent) {
     e.preventDefault();
@@ -650,24 +727,7 @@ export function App() {
     setMsg(null);
     setLoading(true);
     try {
-      const res = await fetch(`${API}/public/devices/pair`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          pairingCode: pairingCode.trim().toUpperCase(),
-          platform,
-          ...(name.trim() ? { name: name.trim() } : {}),
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.message ?? `HTTP ${res.status}`);
-      }
-      localStorage.setItem('device_token', data.accessToken);
-      setDeviceToken(data.accessToken);
-      setMsg('Pareado. Painel oculta em 10s — passe o rato no topo para reabrir.');
-      setConfigOpen(true);
-      scheduleHideConfig();
+      await performPair(pairingCode);
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'Falha');
     } finally {
@@ -676,88 +736,71 @@ export function App() {
   }
 
   function clearToken() {
-    void clearDeviceAssetCache();
-    localStorage.removeItem('device_token');
-    setDeviceToken(null);
-    lastContentRevisionRef.current = null;
-    appliedAckRef.current = { publicationVersion: null, contentRevision: null };
-    setContentRevision(null);
-    setServerPublicationVersion(null);
-    setHeartbeatStatus(null);
-    setCurrentItem(null);
-    setPlaylistManifest(null);
-    setSlideIndex(0);
-    revokeBlob();
+    invalidateSession('Token removido.');
     setMsg('Token removido.');
-    setConfigOpen(true);
-    clearHideTimer();
   }
 
-  const hasMedia = Boolean(blobUrl || frameUrl);
+  function onTransitionChange(kind: TransitionKind) {
+    setTransitionKind(kind);
+    localStorage.setItem('player_transition', kind);
+  }
+
+  function onTransitionMsChange(ms: number) {
+    setTransitionMs(ms);
+    localStorage.setItem('player_transition_ms', String(ms));
+  }
+
+  const hasMedia = Boolean(displayMedia || leaveMedia || enterMedia);
   const showSlideCaption = Boolean(
     playlistId && hasMedia && contentHint && !configOpen
   );
   const showFooterPulse = Boolean(deviceToken && !configOpen);
+  const loopVideo = !playlistId;
 
   return (
     <div className="player-root">
       <div className="player-stage">
-        {hasMedia ? (
-          <>
-            {mediaKind === 'image' && blobUrl && (
-              <img
-                ref={imageRef}
-                className="player-stage__media"
-                src={blobUrl}
-                alt=""
+        <div className="player-stage__layers">
+          {leaveMedia && enterMedia && (
+            <SlideLayer
+              media={leaveMedia}
+              phase="leave"
+              transition={transitionKind}
+              transitionMs={transitionMs}
+              loopVideo={loopVideo}
+            />
+          )}
+          {enterMedia ? (
+            <SlideLayer
+              media={enterMedia}
+              phase={transitionKind === 'none' ? 'static' : 'enter'}
+              transition={transitionKind}
+              transitionMs={transitionMs}
+              loopVideo={loopVideo}
+              imageRef={imageRef}
+              videoRef={videoRef}
+              audioRef={audioRef}
+              onAnimationEnd={finishTransition}
+            />
+          ) : (
+            displayMedia && (
+              <SlideLayer
+                media={displayMedia}
+                phase="static"
+                transition={transitionKind}
+                transitionMs={transitionMs}
+                loopVideo={loopVideo}
+                imageRef={imageRef}
+                videoRef={videoRef}
+                audioRef={audioRef}
               />
-            )}
-            {mediaKind === 'video' && blobUrl && (
-              <video
-                ref={videoRef}
-                key={blobUrl}
-                className="player-stage__media"
-                src={blobUrl}
-                autoPlay
-                muted
-                playsInline
-                loop={!playlistId}
-              />
-            )}
-            {mediaKind === 'pdf' && blobUrl && (
-              <iframe
-                key={blobUrl}
-                className="player-stage__media player-stage__frame"
-                src={blobUrl}
-                title="Documento PDF"
-              />
-            )}
-            {mediaKind === 'html' && blobUrl && (
-              <iframe
-                key={blobUrl}
-                className="player-stage__media player-stage__frame"
-                src={blobUrl}
-                title=""
-                sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
-              />
-            )}
-            {mediaKind === 'url' && frameUrl && (
-              <iframe
-                key={frameUrl}
-                className="player-stage__media player-stage__frame"
-                src={frameUrl}
-                title=""
-                sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
-                referrerPolicy="no-referrer-when-downgrade"
-              />
-            )}
-          </>
-        ) : (
+            )
+          )}
+        </div>
+        {!hasMedia && (
           <div className="player-stage__empty">
             <div className="player-stage__empty-inner">
-              {deviceToken && contentHint && (
-                <p>{contentHint}</p>
-              )}
+              {deviceToken && contentHint && <p>{contentHint}</p>}
               {!deviceToken && (
                 <p>
                   Sem pareamento. Abra o painel no topo da página e introduza o código do CMS.
@@ -865,22 +908,58 @@ export function App() {
               </form>
 
               {deviceToken && (
-                <div className="player-actions" style={{ marginTop: '0.75rem' }}>
-                  <button
-                    type="button"
-                    className="player-btn player-btn--ghost"
-                    onClick={() =>
-                      void sendHeartbeat()
-                        .then((t) => setMsg(`Manual OK: ${t}`))
-                        .catch((e) => setErr(String(e)))
-                    }
-                  >
-                    Heartbeat agora
-                  </button>
-                  <button type="button" className="player-btn player-btn--ghost" onClick={clearToken}>
-                    Esquecer token
-                  </button>
-                </div>
+                <>
+                  <div className="player-form" style={{ marginTop: '0.75rem' }}>
+                    <label>
+                      <span>Transição entre itens</span>
+                      <select
+                        className="player-select"
+                        value={transitionKind}
+                        onChange={(e) =>
+                          onTransitionChange(e.target.value as TransitionKind)
+                        }
+                      >
+                        {TRANSITION_OPTIONS.map((o) => (
+                          <option key={o.value} value={o.value}>
+                            {o.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    {transitionKind !== 'none' && (
+                      <label>
+                        <span>Duração ({transitionMs} ms)</span>
+                        <input
+                          className="player-input"
+                          type="range"
+                          min={150}
+                          max={1200}
+                          step={50}
+                          value={transitionMs}
+                          onChange={(e) =>
+                            onTransitionMsChange(Number(e.target.value))
+                          }
+                        />
+                      </label>
+                    )}
+                  </div>
+                  <div className="player-actions" style={{ marginTop: '0.75rem' }}>
+                    <button
+                      type="button"
+                      className="player-btn player-btn--ghost"
+                      onClick={() =>
+                        void sendHeartbeat()
+                          .then((t) => setMsg(`Manual OK: ${t}`))
+                          .catch((e) => setErr(String(e)))
+                      }
+                    >
+                      Heartbeat agora
+                    </button>
+                    <button type="button" className="player-btn player-btn--ghost" onClick={clearToken}>
+                      Esquecer token
+                    </button>
+                  </div>
+                </>
               )}
 
               {heartbeatStatus && (

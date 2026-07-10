@@ -2,31 +2,68 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import {
+  LayoutDashboard,
+  MonitorPlay,
+  Activity,
+  MapPin,
+  FolderOpen,
+  ListVideo,
+  CalendarDays,
+  Users,
+  Megaphone,
+  TriangleAlert,
+  Settings,
+  Search,
+  Bell,
+  CircleHelp,
+  type LucideIcon,
+} from 'lucide-react';
 
-const NAV_MAIN: { href: string; label: string; icon: string }[] = [
-  { href: '/dashboard', label: 'Dashboard', icon: 'fa-gauge-high' },
-  { href: '/devices', label: 'Devices', icon: 'fa-network-wired' },
-  { href: '/sites', label: 'Sites', icon: 'fa-location-dot' },
-  { href: '/assets', label: 'Assets', icon: 'fa-folder-open' },
-  { href: '/playlists', label: 'Playlists', icon: 'fa-list' },
-  { href: '/groups', label: 'Grupos', icon: 'fa-users' },
-  { href: '/scheduling', label: 'Agendamento', icon: 'fa-calendar-days' },
-  { href: '/monitoring', label: 'Monitorização', icon: 'fa-chart-line' },
+type NavItem = { href: string; label: string; Icon: LucideIcon; soon?: boolean };
+
+const NAV_OPERACAO: NavItem[] = [
+  { href: '/dashboard', label: 'Dashboard', Icon: LayoutDashboard },
+  { href: '/devices', label: 'Dispositivos', Icon: MonitorPlay },
+  { href: '/monitoring', label: 'Monitorização', Icon: Activity },
+  { href: '/sites', label: 'Sites', Icon: MapPin },
 ];
 
-const NAV_SOON: { href: string; label: string; icon: string }[] = [
-  { href: '/campaigns', label: 'Campaigns', icon: 'fa-bullhorn' },
-  { href: '/alerts', label: 'Alerts', icon: 'fa-triangle-exclamation' },
-  { href: '/settings', label: 'Settings', icon: 'fa-gear' },
+const NAV_CONTEUDO: NavItem[] = [
+  { href: '/assets', label: 'Biblioteca', Icon: FolderOpen },
+  { href: '/playlists', label: 'Playlists', Icon: ListVideo },
+  { href: '/scheduling', label: 'Agendamento', Icon: CalendarDays },
+  { href: '/groups', label: 'Grupos', Icon: Users },
 ];
 
-function navIsActive(href: string, pathname: string): boolean {
+const NAV_SISTEMA: NavItem[] = [
+  { href: '/campaigns', label: 'Campanhas', Icon: Megaphone, soon: true },
+  { href: '/alerts', label: 'Alertas', Icon: TriangleAlert, soon: true },
+  { href: '/settings', label: 'Configurações', Icon: Settings, soon: true },
+];
+
+function isActive(href: string, pathname: string): boolean {
   if (href === '/dashboard') return pathname === '/dashboard';
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-export function AppShell({ children }: { children: React.ReactNode }) {
+function NavLink({ href, label, Icon, soon }: NavItem) {
   const pathname = usePathname();
+  const active = isActive(href, pathname);
+  return (
+    <Link
+      href={href}
+      className={soon ? 'app-nav-link app-nav-soon' : 'app-nav-link'}
+      aria-current={active ? 'page' : undefined}
+      title={soon ? 'Em desenvolvimento' : undefined}
+    >
+      <Icon strokeWidth={1.9} aria-hidden />
+      {label}
+    </Link>
+  );
+}
+
+export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
 
   function logout() {
@@ -39,94 +76,95 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <aside className="app-sidebar">
         <div className="app-sidebar__brand">
           <span className="app-sidebar__brand-mark" aria-hidden>
-            <i className="fa-solid fa-table-cells-large" />
+            <MonitorPlay size={20} strokeWidth={2} />
           </span>
-          <div className="app-sidebar__brand-text">
-            <span className="app-sidebar__brand-title">EasySignage</span>
-            <span className="app-sidebar__brand-sub">Operador de rede</span>
+          <div>
+            <div className="app-sidebar__brand-title">EasySignage</div>
+            <div className="app-sidebar__brand-sub">Operador de rede</div>
           </div>
         </div>
+
         <nav className="app-sidebar__nav" aria-label="Principal">
-          {NAV_MAIN.map(({ href, label, icon }) => {
-            const active = navIsActive(href, pathname);
-            return (
-              <Link
-                key={href}
-                href={href}
-                className="app-nav-link"
-                aria-current={active ? 'page' : undefined}
-              >
-                <i
-                  className={`fa-solid ${icon} app-nav-link__icon`}
-                  aria-hidden
-                />
-                {label}
-              </Link>
-            );
-          })}
-          <div className="app-sidebar__divider" aria-hidden />
-          {NAV_SOON.map(({ href, label, icon }) => {
-            const active = navIsActive(href, pathname);
-            return (
-              <Link
-                key={href}
-                href={href}
-                className="app-nav-soon"
-                aria-current={active ? 'page' : undefined}
-                title="Em desenvolvimento"
-              >
-                <i className={`fa-solid ${icon}`} aria-hidden />
-                {label}
-              </Link>
-            );
-          })}
+          <span className="app-sidebar__section">Operação</span>
+          {NAV_OPERACAO.map((n) => (
+            <NavLink key={n.href} {...n} />
+          ))}
+          <span className="app-sidebar__section">Conteúdo</span>
+          {NAV_CONTEUDO.map((n) => (
+            <NavLink key={n.href} {...n} />
+          ))}
+          <span className="app-sidebar__section">Sistema</span>
+          {NAV_SISTEMA.map((n) => (
+            <NavLink key={n.href} {...n} />
+          ))}
         </nav>
+
+        <div style={{ flex: 1 }} />
+        <div className="app-sidebar__user">
+          <span className="app-sidebar__avatar" aria-hidden>
+            ES
+          </span>
+          <div style={{ minWidth: 0 }}>
+            <div
+              style={{
+                fontSize: 13,
+                fontWeight: 700,
+                color: '#e8edf5',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+            >
+              Sessão CMS
+            </div>
+            <div style={{ fontSize: 11, color: '#5b6b85' }}>Administrador</div>
+          </div>
+        </div>
       </aside>
+
       <div className="app-main">
         <header className="app-topbar">
           <div className="app-topbar__search-wrap">
-            <i className="fa-solid fa-magnifying-glass" aria-hidden />
+            <Search size={17} strokeWidth={2} aria-hidden />
             <input
               type="search"
               className="app-topbar__search-input"
-              placeholder="Pesquisar no CMS…"
+              placeholder="Pesquisar dispositivos, sites, playlists…"
               aria-label="Pesquisar no CMS"
             />
           </div>
-          <div className="app-topbar__actions">
-            <button
-              type="button"
-              className="app-topbar__icon-btn"
-              aria-label="Notificações"
-              title="Em breve"
-              onClick={() => undefined}
-            >
-              <i className="fa-solid fa-bell" aria-hidden />
-            </button>
-            <button
-              type="button"
-              className="app-topbar__icon-btn"
-              aria-label="Ajuda"
-              title="Em breve"
-              onClick={() => undefined}
-            >
-              <i className="fa-solid fa-circle-question" aria-hidden />
-            </button>
-            <div className="app-topbar__divider" aria-hidden />
-            <div className="app-topbar__user">
-              <div className="app-topbar__user-text">
-                <span className="app-topbar__user-name">Sessão CMS</span>
-                <span className="app-topbar__user-role">Administrador</span>
-              </div>
-              <span className="app-topbar__avatar" aria-hidden>
-                ES
-              </span>
-              <button type="button" className="app-topbar__logout" onClick={logout}>
-                Sair
-              </button>
-            </div>
-          </div>
+          <div style={{ flex: 1 }} />
+          <span className="app-topbar__status">
+            <span className="dot" />
+            Rede operacional
+          </span>
+          <button
+            type="button"
+            className="app-topbar__icon-btn"
+            aria-label="Notificações"
+            title="Em breve"
+          >
+            <Bell size={18} strokeWidth={1.9} aria-hidden />
+            <span className="badge-dot" />
+          </button>
+          <button
+            type="button"
+            className="app-topbar__icon-btn"
+            aria-label="Ajuda"
+            title="Em breve"
+          >
+            <CircleHelp size={18} strokeWidth={1.9} aria-hidden />
+          </button>
+          <button
+            type="button"
+            className="btn btn--ghost"
+            onClick={logout}
+            style={{ marginLeft: 4 }}
+          >
+            Sair
+          </button>
         </header>
+
         <div className="app-content">{children}</div>
       </div>
     </div>

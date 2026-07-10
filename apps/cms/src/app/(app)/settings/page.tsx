@@ -14,7 +14,7 @@ export default function SettingsPage() {
 
   return (
     <PageComingSoon
-      title="Settings"
+      title="Definições"
       lead="Preferências do tenant, identidade visual, integrações e permissões."
     >
       <p className="text-muted" style={{ margin: 0 }}>

@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import { type FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { ArrowLeft } from 'lucide-react';
+import { PageHeader } from '@/components/ui/PageHeader';
 import { api, getToken, uploadAssetMultipart } from '@/lib/api';
 import type { SiteDetail } from '../site-types';
 
@@ -66,21 +68,16 @@ export default function NewSitePage() {
 
   return (
     <>
-      <header className="page-header">
-        <div>
-          <h1>Novo espaço</h1>
-          <p className="page-header__lead">
-            Crie um local (loja, filial) para agrupar dispositivos. Opcionalmente
-            adicione uma imagem de referência.
-          </p>
-        </div>
-        <div className="page-header__actions">
+      <PageHeader
+        title="Novo espaço"
+        lead="Crie um local (loja, filial) para agrupar dispositivos. Opcionalmente adicione uma imagem de referência."
+        actions={
           <Link href="/sites" className="btn btn--ghost">
-            <i className="fa-solid fa-arrow-left" aria-hidden />
+            <ArrowLeft size={17} strokeWidth={1.9} aria-hidden />
             Voltar
           </Link>
-        </div>
-      </header>
+        }
+      />
 
       <form onSubmit={(e) => void onSubmit(e)} className="surface-form-card">
         <label className="field">
@@ -132,8 +129,8 @@ export default function NewSitePage() {
           </span>
         </label>
         {error && <p className="text-danger">{error}</p>}
-        <div className="page-header__actions" style={{ marginTop: 'var(--space-4)' }}>
-          <button type="submit" className="btn btn--gradient" disabled={loading}>
+        <div className="form-actions">
+          <button type="submit" className="btn btn--primary" disabled={loading}>
             {loading ? 'A criar…' : 'Criar espaço'}
           </button>
         </div>

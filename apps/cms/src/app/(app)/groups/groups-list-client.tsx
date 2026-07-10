@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { Plus } from 'lucide-react';
+import { PageHeader } from '@/components/ui/PageHeader';
 import { api, getToken } from '@/lib/api';
 import { formatDateTimePtBr } from '@/lib/format-date';
 
@@ -42,24 +44,20 @@ export function GroupsListClient() {
 
   return (
     <>
-      <header className="page-header">
-        <div>
-          <h1>Grupos de dispositivos</h1>
-          <p className="page-header__lead">
-            Agrupe dispositivos para teste de conteúdo ou publicação em conjunto.
-          </p>
-        </div>
-        <div className="page-header__actions">
-          <Link href="/groups/new" className="btn btn--gradient">
-            <i className="fa-solid fa-plus" aria-hidden />
+      <PageHeader
+        title="Grupos de dispositivos"
+        lead="Agrupe dispositivos para teste de conteúdo ou publicação em conjunto."
+        actions={
+          <Link href="/groups/new" className="btn btn--primary">
+            <Plus strokeWidth={2.1} aria-hidden />
             Novo grupo
           </Link>
-        </div>
-      </header>
+        }
+      />
 
       <section>
         {error && <p className="text-danger">{error}</p>}
-        {!items && !error && <p className="text-muted">Carregando…</p>}
+        {!items && !error && <p className="text-muted">A carregar…</p>}
         {items && items.length === 0 && (
           <p className="text-muted">Nenhum grupo. Crie um e adicione dispositivos cadastrados.</p>
         )}

@@ -7,6 +7,11 @@ import {
   useRef,
   useState,
 } from 'react';
+import {
+  isPlayableInPlayer,
+  resolvePlayerKind,
+  type PlayerMediaKind,
+} from '@easysignage/shared-types';
 import { API_BASE, fetchApi } from '@/lib/api';
 
 type ManifestItem = {
@@ -26,10 +31,10 @@ type PlaylistManifest = {
   items: ManifestItem[];
 };
 
-type MediaKind = 'image' | 'video' | 'pdf' | 'html' | 'url';
+type MediaKind = PlayerMediaKind | 'url';
 
 function isPlayableKind(kind: string): boolean {
-  return ['image', 'video', 'pdf', 'html', 'url'].includes(kind);
+  return kind === 'url' || isPlayableInPlayer(kind);
 }
 
 function defaultDurationSec(kind: string): number {
@@ -38,10 +43,14 @@ function defaultDurationSec(kind: string): number {
       return 10;
     case 'video':
       return 30;
+    case 'audio':
+      return 60;
     case 'pdf':
       return 45;
     case 'html':
       return 60;
+    case 'text':
+      return 20;
     case 'url':
       return 30;
     default:
@@ -63,6 +72,7 @@ export function PlaylistEmbedPlayer({ playlistId, accessToken }: Props) {
   const [frameUrl, setFrameUrl] = useState<string | null>(null);
   const blobUrlRef = useRef<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const audioRef = useRef<HTMLAudioElement>(null);
 
   const revokeBlob = useCallback(() => {
     if (blobUrlRef.current) {
@@ -129,7 +139,7 @@ export function PlaylistEmbedPlayer({ playlistId, accessToken }: Props) {
     if (!activeAssetId) {
       revokeBlob();
       if (manifest && playableSlides.length === 0) {
-        setHint('Nenhum item reproduzível (imagens, vídeo, PDF, HTML ou URL).');
+        setHint('Nenhum item reproduzível (imagem, vídeo, áudio, PDF, HTML, texto ou URL).');
       }
       return;
     }
@@ -185,7 +195,9 @@ export function PlaylistEmbedPlayer({ playlistId, accessToken }: Props) {
             ? 'application/pdf'
             : meta.kind === 'html'
               ? 'text/html'
-              : '';
+              : meta.kind === 'text'
+                ? 'text/plain'
+                : '';
         const effectiveType =
           canonical ||
           blob.type ||
@@ -205,10 +217,9 @@ export function PlaylistEmbedPlayer({ playlistId, accessToken }: Props) {
         blobUrlRef.current = url;
         setBlobUrl(url);
         setFrameUrl(null);
-        const k = meta.kind as MediaKind;
-        setMediaKind(
-          ['image', 'video', 'pdf', 'html'].includes(k) ? k : 'image'
-        );
+        const k: MediaKind =
+          meta.kind === 'url' ? 'url' : resolvePlayerKind(meta.kind, meta.mimeType);
+        setMediaKind(k);
         setHint(caption);
       } catch {
         if (!cancelled) {
@@ -245,6 +256,11 @@ export function PlaylistEmbedPlayer({ playlistId, accessToken }: Props) {
   useEffect(() => {
     if (mediaKind === 'video' && blobUrl && videoRef.current) {
       void videoRef.current.play().catch(() => {
+        /* autoplay policy */
+      });
+    }
+    if (mediaKind === 'audio' && blobUrl && audioRef.current) {
+      void audioRef.current.play().catch(() => {
         /* autoplay policy */
       });
     }
@@ -303,6 +319,42 @@ export function PlaylistEmbedPlayer({ playlistId, accessToken }: Props) {
                 muted
                 playsInline
                 loop={false}
+              />
+            )}
+            {mediaKind === 'audio' && blobUrl && (
+              <div
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  background: 'radial-gradient(ellipse at center, #1e293b 0%, #020617 70%)',
+                }}
+              >
+                <audio
+                  ref={audioRef}
+                  key={blobUrl}
+                  src={blobUrl}
+                  autoPlay
+                  controls
+                  style={{ width: 'min(90%, 640px)' }}
+                />
+              </div>
+            )}
+            {mediaKind === 'text' && blobUrl && (
+              <iframe
+                key={blobUrl}
+                title="Texto"
+                src={blobUrl}
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  width: '100%',
+                  height: '100%',
+                  border: 'none',
+                  background: '#0f172a',
+                }}
               />
             )}
             {mediaKind === 'pdf' && blobUrl && (

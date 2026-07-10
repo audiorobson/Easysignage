@@ -14,7 +14,7 @@ export default function AlertsPage() {
 
   return (
     <PageComingSoon
-      title="Alerts"
+      title="Alertas"
       lead="Regras de alerta para offline prolongado, falhas de reprodução ou atualizações."
     >
       <p className="text-muted" style={{ margin: 0 }}>

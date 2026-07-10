@@ -1,6 +1,7 @@
 'use client';
 
 import { FormEvent, useEffect, useState } from 'react';
+import { Modal } from '@/components/ui/Modal';
 import { api } from '@/lib/api';
 import type { ScheduleRuleRow } from './types';
 import { ISO_DAY_OPTIONS, parseTimeToMin, formatMinutes } from './schedule-utils';
@@ -73,8 +74,6 @@ export function ScheduleRuleModal({
       setEnabled(true);
     }
   }, [open, mode, editing, playlists, devices, groups]);
-
-  if (!open) return null;
 
   function toggleDay(v: number) {
     if (mode === 'edit') {
@@ -170,228 +169,195 @@ export function ScheduleRuleModal({
   }
 
   return (
-    <div
-      role="presentation"
-      style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 120,
-        background: 'rgba(15, 23, 42, 0.45)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '1rem',
-      }}
-      onClick={onClose}
-      onKeyDown={(ev) => {
-        if (ev.key === 'Escape') onClose();
-      }}
+    <Modal
+      open={open}
+      title={mode === 'create' ? 'Novo agendamento' : 'Editar agendamento'}
+      titleId="schedule-modal-title"
+      onClose={onClose}
+      maxWidth={480}
+      scrollable
     >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="schedule-modal-title"
-        style={{
-          width: '100%',
-          maxWidth: 480,
-          maxHeight: '90vh',
-          overflow: 'auto',
-          background: 'var(--color-surface, #fff)',
-          borderRadius: 'var(--radius-md, 14px)',
-          border: '1px solid var(--color-border, #e2e8f0)',
-          boxShadow: 'var(--shadow-lg, 0 16px 40px rgba(15,23,42,0.12))',
-          padding: '1.25rem',
-        }}
-        onClick={(ev) => ev.stopPropagation()}
-      >
-        <h2
-          id="schedule-modal-title"
-          style={{ margin: '0 0 1rem', fontSize: '1.125rem', fontWeight: 600 }}
-        >
-          {mode === 'create' ? 'Novo agendamento' : 'Editar agendamento'}
-        </h2>
-        <form onSubmit={(e) => void onSubmit(e)}>
-          {error && <p className="text-danger" style={{ marginTop: 0 }}>{error}</p>}
+      <form onSubmit={(e) => void onSubmit(e)}>
+        {error && <p className="text-danger" style={{ marginTop: 0 }}>{error}</p>}
 
-          <label className="field">
-            <span>Nome (opcional)</span>
-            <input
-              className="input"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Ex.: Manhã loja centro"
-            />
-          </label>
+        <label className="field">
+          <span>Nome (opcional)</span>
+          <input
+            className="input"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Ex.: Manhã loja centro"
+          />
+        </label>
 
+        <label className="field">
+          <span>Playlist</span>
+          <select
+            className="select"
+            value={playlistId}
+            onChange={(e) => setPlaylistId(e.target.value)}
+            required
+          >
+            <option value="">Escolher…</option>
+            {playlists.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <fieldset style={{ border: 'none', margin: 0, padding: 0 }}>
+          <span className="field" style={{ display: 'block', marginBottom: 8 }}>
+            Alvo
+          </span>
+          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <input
+                type="radio"
+                name="scope"
+                checked={scope === 'device'}
+                onChange={() => setScope('device')}
+              />
+              Device
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <input
+                type="radio"
+                name="scope"
+                checked={scope === 'group'}
+                onChange={() => setScope('group')}
+              />
+              Grupo
+            </label>
+          </div>
+        </fieldset>
+
+        {scope === 'device' ? (
           <label className="field">
-            <span>Playlist</span>
+            <span>Device</span>
             <select
               className="select"
-              value={playlistId}
-              onChange={(e) => setPlaylistId(e.target.value)}
+              value={deviceId}
+              onChange={(e) => setDeviceId(e.target.value)}
               required
             >
               <option value="">Escolher…</option>
-              {playlists.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
+              {devices.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.name}
                 </option>
               ))}
             </select>
           </label>
-
-          <fieldset style={{ border: 'none', margin: 0, padding: 0 }}>
-            <span className="field" style={{ display: 'block', marginBottom: 8 }}>
-              Alvo
-            </span>
-            <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <input
-                  type="radio"
-                  name="scope"
-                  checked={scope === 'device'}
-                  onChange={() => setScope('device')}
-                />
-                Device
-              </label>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <input
-                  type="radio"
-                  name="scope"
-                  checked={scope === 'group'}
-                  onChange={() => setScope('group')}
-                />
-                Grupo
-              </label>
-            </div>
-          </fieldset>
-
-          {scope === 'device' ? (
-            <label className="field">
-              <span>Device</span>
-              <select
-                className="select"
-                value={deviceId}
-                onChange={(e) => setDeviceId(e.target.value)}
-                required
-              >
-                <option value="">Escolher…</option>
-                {devices.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-          ) : (
-            <label className="field">
-              <span>Grupo</span>
-              <select
-                className="select"
-                value={groupId}
-                onChange={(e) => setGroupId(e.target.value)}
-                required
-              >
-                <option value="">Escolher…</option>
-                {groups.map((g) => (
-                  <option key={g.id} value={g.id}>
-                    {g.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
-
-          <div className="field">
-            <span>Dias da semana</span>
-            <div
-              style={{
-                display: 'flex',
-                flexWrap: 'wrap',
-                gap: '0.35rem',
-                marginTop: 6,
-              }}
-            >
-              {ISO_DAY_OPTIONS.map((d) => (
-                <button
-                  key={d.value}
-                  type="button"
-                  className={`btn ${days.includes(d.value) ? 'btn--primary' : 'btn--ghost'}`}
-                  style={{ padding: '0.25rem 0.5rem', fontSize: 12 }}
-                  onClick={() => toggleDay(d.value)}
-                >
-                  {d.short}
-                </button>
-              ))}
-            </div>
-            {mode === 'create' && (
-              <p className="text-muted" style={{ fontSize: 12, marginTop: 6 }}>
-                Uma regra por dia selecionado — útil para rotinas semanais distintas.
-              </p>
-            )}
-          </div>
-
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-            <input
-              type="checkbox"
-              checked={allDay}
-              onChange={(e) => setAllDay(e.target.checked)}
-            />
-            Dia inteiro (00:00–24:00)
-          </label>
-
-          {!allDay && (
-            <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-              <label className="field" style={{ flex: '1 1 120px' }}>
-                <span>Início</span>
-                <input
-                  type="time"
-                  className="input"
-                  value={startT}
-                  onChange={(e) => setStartT(e.target.value)}
-                />
-              </label>
-              <label className="field" style={{ flex: '1 1 120px' }}>
-                <span>Fim</span>
-                <input
-                  type="time"
-                  className="input"
-                  value={endT}
-                  onChange={(e) => setEndT(e.target.value)}
-                />
-              </label>
-            </div>
-          )}
-
+        ) : (
           <label className="field">
-            <span>Prioridade (maior = prevalece em sobreposição)</span>
-            <input
-              type="number"
-              className="input"
-              value={priority}
-              onChange={(e) => setPriority(Number(e.target.value))}
-            />
+            <span>Grupo</span>
+            <select
+              className="select"
+              value={groupId}
+              onChange={(e) => setGroupId(e.target.value)}
+              required
+            >
+              <option value="">Escolher…</option>
+              {groups.map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.name}
+                </option>
+              ))}
+            </select>
           </label>
+        )}
 
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-            <input
-              type="checkbox"
-              checked={enabled}
-              onChange={(e) => setEnabled(e.target.checked)}
-            />
-            Ativo
-          </label>
-
-          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-            <button type="button" className="btn btn--ghost" onClick={onClose}>
-              Cancelar
-            </button>
-            <button type="submit" className="btn btn--gradient" disabled={saving}>
-              {saving ? 'A guardar…' : 'Guardar'}
-            </button>
+        <div className="field">
+          <span>Dias da semana</span>
+          <div
+            style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: '0.35rem',
+              marginTop: 6,
+            }}
+          >
+            {ISO_DAY_OPTIONS.map((d) => (
+              <button
+                key={d.value}
+                type="button"
+                className={`btn ${days.includes(d.value) ? 'btn--primary' : 'btn--ghost'}`}
+                style={{ padding: '0.25rem 0.5rem', fontSize: 12 }}
+                onClick={() => toggleDay(d.value)}
+              >
+                {d.short}
+              </button>
+            ))}
           </div>
-        </form>
-      </div>
-    </div>
+          {mode === 'create' && (
+            <p className="text-muted" style={{ fontSize: 12, marginTop: 6 }}>
+              Uma regra por dia selecionado — útil para rotinas semanais distintas.
+            </p>
+          )}
+        </div>
+
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+          <input
+            type="checkbox"
+            checked={allDay}
+            onChange={(e) => setAllDay(e.target.checked)}
+          />
+          Dia inteiro (00:00–24:00)
+        </label>
+
+        {!allDay && (
+          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+            <label className="field" style={{ flex: '1 1 120px' }}>
+              <span>Início</span>
+              <input
+                type="time"
+                className="input"
+                value={startT}
+                onChange={(e) => setStartT(e.target.value)}
+              />
+            </label>
+            <label className="field" style={{ flex: '1 1 120px' }}>
+              <span>Fim</span>
+              <input
+                type="time"
+                className="input"
+                value={endT}
+                onChange={(e) => setEndT(e.target.value)}
+              />
+            </label>
+          </div>
+        )}
+
+        <label className="field">
+          <span>Prioridade (maior = prevalece em sobreposição)</span>
+          <input
+            type="number"
+            className="input"
+            value={priority}
+            onChange={(e) => setPriority(Number(e.target.value))}
+          />
+        </label>
+
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+          <input
+            type="checkbox"
+            checked={enabled}
+            onChange={(e) => setEnabled(e.target.checked)}
+          />
+          Ativo
+        </label>
+
+        <div className="modal-dialog__footer">
+          <button type="button" className="btn btn--ghost" onClick={onClose}>
+            Cancelar
+          </button>
+          <button type="submit" className="btn btn--primary" disabled={saving}>
+            {saving ? 'A guardar…' : 'Guardar'}
+          </button>
+        </div>
+      </form>
+    </Modal>
   );
 }

@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { PageHeader } from '@/components/ui/PageHeader';
 
 type Props = {
   title: string;
@@ -9,12 +10,7 @@ type Props = {
 export function PageComingSoon({ title, lead, children }: Props) {
   return (
     <>
-      <header className="page-header">
-        <div>
-          <h1>{title}</h1>
-          <p className="page-header__lead">{lead}</p>
-        </div>
-      </header>
+      <PageHeader title={title} lead={lead} />
       <div className="empty-placeholder">{children}</div>
     </>
   );

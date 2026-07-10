@@ -14,7 +14,7 @@ export default function CampaignsPage() {
 
   return (
     <PageComingSoon
-      title="Campaigns"
+      title="Campanhas"
       lead="Campanhas promocionais e janelas de publicação por audiência ou local."
     >
       <p className="text-muted" style={{ margin: 0 }}>

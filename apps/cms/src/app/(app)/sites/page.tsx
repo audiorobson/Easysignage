@@ -3,7 +3,10 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { Image, Plus } from 'lucide-react';
 import { AssetPreview } from '@/components/AssetPreview';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { PageHeader } from '@/components/ui/PageHeader';
 import { api, getToken } from '@/lib/api';
 import { formatDateTimePtBr } from '@/lib/format-date';
 import type { SiteDetail } from './site-types';
@@ -12,6 +15,8 @@ export default function SitesPage() {
   const router = useRouter();
   const [items, setItems] = useState<SiteDetail[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [deleteSite, setDeleteSite] = useState<SiteDetail | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const load = useCallback(async () => {
     const data = await api<SiteDetail[]>('/sites');
@@ -37,41 +42,38 @@ export default function SitesPage() {
     };
   }, [router, load]);
 
-  async function onDelete(s: SiteDetail) {
-    const ok = window.confirm(
-      `Eliminar o espaço «${s.name}»? Só é permitido se não houver dispositivos associados.`
-    );
-    if (!ok) return;
+  async function onDeleteConfirmed() {
+    const s = deleteSite;
+    if (!s) return;
+    setDeleting(true);
     setError(null);
     try {
       await api(`/sites/${s.id}`, { method: 'DELETE' });
+      setDeleteSite(null);
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erro ao eliminar');
+    } finally {
+      setDeleting(false);
     }
   }
 
   return (
     <>
-      <header className="page-header">
-        <div>
-          <h1>Sites</h1>
-          <p className="page-header__lead">
-            Espaços físicos ou lógicos (lojas, filiais). Veja dispositivos por espaço e
-            defina uma imagem de referência.
-          </p>
-        </div>
-        <div className="page-header__actions">
-          <Link href="/sites/new" className="btn btn--gradient">
-            <i className="fa-solid fa-plus" aria-hidden />
+      <PageHeader
+        title="Sites"
+        lead="Espaços físicos ou lógicos (lojas, filiais). Veja dispositivos por espaço e defina uma imagem de referência."
+        actions={
+          <Link href="/sites/new" className="btn btn--primary">
+            <Plus strokeWidth={2.1} aria-hidden />
             Novo espaço
           </Link>
-        </div>
-      </header>
+        }
+      />
 
       <section>
         {error && <p className="text-danger">{error}</p>}
-        {items === null && !error && <p className="text-muted">Carregando…</p>}
+        {items === null && !error && <p className="text-muted">A carregar…</p>}
         {items && items.length === 0 && (
           <p className="text-muted">Nenhum espaço. Crie o primeiro para associar dispositivos.</p>
         )}
@@ -117,7 +119,7 @@ export default function SitesPage() {
                           }}
                           aria-hidden
                         >
-                          <i className="fa-solid fa-image" />
+                          <Image size={18} strokeWidth={1.9} aria-hidden />
                         </span>
                       )}
                     </td>
@@ -162,7 +164,7 @@ export default function SitesPage() {
                         type="button"
                         className="btn btn--ghost"
                         style={{ fontSize: '0.875rem', color: 'var(--color-danger-text)' }}
-                        onClick={() => void onDelete(s)}
+                        onClick={() => setDeleteSite(s)}
                       >
                         Eliminar
                       </button>
@@ -174,6 +176,20 @@ export default function SitesPage() {
           </div>
         )}
       </section>
+
+      <ConfirmDialog
+        open={deleteSite !== null}
+        title="Eliminar espaço"
+        message={
+          deleteSite
+            ? `Eliminar «${deleteSite.name}»? Só é permitido se não houver dispositivos associados.`
+            : ''
+        }
+        confirmLabel="Eliminar"
+        loading={deleting}
+        onConfirm={() => void onDeleteConfirmed()}
+        onCancel={() => setDeleteSite(null)}
+      />
     </>
   );
 }

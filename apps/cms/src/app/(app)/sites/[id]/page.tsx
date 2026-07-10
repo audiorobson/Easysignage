@@ -3,7 +3,10 @@
 import Link from 'next/link';
 import { type FormEvent, useCallback, useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { ArrowLeft, Image, Trash2 } from 'lucide-react';
 import { AssetPreview } from '@/components/AssetPreview';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { PageHeader } from '@/components/ui/PageHeader';
 import { api, getToken, uploadAssetMultipart } from '@/lib/api';
 import { formatDateTimePtBr } from '@/lib/format-date';
 import type { SiteDetail } from '../site-types';
@@ -32,6 +35,9 @@ export default function SiteDetailPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [coverBusy, setCoverBusy] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<'cover' | 'site' | null>(
+    null
+  );
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -116,8 +122,11 @@ export default function SiteDetailPage() {
 
   async function onRemoveCover() {
     if (!id) return;
-    const ok = window.confirm('Remover a imagem deste espaço?');
-    if (!ok) return;
+    setConfirmAction('cover');
+  }
+
+  async function onRemoveCoverConfirmed() {
+    if (!id) return;
     setCoverBusy(true);
     setError(null);
     try {
@@ -125,6 +134,7 @@ export default function SiteDetailPage() {
         method: 'PATCH',
         body: JSON.stringify({ coverAssetId: null }),
       });
+      setConfirmAction(null);
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erro');
@@ -135,10 +145,11 @@ export default function SiteDetailPage() {
 
   async function onDeleteSite() {
     if (!site) return;
-    const ok = window.confirm(
-      `Eliminar «${site.name}»? Só é possível sem dispositivos associados.`
-    );
-    if (!ok) return;
+    setConfirmAction('site');
+  }
+
+  async function onDeleteSiteConfirmed() {
+    if (!site) return;
     setError(null);
     try {
       await api(`/sites/${site.id}`, { method: 'DELETE' });
@@ -154,23 +165,19 @@ export default function SiteDetailPage() {
 
   return (
     <>
-      <header className="page-header">
-        <div>
-          <h1>Editar espaço</h1>
-          <p className="page-header__lead">
-            Dados do local, imagem de referência e lista de dispositivos configurados.
-          </p>
-        </div>
-        <div className="page-header__actions">
+      <PageHeader
+        title="Editar espaço"
+        lead="Dados do local, imagem de referência e lista de dispositivos configurados."
+        actions={
           <Link href="/sites" className="btn btn--ghost">
-            <i className="fa-solid fa-arrow-left" aria-hidden />
+            <ArrowLeft size={17} strokeWidth={1.9} aria-hidden />
             Lista
           </Link>
-        </div>
-      </header>
+        }
+      />
 
       {error && <p className="text-danger">{error}</p>}
-      {loading && <p className="text-muted">Carregando…</p>}
+      {loading && <p className="text-muted">A carregar…</p>}
       {!loading && !site && !error && <p className="text-muted">Não encontrado.</p>}
 
       {site && (
@@ -231,8 +238,8 @@ export default function SiteDetailPage() {
               <p className="text-muted" style={{ fontSize: 'var(--text-xs)', margin: 0 }}>
                 ID: <code>{site.id}</code>
               </p>
-              <div className="page-header__actions" style={{ marginTop: 'var(--space-4)' }}>
-                <button type="submit" className="btn btn--gradient" disabled={saving}>
+              <div className="form-actions">
+                <button type="submit" className="btn btn--primary" disabled={saving}>
                   {saving ? 'A guardar…' : 'Guardar dados'}
                 </button>
               </div>
@@ -274,7 +281,7 @@ export default function SiteDetailPage() {
                         border: '1px dashed var(--color-border)',
                       }}
                     >
-                      <i className="fa-solid fa-image" style={{ fontSize: 32 }} />
+                      <Image size={32} strokeWidth={1.5} aria-hidden />
                     </span>
                   )}
                 </div>
@@ -290,7 +297,7 @@ export default function SiteDetailPage() {
                       onChange={(e) => setCoverFile(e.target.files?.[0] ?? null)}
                     />
                   </label>
-                  <div className="page-header__actions" style={{ flexWrap: 'wrap' }}>
+                  <div className="form-actions">
                     <button
                       type="button"
                       className="btn btn--primary"
@@ -363,13 +370,35 @@ export default function SiteDetailPage() {
                 style={{ color: 'var(--color-danger-text)' }}
                 onClick={() => void onDeleteSite()}
               >
-                <i className="fa-solid fa-trash" aria-hidden />
+                <Trash2 size={17} strokeWidth={1.9} aria-hidden />
                 Eliminar espaço
               </button>
             </section>
           </div>
         </>
       )}
+
+      <ConfirmDialog
+        open={confirmAction === 'cover'}
+        title="Remover imagem"
+        message="Remover a imagem de capa deste espaço?"
+        confirmLabel="Remover"
+        loading={coverBusy}
+        onConfirm={() => void onRemoveCoverConfirmed()}
+        onCancel={() => setConfirmAction(null)}
+      />
+      <ConfirmDialog
+        open={confirmAction === 'site'}
+        title="Eliminar espaço"
+        message={
+          site
+            ? `Eliminar «${site.name}»? Só é possível sem dispositivos associados.`
+            : ''
+        }
+        confirmLabel="Eliminar"
+        onConfirm={() => void onDeleteSiteConfirmed()}
+        onCancel={() => setConfirmAction(null)}
+      />
     </>
   );
 }

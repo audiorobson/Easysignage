@@ -1,6 +1,16 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import {
+  File,
+  FileCode,
+  FileText,
+  Film,
+  Image,
+  Link2,
+  Volume2,
+  type LucideIcon,
+} from 'lucide-react';
 import { API_BASE, fetchApi, getToken } from '@/lib/api';
 
 /** Dados mínimos para pré-visualização na grelha CMS */
@@ -22,33 +32,30 @@ type Props = {
 
 const MAX_INLINE_IMAGE_BYTES = 2.5 * 1024 * 1024;
 
-function kindIconClass(kind: string): string {
-  switch (kind) {
-    case 'image':
-      return 'fa-image';
-    case 'video':
-      return 'fa-film';
-    case 'pdf':
-      return 'fa-file-pdf';
-    case 'html':
-      return 'fa-file-code';
-    case 'url':
-      return 'fa-link';
-    default:
-      return 'fa-file';
-  }
-}
+const KIND_ICONS: Record<string, LucideIcon> = {
+  image: Image,
+  video: Film,
+  audio: Volume2,
+  pdf: FileText,
+  html: FileCode,
+  text: FileText,
+  url: Link2,
+};
 
 function kindAccent(kind: string): string {
   switch (kind) {
     case 'video':
       return 'linear-gradient(145deg, #312e81 0%, #4c1d95 100%)';
+    case 'audio':
+      return 'linear-gradient(145deg, #134e4a 0%, #0f766e 100%)';
     case 'pdf':
       return 'linear-gradient(145deg, #7f1d1d 0%, #b91c1c 100%)';
     case 'html':
       return 'linear-gradient(145deg, #78350f 0%, #b45309 100%)';
     case 'url':
       return 'linear-gradient(145deg, #1e3a5f 0%, #2563eb 100%)';
+    case 'text':
+      return 'linear-gradient(145deg, #374151 0%, #6b7280 100%)';
     case 'image':
       return 'linear-gradient(145deg, #334155 0%, #475569 100%)';
     default:
@@ -63,8 +70,8 @@ function PlaceholderIcon({
   kind: string;
   size: number;
 }) {
-  const icon = kindIconClass(kind);
-  const isLightIcon = ['pdf', 'video', 'html', 'url', 'image'].includes(kind);
+  const Icon = KIND_ICONS[kind] ?? File;
+  const isLightIcon = ['pdf', 'video', 'audio', 'html', 'text', 'url', 'image'].includes(kind);
   return (
     <span
       role="img"
@@ -79,11 +86,10 @@ function PlaceholderIcon({
         border: '1px solid var(--color-border, #e2e8f0)',
         background: kindAccent(kind),
         color: isLightIcon ? 'rgba(255,255,255,0.92)' : 'var(--color-text-muted, #64748b)',
-        fontSize: Math.max(14, Math.round(size * 0.38)),
         flexShrink: 0,
       }}
     >
-      <i className={`fa-solid ${icon}`} aria-hidden />
+      <Icon size={Math.max(14, Math.round(size * 0.38))} strokeWidth={1.9} aria-hidden />
     </span>
   );
 }

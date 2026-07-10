@@ -3,15 +3,18 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ConnectionBadge } from '@/components/ui/StatusBadge';
+import { Plus, Pencil, Trash2, MonitorPlay, Globe, Tv } from 'lucide-react';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { StatusPill, ConnectionPill } from '@/components/ui/StatusPill';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { platformLabel, deviceState } from '@/lib/device-labels';
 import { api, getToken } from '@/lib/api';
 import { formatDateTimePtBr } from '@/lib/format-date';
 
 const ONLINE_MS = 5 * 60 * 1000;
 
 type SiteOption = { id: string; name: string };
-
 type DeviceRow = {
   id: string;
   name: string;
@@ -28,12 +31,39 @@ function isOnline(lastSeenAt: string | null): boolean {
   return new Date(lastSeenAt).getTime() >= Date.now() - ONLINE_MS;
 }
 
+function PlatformIcon({ platform }: { platform: string }) {
+  const Icon =
+    platform === 'web'
+      ? Globe
+      : platform === 'tv_browser' || platform === 'android_browser'
+        ? Tv
+        : MonitorPlay;
+  return (
+    <span
+      style={{
+        width: 36,
+        height: 36,
+        borderRadius: 10,
+        background: 'var(--color-surface-muted)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        color: 'var(--color-text-muted)',
+        flexShrink: 0,
+      }}
+    >
+      <Icon size={18} strokeWidth={1.8} aria-hidden />
+    </span>
+  );
+}
+
 export default function DevicesPage() {
   const router = useRouter();
   const [items, setItems] = useState<DeviceRow[] | null>(null);
   const [sites, setSites] = useState<SiteOption[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<DeviceRow | null>(null);
   const [siteId, setSiteId] = useState('');
   const [platform, setPlatform] = useState('');
   const [status, setStatus] = useState('');
@@ -89,15 +119,14 @@ export default function DevicesPage() {
     };
   }, [router, loadDevices]);
 
-  async function onDelete(d: DeviceRow) {
-    const ok = window.confirm(
-      `Eliminar o dispositivo «${d.name}»? Esta ação não pode ser desfeita.`
-    );
-    if (!ok) return;
+  async function onDeleteConfirmed() {
+    const d = confirmDelete;
+    if (!d) return;
     setError(null);
     setDeletingId(d.id);
     try {
       await api(`/devices/${d.id}`, { method: 'DELETE' });
+      setConfirmDelete(null);
       await loadDevices();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erro ao eliminar');
@@ -106,145 +135,207 @@ export default function DevicesPage() {
     }
   }
 
+  const total = items?.length ?? 0;
+  const onlineCount = items?.filter((d) => isOnline(d.lastSeenAt)).length ?? 0;
+
   return (
     <>
-      <header className="page-header">
-        <div>
-          <h1>Dispositivos</h1>
-          <p className="page-header__lead">
-            Inventário de players, estado de ligação e último heartbeat por site.
-          </p>
-        </div>
-        <div className="page-header__actions">
-          <Link href="/devices/new" className="btn btn--gradient">
-            <i className="fa-solid fa-plus" aria-hidden />
+      <PageHeader
+        title="Dispositivos"
+        lead="Inventário de players, estado de ligação e último heartbeat por site."
+        actions={
+          <Link href="/devices/new" className="btn btn--primary">
+            <Plus strokeWidth={2.1} aria-hidden />
             Novo dispositivo
           </Link>
-        </div>
-      </header>
+        }
+      />
 
-      <div className="surface-filters surface-filters--grid">
-        <label className="field" style={{ marginBottom: 0 }}>
-          <span>Site</span>
-          <select
-            className="select"
-            value={siteId}
-            onChange={(e) => setSiteId(e.target.value)}
+      <div className="surface-filters">
+        <div className="filter-pills" role="group" aria-label="Conexão">
+          <button
+            type="button"
+            className={online === '' ? 'is-active' : ''}
+            onClick={() => setOnline('')}
           >
-            <option value="">Todos</option>
-            {sites.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="field" style={{ marginBottom: 0 }}>
-          <span>Plataforma</span>
-          <select
-            className="select"
-            value={platform}
-            onChange={(e) => setPlatform(e.target.value)}
+            Todos {total}
+          </button>
+          <button
+            type="button"
+            className={online === 'true' ? 'is-active' : ''}
+            onClick={() => setOnline('true')}
           >
-            <option value="">Todas</option>
-            <option value="electron">electron</option>
-            <option value="web">web</option>
-            <option value="android_browser">android_browser</option>
-            <option value="tv_browser">tv_browser</option>
-            <option value="unknown">unknown</option>
-          </select>
-        </label>
-        <label className="field" style={{ marginBottom: 0 }}>
-          <span>Status cadastral</span>
-          <select
-            className="select"
-            value={status}
-            onChange={(e) => setStatus(e.target.value)}
+            Online {onlineCount}
+          </button>
+          <button
+            type="button"
+            className={online === 'false' ? 'is-active' : ''}
+            onClick={() => setOnline('false')}
           >
-            <option value="">Todos</option>
-            <option value="provisioned">provisioned</option>
-            <option value="active">active</option>
-            <option value="disabled">disabled</option>
-          </select>
-        </label>
-        <label className="field" style={{ marginBottom: 0 }}>
-          <span>Conexão (heartbeat)</span>
-          <select
-            className="select"
-            value={online}
-            onChange={(e) => setOnline(e.target.value)}
-          >
-            <option value="">Todas</option>
-            <option value="true">Online</option>
-            <option value="false">Offline</option>
-          </select>
-        </label>
+            Offline {total - onlineCount}
+          </button>
+        </div>
+        <div style={{ flex: 1 }} />
+        <select
+          className="select"
+          value={siteId}
+          onChange={(e) => setSiteId(e.target.value)}
+          aria-label="Site"
+        >
+          <option value="">Todos os sites</option>
+          {sites.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.name}
+            </option>
+          ))}
+        </select>
+        <select
+          className="select"
+          value={platform}
+          onChange={(e) => setPlatform(e.target.value)}
+          aria-label="Plataforma"
+        >
+          <option value="">Todas as plataformas</option>
+          <option value="electron">Player Desktop</option>
+          <option value="web">Navegador Web</option>
+          <option value="android_browser">Android TV</option>
+          <option value="tv_browser">Smart TV</option>
+        </select>
+        <select
+          className="select"
+          value={status}
+          onChange={(e) => setStatus(e.target.value)}
+          aria-label="Estado cadastral"
+        >
+          <option value="">Todos os estados</option>
+          <option value="active">Ativo</option>
+          <option value="provisioned">Provisionado</option>
+          <option value="disabled">Desativado</option>
+        </select>
       </div>
 
       {error && <p className="text-danger">{error}</p>}
-      {items === null && !error && <p className="text-muted">Carregando…</p>}
+      {items === null && !error && <p className="text-muted">A carregar…</p>}
       {items && items.length === 0 && (
         <EmptyState
           title="Nenhum dispositivo"
           description="Crie um dispositivo e use o código de pareamento no player."
           action={
-            <Link href="/devices/new" className="btn btn--gradient">
+            <Link href="/devices/new" className="btn btn--primary">
               Novo dispositivo
             </Link>
           }
         />
       )}
+
       {items && items.length > 0 && (
         <div className="surface-table-card">
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>Nome</th>
-              <th>Site</th>
-              <th>Plataforma</th>
-              <th>Status</th>
-              <th>Conexão</th>
-              <th>Último heartbeat</th>
-              <th style={{ width: 200, textAlign: 'right' }}>Ações</th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((d) => (
-              <tr key={d.id}>
-                <td>
-                  <Link href={`/devices/${d.id}`}>{d.name}</Link>
-                </td>
-                <td>{d.siteName ?? d.siteId}</td>
-                <td>{d.platform}</td>
-                <td>{d.status}</td>
-                <td>
-                  <ConnectionBadge online={isOnline(d.lastSeenAt)} />
-                </td>
-                <td>{formatDateTimePtBr(d.lastSeenAt)}</td>
-                <td style={{ textAlign: 'right' }}>
-                  <Link
-                    href={`/devices/${d.id}`}
-                    className="btn btn--ghost"
-                    style={{ fontSize: '0.875rem', marginRight: 6 }}
-                  >
-                    Editar
-                  </Link>
-                  <button
-                    type="button"
-                    className="btn btn--ghost"
-                    style={{ fontSize: '0.875rem', color: 'var(--color-danger-text)' }}
-                    disabled={deletingId === d.id}
-                    onClick={() => void onDelete(d)}
-                  >
-                    {deletingId === d.id ? 'A remover…' : 'Eliminar'}
-                  </button>
-                </td>
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Dispositivo</th>
+                <th>Site</th>
+                <th>Plataforma</th>
+                <th>Estado</th>
+                <th>Conexão</th>
+                <th>Último heartbeat</th>
+                <th style={{ textAlign: 'right' }}>Ações</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {items.map((d) => {
+                const st = deviceState(d.status);
+                return (
+                  <tr key={d.id}>
+                    <td>
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 12,
+                        }}
+                      >
+                        <PlatformIcon platform={d.platform} />
+                        <div>
+                          <div className="cell-primary">
+                            <Link href={`/devices/${d.id}`}>{d.name}</Link>
+                          </div>
+                          <div className="cell-sub">{d.id.slice(0, 8)}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td>{d.siteName ?? d.siteId}</td>
+                    <td>{platformLabel(d.platform)}</td>
+                    <td>
+                      <StatusPill label={st.label} tone={st.tone} />
+                    </td>
+                    <td>
+                      <ConnectionPill
+                        state={isOnline(d.lastSeenAt) ? 'on' : 'off'}
+                      />
+                    </td>
+                    <td className="cell-sub">
+                      {formatDateTimePtBr(d.lastSeenAt)}
+                    </td>
+                    <td>
+                      <div
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'flex-end',
+                          gap: 6,
+                        }}
+                      >
+                        <Link
+                          href={`/devices/${d.id}`}
+                          className="btn btn--icon"
+                          aria-label="Editar"
+                          title="Editar"
+                        >
+                          <Pencil aria-hidden />
+                        </Link>
+                        <button
+                          type="button"
+                          className="btn btn--icon"
+                          aria-label="Eliminar"
+                          title="Eliminar"
+                          disabled={deletingId === d.id}
+                          onClick={() => setConfirmDelete(d)}
+                          style={{ color: 'var(--color-danger-text)' }}
+                        >
+                          <Trash2 aria-hidden />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
+
+      {items && items.length > 0 && (
+        <div className="table-footer">
+          <span>
+            A mostrar {items.length} de {items.length} dispositivos
+          </span>
+        </div>
+      )}
+
+      <ConfirmDialog
+        open={confirmDelete !== null}
+        title="Eliminar dispositivo"
+        message={
+          confirmDelete
+            ? `Eliminar «${confirmDelete.name}»? Esta ação não pode ser desfeita.`
+            : ''
+        }
+        confirmLabel="Eliminar"
+        cancelLabel="Cancelar"
+        loading={deletingId !== null}
+        onConfirm={() => void onDeleteConfirmed()}
+        onCancel={() => setConfirmDelete(null)}
+      />
     </>
   );
 }

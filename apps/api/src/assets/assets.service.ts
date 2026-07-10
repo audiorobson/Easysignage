@@ -16,6 +16,10 @@ import { existsSync } from 'fs';
 const execFileAsync = promisify(execFile);
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import sharp from 'sharp';
+import {
+  inferKindFromMime,
+  resolveMimeAndExt,
+} from '@easysignage/shared-types';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateAssetDto } from './dto/create-asset.dto';
 import { UpdateAssetDto } from './dto/update-asset.dto';
@@ -25,40 +29,6 @@ const MAX_FILE_BYTES = Math.min(
   Number(process.env.ASSET_MAX_BYTES) || 100 * 1024 * 1024,
   500 * 1024 * 1024
 );
-
-/** Extensão por MIME para ficheiros guardados em disco */
-const MIME_EXT: Record<string, string> = {
-  'image/png': 'png',
-  'image/jpeg': 'jpg',
-  'image/jpg': 'jpg',
-  'image/gif': 'gif',
-  'image/webp': 'webp',
-  'image/svg+xml': 'svg',
-  'image/bmp': 'bmp',
-  'image/avif': 'avif',
-  'video/mp4': 'mp4',
-  'video/webm': 'webm',
-  'video/ogg': 'ogv',
-  'video/quicktime': 'mov',
-  'application/pdf': 'pdf',
-  'text/html': 'html',
-  'application/xhtml+xml': 'xhtml',
-};
-
-function normalizeMime(m: string): string {
-  const lower = m.toLowerCase();
-  if (lower === 'image/jpg') return 'image/jpeg';
-  return lower;
-}
-
-function inferKind(mime: string): string {
-  const m = mime.toLowerCase();
-  if (m.startsWith('image/')) return 'image';
-  if (m.startsWith('video/')) return 'video';
-  if (m === 'application/pdf') return 'pdf';
-  if (m === 'text/html' || m === 'application/xhtml+xml') return 'html';
-  return 'file';
-}
 
 @Injectable()
 export class AssetsService {
@@ -211,16 +181,16 @@ export class AssetsService {
     rawMime: string,
     buf: Buffer
   ) {
-    const mimeType = normalizeMime(rawMime);
-    const ext = MIME_EXT[mimeType];
-    if (!ext) {
+    const resolved = resolveMimeAndExt(rawMime, rawName);
+    if (!resolved) {
       throw new BadRequestException(
-        `Tipo de ficheiro não suportado: ${mimeType}. Use imagem, vídeo (mp4/webm), PDF ou HTML.`
+        'Tipo de ficheiro não suportado. Formatos: imagens (PNG, JPEG, GIF, WebP, SVG, AVIF, TIFF…), vídeo (MP4, WebM, MOV…), áudio (MP3, WAV, AAC…), PDF, HTML e texto.'
       );
     }
-
-    const kind = inferKind(mimeType);
-    const maxBytes = kind === 'image' ? MAX_IMAGE_BYTES : MAX_FILE_BYTES;
+    const { mimeType, ext } = resolved;
+    const kind = inferKindFromMime(mimeType);
+    const maxBytes =
+      kind === 'image' ? MAX_IMAGE_BYTES : MAX_FILE_BYTES;
     if (buf.length > maxBytes) {
       throw new BadRequestException(
         `Ficheiro acima do limite (${maxBytes} bytes para este tipo)`

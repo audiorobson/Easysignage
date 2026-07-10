@@ -169,6 +169,16 @@ export class DeviceApiController {
   async state(@CurrentDevice() device: DeviceWithSite) {
     await this.scheduleEngine.applyForDevice(device.tenantId, device.id);
 
+    /** Presença leve: state poll (3s) mantém «online» no CMS sem esperar heartbeat (60s). */
+    const presenceStaleMs = 30_000;
+    const lastSeen = device.lastSeenAt?.getTime() ?? 0;
+    if (Date.now() - lastSeen > presenceStaleMs) {
+      await this.prisma.device.update({
+        where: { id: device.id },
+        data: { lastSeenAt: new Date() },
+      });
+    }
+
     const row = await this.prisma.deviceState.findUnique({
       where: { deviceId: device.id },
       include: {

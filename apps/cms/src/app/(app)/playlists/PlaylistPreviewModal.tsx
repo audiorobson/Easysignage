@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef } from 'react';
+import { X } from 'lucide-react';
 import { getToken } from '@/lib/api';
 
 const MSG_TOKEN = 'easysignage:cms-preview-token';
@@ -51,18 +52,9 @@ export function PlaylistPreviewModal({ playlistId, onClose }: Props) {
 
   return (
     <div
+      className="modal-overlay"
       role="presentation"
       tabIndex={-1}
-      style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 100,
-        background: 'rgba(15, 23, 42, 0.55)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '1rem',
-      }}
       onClick={onClose}
       onKeyDown={(e) => {
         if (e.key === 'Escape') onClose();
@@ -72,40 +64,13 @@ export function PlaylistPreviewModal({ playlistId, onClose }: Props) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="playlist-preview-title"
-        style={{
-          width: '100%',
-          maxWidth: 'min(1100px, 96vw)',
-          height: 'min(78vh, 720px)',
-          background: '#020617',
-          borderRadius: 'var(--radius-md, 14px)',
-          border: '1px solid var(--color-border, #e2e8f0)',
-          boxShadow: 'var(--shadow-lg, 0 16px 40px rgba(15,23,42,0.2))',
-          overflow: 'hidden',
-          display: 'flex',
-          flexDirection: 'column',
-        }}
+        className="modal-dialog modal-dialog--preview"
         onClick={(e) => e.stopPropagation()}
       >
-        <div
-          style={{
-            flexShrink: 0,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: '1rem',
-            padding: '0.65rem 1rem',
-            background: 'var(--color-surface, #fff)',
-            borderBottom: '1px solid var(--color-border, #e2e8f0)',
-          }}
-        >
+        <div className="modal-preview-toolbar">
           <div>
-            <h2
-              id="playlist-preview-title"
-              style={{ margin: 0, fontSize: '1rem', fontWeight: 600 }}
-            >
-              Pré-visualização (player)
-            </h2>
-            <p className="text-muted" style={{ margin: '0.2rem 0 0', fontSize: '0.8125rem' }}>
+            <h2 id="playlist-preview-title">Pré-visualização (player)</h2>
+            <p className="text-muted">
               Mesmo fluxo que o web player: manifest + ficheiros da API.
             </p>
           </div>
@@ -115,7 +80,7 @@ export function PlaylistPreviewModal({ playlistId, onClose }: Props) {
             onClick={onClose}
             aria-label="Fechar"
           >
-            <i className="fa-solid fa-xmark" aria-hidden />
+            <X size={18} strokeWidth={2} aria-hidden />
           </button>
         </div>
         <iframe
@@ -123,13 +88,7 @@ export function PlaylistPreviewModal({ playlistId, onClose }: Props) {
           title="Pré-visualização da playlist"
           src={`/embed/preview/${playlistId}`}
           onLoad={sendTokenToIframe}
-          style={{
-            flex: 1,
-            width: '100%',
-            border: 'none',
-            minHeight: 0,
-            background: '#020617',
-          }}
+          className="modal-preview-frame"
         />
       </div>
     </div>

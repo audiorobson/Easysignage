@@ -2,6 +2,11 @@
 
 import { type FormEvent, useCallback, useEffect, useId, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { Link2, Pencil, Trash2, Upload } from 'lucide-react';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { Modal } from '@/components/ui/Modal';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { CMS_ACCEPT_UPLOAD, kindLabelPt } from '@easysignage/shared-types';
 import { AssetPreview } from '@/components/AssetPreview';
 import { api, getToken, uploadAssetMultipart } from '@/lib/api';
 import { formatDateTimePtBr } from '@/lib/format-date';
@@ -22,21 +27,15 @@ const KIND_FILTERS = [
   { id: '', label: 'Todos' },
   { id: 'image', label: 'Imagens' },
   { id: 'video', label: 'Vídeos' },
+  { id: 'audio', label: 'Áudio' },
   { id: 'pdf', label: 'PDF' },
   { id: 'html', label: 'HTML' },
+  { id: 'text', label: 'Texto' },
   { id: 'url', label: 'URLs' },
 ] as const;
 
 function kindLabel(kind: string): string {
-  const m: Record<string, string> = {
-    image: 'Imagem',
-    video: 'Vídeo',
-    pdf: 'PDF',
-    html: 'HTML',
-    url: 'URL',
-    file: 'Ficheiro',
-  };
-  return m[kind] ?? kind;
+  return kindLabelPt(kind);
 }
 
 function formatSize(n: string): string {
@@ -46,9 +45,6 @@ function formatSize(n: string): string {
   if (b < 1024 * 1024) return `${(b / 1024).toFixed(1)} KB`;
   return `${(b / (1024 * 1024)).toFixed(1)} MB`;
 }
-
-const ACCEPT_UPLOAD =
-  'image/png,image/jpeg,image/gif,image/webp,image/svg+xml,image/bmp,image/avif,video/mp4,video/webm,video/ogg,video/quicktime,application/pdf,text/html,application/xhtml+xml,.html,.htm';
 
 type UrlModalMode = 'create' | 'edit-url' | 'edit-file';
 
@@ -66,6 +62,8 @@ export default function AssetsPage() {
   const [urlName, setUrlName] = useState('');
   const [urlValue, setUrlValue] = useState('');
   const [urlModalSaving, setUrlModalSaving] = useState(false);
+  const [deleteAsset, setDeleteAsset] = useState<AssetRow | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const load = useCallback(async () => {
     const q = kindFilter ? `?kind=${encodeURIComponent(kindFilter)}` : '';
@@ -180,17 +178,19 @@ export default function AssetsPage() {
     }
   }
 
-  async function onDelete(asset: AssetRow) {
-    const ok = window.confirm(
-      `Remover o asset «${asset.name}»? Não é possível se estiver numa playlist.`
-    );
-    if (!ok) return;
+  async function onDeleteConfirmed() {
+    const asset = deleteAsset;
+    if (!asset) return;
+    setDeleting(true);
     setError(null);
     try {
       await api<void>(`/assets/${asset.id}`, { method: 'DELETE' });
+      setDeleteAsset(null);
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao remover');
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -203,47 +203,43 @@ export default function AssetsPage() {
 
   return (
     <>
-      <header className="page-header">
-        <div>
-          <h1>Assets</h1>
-          <p className="page-header__lead">
-            Gira e distribui ficheiros multimédia na rede de sinalização.
-            Upload multipart; miniaturas automáticas para imagens. Para URLs
-            externas, filtra por «URLs» e adiciona uma ligação.
-          </p>
-        </div>
-        <div className="page-header__actions">
-          {kindFilter === 'url' && (
-            <button
-              type="button"
+      <PageHeader
+        title="Biblioteca"
+        lead="Gira e distribui ficheiros multimédia na rede de sinalização. Suporta imagens, vídeo, áudio, PDF, HTML e texto; miniaturas automáticas para imagens e vídeos. Para URLs externas, filtra por «URLs» e adiciona uma ligação."
+        actions={
+          <>
+            {kindFilter === 'url' && (
+              <button
+                type="button"
+                className="btn btn--primary"
+                title="Adicionar URL"
+                aria-label="Adicionar URL"
+                onClick={openCreateUrlModal}
+              >
+                <Link2 size={17} strokeWidth={1.9} aria-hidden />
+                Nova URL
+              </button>
+            )}
+            <input
+              id={uploadInputId}
+              type="file"
+              className="sr-only"
+              accept={CMS_ACCEPT_UPLOAD}
+              disabled={uploading}
+              aria-label="Enviar ficheiro"
+              onChange={(ev) => void onFileChange(ev)}
+            />
+            <label
+              htmlFor={uploadInputId}
               className="btn btn--primary"
-              title="Adicionar URL"
-              aria-label="Adicionar URL"
-              onClick={openCreateUrlModal}
+              style={{ cursor: uploading ? 'wait' : 'pointer' }}
             >
-              <i className="fa-solid fa-link" aria-hidden />
-              Nova URL
-            </button>
-          )}
-          <input
-            id={uploadInputId}
-            type="file"
-            className="sr-only"
-            accept={ACCEPT_UPLOAD}
-            disabled={uploading}
-            aria-label="Enviar ficheiro"
-            onChange={(ev) => void onFileChange(ev)}
-          />
-          <label
-            htmlFor={uploadInputId}
-            className="btn btn--gradient"
-            style={{ cursor: uploading ? 'wait' : 'pointer' }}
-          >
-            <i className="fa-solid fa-upload" aria-hidden />
-            {uploading ? 'A enviar…' : 'Enviar ficheiro'}
-          </label>
-        </div>
-      </header>
+              <Upload strokeWidth={2} aria-hidden />
+              {uploading ? 'A enviar…' : 'Enviar ficheiro'}
+            </label>
+          </>
+        }
+      />
 
       <section style={{ marginBottom: 'var(--space-8)' }}>
         <div className="filter-pills">
@@ -262,7 +258,7 @@ export default function AssetsPage() {
 
       <section>
         {error && <p className="text-danger">{error}</p>}
-        {!items && !error && <p className="text-muted">Carregando…</p>}
+        {!items && !error && <p className="text-muted">A carregar…</p>}
         {items && items.length === 0 && (
           <p className="text-muted">Nenhum asset neste filtro.</p>
         )}
@@ -317,22 +313,27 @@ export default function AssetsPage() {
                   <td>{a.kind === 'url' ? '—' : formatSize(a.fileSize)}</td>
                   <td>{formatDateTimePtBr(a.createdAt)}</td>
                   <td style={{ textAlign: 'right' }}>
-                    <button
-                      type="button"
-                      className="btn btn--ghost"
-                      style={{ marginRight: '0.35rem', fontSize: '0.875rem' }}
-                      onClick={() => openEditModal(a)}
-                    >
-                      Editar
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn--ghost"
-                      style={{ fontSize: '0.875rem', color: 'var(--color-danger, #b91c1c)' }}
-                      onClick={() => void onDelete(a)}
-                    >
-                      Remover
-                    </button>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6 }}>
+                      <button
+                        type="button"
+                        className="btn btn--icon"
+                        aria-label="Editar"
+                        title="Editar"
+                        onClick={() => openEditModal(a)}
+                      >
+                        <Pencil aria-hidden />
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn--icon"
+                        aria-label="Remover"
+                        title="Remover"
+                        style={{ color: 'var(--color-danger-text)' }}
+                        onClick={() => setDeleteAsset(a)}
+                      >
+                        <Trash2 aria-hidden />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -342,119 +343,87 @@ export default function AssetsPage() {
         )}
       </section>
 
-      {urlModalOpen && (
-        <div
-          role="presentation"
-          style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 100,
-            background: 'rgba(15, 23, 42, 0.45)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '1rem',
-          }}
-          onClick={closeUrlModal}
-          onKeyDown={(e) => {
-            if (e.key === 'Escape') closeUrlModal();
-          }}
-        >
+      <Modal
+        open={urlModalOpen}
+        title={urlModalTitle}
+        titleId="asset-modal-title"
+        onClose={closeUrlModal}
+      >
+        <form onSubmit={onSubmitUrlModal}>
           <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="asset-modal-title"
             style={{
-              width: '100%',
-              maxWidth: '420px',
-              background: 'var(--color-surface, #fff)',
-              borderRadius: 'var(--radius-md, 14px)',
-              border: '1px solid var(--color-border, #e2e8f0)',
-              boxShadow: 'var(--shadow-lg, 0 16px 40px rgba(15,23,42,0.12))',
-              padding: '1.25rem',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '0.75rem',
             }}
-            onClick={(e) => e.stopPropagation()}
           >
-            <h2
-              id="asset-modal-title"
-              style={{
-                margin: '0 0 1rem',
-                fontSize: '1.125rem',
-                fontWeight: 600,
-              }}
-            >
-              {urlModalTitle}
-            </h2>
-            <form onSubmit={onSubmitUrlModal}>
-              <div
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '0.75rem',
-                }}
+            <label>
+              <span className="text-muted">Nome</span>
+              <input
+                type="text"
+                className="input"
+                value={urlName}
+                onChange={(e) => setUrlName(e.target.value)}
+                placeholder="Nome do asset"
+                style={{ width: '100%', marginTop: '0.25rem' }}
+                autoFocus
+                disabled={urlModalSaving}
+              />
+            </label>
+            {urlModalMode !== 'edit-file' && (
+              <label>
+                <span className="text-muted">URL (https ou http)</span>
+                <input
+                  type="url"
+                  className="input"
+                  value={urlValue}
+                  onChange={(e) => setUrlValue(e.target.value)}
+                  placeholder="https://…"
+                  style={{ width: '100%', marginTop: '0.25rem' }}
+                  disabled={urlModalSaving}
+                />
+              </label>
+            )}
+            {urlModalMode === 'edit-file' && (
+              <p className="text-muted" style={{ margin: 0, fontSize: '0.875rem' }}>
+                Apenas o nome pode ser alterado. Para substituir o ficheiro,
+                remova este asset e envie um novo.
+              </p>
+            )}
+            <div className="modal-dialog__footer">
+              <button
+                type="button"
+                className="btn btn--ghost"
+                disabled={urlModalSaving}
+                onClick={closeUrlModal}
               >
-                <label>
-                  <span className="text-muted">Nome</span>
-                  <input
-                    type="text"
-                    className="input"
-                    value={urlName}
-                    onChange={(e) => setUrlName(e.target.value)}
-                    placeholder="Nome do asset"
-                    style={{ width: '100%', marginTop: '0.25rem' }}
-                    autoFocus
-                    disabled={urlModalSaving}
-                  />
-                </label>
-                {urlModalMode !== 'edit-file' && (
-                  <label>
-                    <span className="text-muted">URL (https ou http)</span>
-                    <input
-                      type="url"
-                      className="input"
-                      value={urlValue}
-                      onChange={(e) => setUrlValue(e.target.value)}
-                      placeholder="https://…"
-                      style={{ width: '100%', marginTop: '0.25rem' }}
-                      disabled={urlModalSaving}
-                    />
-                  </label>
-                )}
-                {urlModalMode === 'edit-file' && (
-                  <p className="text-muted" style={{ margin: 0, fontSize: '0.875rem' }}>
-                    Apenas o nome pode ser alterado. Para substituir o ficheiro,
-                    remova este asset e envie um novo.
-                  </p>
-                )}
-                <div
-                  style={{
-                    display: 'flex',
-                    gap: '0.5rem',
-                    justifyContent: 'flex-end',
-                    marginTop: '0.5rem',
-                  }}
-                >
-                  <button
-                    type="button"
-                    className="btn btn--ghost"
-                    disabled={urlModalSaving}
-                    onClick={closeUrlModal}
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="submit"
-                    className="btn btn--primary"
-                    disabled={urlModalSaving}
-                  >
-                    {urlModalSaving ? 'A guardar…' : 'Guardar'}
-                  </button>
-                </div>
-              </div>
-            </form>
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                className="btn btn--primary"
+                disabled={urlModalSaving}
+              >
+                {urlModalSaving ? 'A guardar…' : 'Guardar'}
+              </button>
+            </div>
           </div>
-        </div>
-      )}
+        </form>
+      </Modal>
+
+      <ConfirmDialog
+        open={deleteAsset !== null}
+        title="Remover asset"
+        message={
+          deleteAsset
+            ? `Remover «${deleteAsset.name}»? Não é possível se estiver numa playlist.`
+            : ''
+        }
+        confirmLabel="Remover"
+        loading={deleting}
+        onConfirm={() => void onDeleteConfirmed()}
+        onCancel={() => setDeleteAsset(null)}
+      />
     </>
   );
 }
