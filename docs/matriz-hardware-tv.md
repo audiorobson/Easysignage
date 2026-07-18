@@ -46,9 +46,11 @@ teste real). Atualize esta tabela sempre que:
 
 | Item | Estado | Notas |
 |---|---|---|
-| Empacotamento (Tizen CLI) | ⚠️ Best-effort em CI | Sem Tizen Studio/CLI no ambiente local; workflow de CI documenta o comando mas pode não executar sem licença/SDK instalado no runner |
-| App nativa (kiosk) | 📝 Fonte entregue | `config.xml` + `index.html`, mesmo padrão de bridge |
-| Hardware físico testado | ❌ Nenhum | Pendente Samsung Smart TV real ou Tizen TV Emulator |
+| Testes unitários do bridge | ✅ Validado | `node --test` sobre `command-dispatcher.js`, sempre roda em CI |
+| Empacotamento (`.wgt` assinado) | ⚠️ Condicional em CI | Tizen Studio CLI não está disponível via npm (ferramenta Java ~1 GB da Samsung); `.github/workflows/tizen.yml` usa `sourcetoad/tizen-build-action` mas só executa se os secrets `TIZEN_AUTHOR_KEY`/`TIZEN_AUTHOR_KEY_PW` (e a variável `TIZEN_BUILD_ENABLED`) estiverem configurados no repositório — **ainda não estão** |
+| App nativa (kiosk) | 📝 Fonte entregue | `config.xml` (perfil `tv-samsung`) + `index.html`, mesmo padrão de bridge; trata tecla "voltar" do controlo remoto (`tizenhwkey`) |
+| Bridge JS↔Tizen | 📝 Implementado com fallback gracioso | `tizen.systeminfo` para `platform.getInfo`; sem API pública de reboot/screenshot para apps de terceiros |
+| Hardware físico / emulador testado | ❌ Nenhum | Pendente Samsung Smart TV real ou Tizen TV Emulator — `.wgt` nunca foi gerado nem instalado |
 
 ## Fire TV (Amazon) — `apps/firetv-player`
 

@@ -1,0 +1,9 @@
+{
+  "name": "@easysignage/tizen-player",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Wrapper Tizen TV (Samsung, kiosk WebView) para o apps/web-player — PR 7.3.",
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  }
+}
