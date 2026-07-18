@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Placeholder do banner/ícone da Android TV (recomendado: 320x180dp, arte de marca real).
+  Substitua por um PNG/WebP exportado do branding do parceiro antes de publicar na loja —
+  ver apps/androidtv-player/README.md.
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="#2563EB" />
+</shape>

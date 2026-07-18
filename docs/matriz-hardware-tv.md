@@ -56,9 +56,10 @@ teste real). Atualize esta tabela sempre que:
 
 | Item | Estado | Notas |
 |---|---|---|
-| Base | ✅ Reaproveita `apps/androidtv-player` | Mesmo bridge Kotlin/Media3; manifest e launcher ajustados para Fire TV (sem categoria `LEANBACK_LAUNCHER` do Google, ícone/banner Amazon) |
+| Base | ✅ Reaproveita `apps/androidtv-player` | Mesmo bridge Kotlin/Media3 (`com.easysignage.firetv`); manifest ajustado por recomendação da Amazon (`android.software.leanback` `required="false"`, `faketouch` declarado) — Fire OS honra `LEANBACK_LAUNCHER` igual ao Android TV |
+| Build local | ✅ Validado | `gradlew testDebugUnitTest assembleDebug` — `BUILD SUCCESSFUL` |
 | Build smoke (CI) | ✅ Automatizado | `.github/workflows/firetv.yml` |
-| Hardware físico testado | ❌ Nenhum | Pendente Fire TV Stick/Cube real — Amazon Appstore tem processo de certificação próprio (fora do escopo deste PR) |
+| Hardware físico testado | ❌ Nenhum | Pendente Fire TV Stick/Cube real — Amazon Appstore tem processo de certificação próprio (Test Criteria, classificação de device support) fora do escopo deste PR; instalação direta (side-load/ADB) é suficiente para piloto |
 
 ## Riscos gerais desta fase
 
