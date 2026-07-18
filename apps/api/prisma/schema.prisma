@@ -35,6 +35,12 @@ model Tenant {
   maxDevices Int    @default(25) @map("max_devices")
   maxUsers   Int    @default(10) @map("max_users")
 
+  /** Branding por tenant (PR 6.6) — configurável via `/settings/branding`; aplicado no CMS, no login e no preview embutido. */
+  brandName         String? @map("brand_name")
+  brandLogoUrl      String? @map("brand_logo_url")
+  /** Cor hex (ex.: `#2563eb`) usada como `--color-primary-500`/acento no CMS e no preview embutido. */
+  brandPrimaryColor String? @map("brand_primary_color")
+
   users   User[]
   roles   Role[]
   sites   Site[]

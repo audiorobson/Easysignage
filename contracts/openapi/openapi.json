@@ -2764,6 +2764,29 @@
         ]
       }
     },
+    "/public/tenants/{slug}/branding": {
+      "get": {
+        "operationId": "PublicController_getTenantBranding",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "public"
+        ]
+      }
+    },
     "/device/telemetry": {
       "post": {
         "operationId": "DeviceApiController_postTelemetry",
@@ -3205,6 +3228,71 @@
         ]
       }
     },
+    "/settings/quota": {
+      "get": {
+        "operationId": "SettingsController_getQuotaUsage",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "settings"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/settings/branding": {
+      "get": {
+        "operationId": "SettingsController_getBranding",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "settings"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      },
+      "patch": {
+        "operationId": "SettingsController_updateBranding",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateBrandingDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "settings"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
     "/audit-logs": {
       "get": {
         "operationId": "AuditLogController_list",
@@ -3497,6 +3585,10 @@
         "properties": {}
       },
       "UpdateSsoConfigDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdateBrandingDto": {
         "type": "object",
         "properties": {}
       }

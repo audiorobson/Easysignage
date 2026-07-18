@@ -249,6 +249,91 @@ describe('SettingsService.updateSsoConfig', () => {
   });
 });
 
+describe('SettingsService.getBranding', () => {
+  it('devolve os campos de branding do tenant', async () => {
+    const prisma = buildPrismaMock();
+    prisma.tenant.findUnique.mockResolvedValue({
+      brandName: 'Acme Signage',
+      brandLogoUrl: 'https://cdn.acme.com/logo.png',
+      brandPrimaryColor: '#ff0044',
+    });
+    const service = new SettingsService(
+      prisma as unknown as PrismaService,
+      buildConfigMock(),
+      buildQuotaMock()
+    );
+
+    const result = await service.getBranding('tenant-1');
+
+    expect(result).toEqual({
+      brandName: 'Acme Signage',
+      brandLogoUrl: 'https://cdn.acme.com/logo.png',
+      brandPrimaryColor: '#ff0044',
+    });
+  });
+
+  it('lança NotFoundException quando o tenant não existe', async () => {
+    const prisma = buildPrismaMock();
+    prisma.tenant.findUnique.mockResolvedValue(null);
+    const service = new SettingsService(
+      prisma as unknown as PrismaService,
+      buildConfigMock(),
+      buildQuotaMock()
+    );
+
+    await expect(service.getBranding('tenant-x')).rejects.toThrow('Tenant não encontrado');
+  });
+});
+
+describe('SettingsService.updateBranding', () => {
+  it('actualiza apenas os campos enviados no DTO', async () => {
+    const prisma = buildPrismaMock();
+    prisma.tenant.update.mockResolvedValue({
+      brandName: 'Acme Signage',
+      brandLogoUrl: null,
+      brandPrimaryColor: '#2563eb',
+    });
+    const service = new SettingsService(
+      prisma as unknown as PrismaService,
+      buildConfigMock(),
+      buildQuotaMock()
+    );
+
+    const result = await service.updateBranding('tenant-1', {
+      brandName: 'Acme Signage',
+      brandPrimaryColor: '#2563eb',
+    });
+
+    expect(prisma.tenant.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'tenant-1' },
+        data: { brandName: 'Acme Signage', brandPrimaryColor: '#2563eb' },
+      })
+    );
+    expect(result.brandName).toBe('Acme Signage');
+  });
+
+  it('limpa um campo quando recebe string vazia', async () => {
+    const prisma = buildPrismaMock();
+    prisma.tenant.update.mockResolvedValue({
+      brandName: null,
+      brandLogoUrl: null,
+      brandPrimaryColor: null,
+    });
+    const service = new SettingsService(
+      prisma as unknown as PrismaService,
+      buildConfigMock(),
+      buildQuotaMock()
+    );
+
+    await service.updateBranding('tenant-1', { brandName: '' });
+
+    expect(prisma.tenant.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { brandName: null } })
+    );
+  });
+});
+
 describe('SettingsService.getQuotaUsage', () => {
   it('delega no TenantQuotaService', async () => {
     const prisma = buildPrismaMock();

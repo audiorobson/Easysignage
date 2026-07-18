@@ -56,5 +56,12 @@ export default defineConfig({
         baseURL: process.env.CMS_URL ?? 'http://localhost:3000',
       },
     },
+    {
+      name: 'cms-branding',
+      testMatch: /branding-smoke\.spec\.ts/,
+      use: {
+        baseURL: process.env.CMS_URL ?? 'http://localhost:3000',
+      },
+    },
   ],
 });

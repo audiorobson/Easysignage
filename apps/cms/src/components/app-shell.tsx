@@ -1,7 +1,10 @@
 'use client';
 
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
+import { api } from '@/lib/api';
+import { applyBrandingCssVars, type TenantBranding } from '@/lib/branding';
 import {
   LayoutDashboard,
   MonitorPlay,
@@ -71,6 +74,26 @@ function NavLink({ href, label, Icon, soon }: NavItem) {
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const [branding, setBranding] = useState<TenantBranding | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await api<TenantBranding>('/settings/branding');
+        if (!cancelled) {
+          setBranding(data);
+          applyBrandingCssVars(data);
+        }
+      } catch {
+        /** Sem permissão settings.read ou endpoint indisponível — mantém a marca por defeito. */
+      }
+    })();
+    return () => {
+      cancelled = true;
+      applyBrandingCssVars(null);
+    };
+  }, []);
 
   function logout() {
     sessionStorage.removeItem('access_token');
@@ -81,11 +104,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <div className="app-shell">
       <aside className="app-sidebar">
         <div className="app-sidebar__brand">
-          <span className="app-sidebar__brand-mark" aria-hidden>
-            <MonitorPlay size={20} strokeWidth={2} />
-          </span>
+          {branding?.brandLogoUrl ? (
+            <img
+              src={branding.brandLogoUrl}
+              alt=""
+              data-testid="brand-logo"
+              className="app-sidebar__brand-mark app-sidebar__brand-mark--logo"
+            />
+          ) : (
+            <span className="app-sidebar__brand-mark" aria-hidden>
+              <MonitorPlay size={20} strokeWidth={2} />
+            </span>
+          )}
           <div>
-            <div className="app-sidebar__brand-title">EasySignage</div>
+            <div className="app-sidebar__brand-title">{branding?.brandName || 'EasySignage'}</div>
             <div className="app-sidebar__brand-sub">Operador de rede</div>
           </div>
         </div>

@@ -131,6 +131,9 @@ button { cursor: pointer; }
   display: flex; align-items: center; justify-content: center; color: #fff;
   box-shadow: 0 8px 20px rgba(37, 99, 235, 0.35);
 }
+.login-card__mark--logo {
+  object-fit: contain; background: #fff; padding: 4px;
+}
 
 .app-shell { display: flex; min-height: 100vh; background: var(--color-bg); color: var(--color-text); }
 
@@ -144,6 +147,9 @@ button { cursor: pointer; }
   width: 38px; height: 38px; border-radius: 11px; background: var(--color-primary-500);
   display: flex; align-items: center; justify-content: center; color: #fff;
   box-shadow: 0 6px 18px rgba(37, 99, 235, 0.4); flex-shrink: 0;
+}
+.app-sidebar__brand-mark--logo {
+  object-fit: contain; background: #fff; padding: 4px;
 }
 .app-sidebar__brand-title { font-weight: 800; font-size: 17px; letter-spacing: -0.02em; color: #fff; line-height: 1; }
 .app-sidebar__brand-sub { font-size: 10px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--sidebar-section); margin-top: 4px; }

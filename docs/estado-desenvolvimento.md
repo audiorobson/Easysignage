@@ -17,7 +17,7 @@ O próprio roadmap, em **§19** (início da secção), aponta para **este fichei
 | **19.4b–19.5b** | **Layouts, zonas e video wall** | **Feito (L1–L5):** viewport, layouts multi-zona, fit, video wall, drift, WS sync, editor visual, agenda layout/wall, snap/guias, **templates custom por tenant**. |
 | **19.5** | Fase 4 — Controle remoto e monitoramento | **Feito (MVP+):** telemetria, overview, comandos (`wol` + **reboot/restart/clear-cache/open-url/screenshot** via Electron), **preview JPEG**, **realtime-gateway** com wall sync, painel de drift, **alertas automáticos** (`/alerts`) com **notificação por webhook (HMAC) e e-mail (Resend)**. |
 | **19.6** | Fase 5 — Robustez operacional | **Concluída (jul/2026 — PRs 5.1–5.18):** CI com Postgres real + migrations, Playwright E2E (CMS + web-player), cobertura Jest nos motores críticos; **proof-of-play** completo (modelo, ingestão, fila offline no web-player, relatório + export CSV, tela no CMS); **Electron real** (bridge RTSP via `ffmpeg`, executor de comandos remotos, watchdog + kiosk + autostart, auto-update); **fila Redis/BullMQ** + `media-worker` real (thumbnail/metadata/transcode); **dashboard sem dados demo** (uptime real via `Heartbeat`); **notificações de alerta** (webhook assinado + e-mail). Ver secções dedicadas abaixo. |
-| **19.7** | Fase 6 — Multi-tenant comercial | **Parcial:** multi-tenant no modelo; **pendente (em execução):** OpenAPI pública, audit log, 2FA, SSO SAML/OIDC, quotas, branding. |
+| **19.7** | Fase 6 — Multi-tenant comercial (enterprise readiness) | **Concluída (jul/2026 — PRs 6.1–6.6):** multi-tenant no modelo; **OpenAPI pública** exportada e verificada em CI (`contracts/openapi/openapi.json`); **audit log** (interceptor global + `/settings/audit`); **2FA (TOTP)** com QR code e desafio no login; **SSO OpenID Connect** por tenant (`/settings/sso`, login único); **quotas por tenant** (`maxDevices`/`maxUsers`/`planTier`, enforcement na criação de dispositivos); **branding por tenant** (logótipo/nome/cor aplicados no CMS, login e preview embutido). Ver secções dedicadas abaixo. |
 
 ---
 
@@ -314,6 +314,21 @@ Fecha o backlog interno ("Próximos passos sugeridos" da revisão anterior) e as
 
 ---
 
+## Fase 6 — Enterprise readiness (concluída, jul/2026)
+
+Fecha "Fase 6 — multi-tenant comercial" do roadmap arquitetural e a lacuna de vendas B2B maiores identificada na pesquisa de mercado (SSO, 2FA, audit log, OpenAPI, quotas, branding).
+
+| PR | Entrega |
+|----|---------|
+| 6.1 | OpenAPI pública — `contracts/openapi/openapi.json` gerado por script (`export:openapi`), validado estruturalmente e verificado/publicado como artefacto em CI |
+| 6.2 | Audit log — modelo `AuditLog`, interceptor Nest global em mutações (POST/PUT/PATCH/DELETE) com sanitização de dados sensíveis, `GET /audit-logs` e tela `/settings/audit` com filtros |
+| 6.3 | 2FA (TOTP) — `otplib`/`qrcode`, campos `totpSecret`/`totpEnabled` em `User`, setup com QR code, desafio de 2FA no login (`/auth/login/2fa`), tela `/settings/security` |
+| 6.4 | SSO OpenID Connect por tenant — `openid-client`, configuração por tenant (`ssoEnabled`/`ssoIssuerUrl`/`ssoClientId`/`ssoClientSecret`), fluxo authorization code completo, tela `/settings/sso` e botão de login único |
+| 6.5 | Quotas por tenant — campos `planTier`/`maxDevices`/`maxUsers` em `Tenant`, `TenantQuotaService` com *enforcement* na criação de dispositivos (403 ao exceder), `GET /settings/quota` e painel de uso em `/settings` |
+| 6.6 | Branding por tenant — campos `brandName`/`brandLogoUrl`/`brandPrimaryColor` em `Tenant`, `GET/PATCH /settings/branding` (autenticado) e `GET /public/tenants/:slug/branding` (público), tela `/settings/branding`, aplicado na barra lateral do CMS, na tela de login e no preview embutido de playlists |
+
+---
+
 ## Documentos relacionados
 
 | Documento | Conteúdo |
@@ -329,16 +344,16 @@ Fecha o backlog interno ("Próximos passos sugeridos" da revisão anterior) e as
 
 ## Próximos passos sugeridos
 
-Fase 5 (núcleo operacional) está **concluída** — ver secção dedicada abaixo.
-O trabalho corrente segue o roadmap de nível de mercado (Fases 6–10):
+Fases 5 (núcleo operacional) e 6 (enterprise readiness) estão **concluídas** —
+ver secções dedicadas acima. O trabalho corrente segue o roadmap de nível de
+mercado (Fases 7–10):
 
 | Prioridade | Item | Fase |
 |------------|------|------|
-| 1 | OpenAPI pública, audit log, 2FA, SSO SAML/OIDC, quotas, branding por tenant | 6 — Enterprise readiness |
-| 2 | Players nativos (Android TV, webOS, Tizen, Fire TV) | 7 — TV nativa |
-| 3 | Marketplace de widgets/apps (clima, RSS, relógio, sandbox no player) | 8 — Widgets |
-| 4 | Geração de conteúdo por IA (texto/roteiro, imagem, "AI Studio" no CMS) | 9 — IA generativa |
-| 5 | Revisão de segurança, runbook operacional, release v1.0.0 | 10 — Lançamento GA |
+| 1 | Players nativos (Android TV, webOS, Tizen, Fire TV) | 7 — TV nativa |
+| 2 | Marketplace de widgets/apps (clima, RSS, relógio, sandbox no player) | 8 — Widgets |
+| 3 | Geração de conteúdo por IA (texto/roteiro, imagem, "AI Studio" no CMS) | 9 — IA generativa |
+| 4 | Revisão de segurança, runbook operacional, release v1.0.0 | 10 — Lançamento GA |
 
 ---
 
@@ -365,4 +380,4 @@ O trabalho corrente segue o roadmap de nível de mercado (Fases 6–10):
 
 ---
 
-*Última atualização: 18 de julho de 2026 — Fase 5 (núcleo operacional e confiabilidade) concluída: proof-of-play, Electron real (RTSP/comandos/watchdog/auto-update), media pipeline real (fila + thumbnail/transcode), dashboard sem dados demo e notificações de alerta.*
+*Última atualização: 18 de julho de 2026 — Fase 6 (enterprise readiness) concluída: OpenAPI pública, audit log, 2FA (TOTP), SSO OpenID Connect, quotas por tenant e branding por tenant. Fase 5 (núcleo operacional e confiabilidade) já concluída anteriormente: proof-of-play, Electron real (RTSP/comandos/watchdog/auto-update), media pipeline real (fila + thumbnail/transcode), dashboard sem dados demo e notificações de alerta.*

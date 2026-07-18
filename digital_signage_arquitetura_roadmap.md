@@ -1550,6 +1550,8 @@ Preparar produto para ambientes reais.
 
 ## 19.7 Fase 6 — Multi-tenant e expansão comercial
 
+> **Status (jul/2026): concluída.** PRs 6.1–6.6 entregues — ver detalhe por PR na secção "Fase 6 — Enterprise readiness" de [`docs/estado-desenvolvimento.md`](docs/estado-desenvolvimento.md). O objetivo e escopo abaixo permanecem como referência normativa da fase.
+
 ### Objetivo
 Escalar para operação SaaS ou white-label.
 

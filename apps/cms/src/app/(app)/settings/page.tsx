@@ -3,7 +3,7 @@
 import { type FormEvent, useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Bell, Copy, Gauge, KeyRound, Lock, RefreshCw, ShieldCheck, Building2 } from 'lucide-react';
+import { Bell, Copy, Gauge, KeyRound, Lock, Paintbrush, RefreshCw, ShieldCheck, Building2 } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { tierLabelPt, featureLabelPt, type LicenseTier, type LicenseFeature } from '@easysignage/license-core/browser';
 import { api, getToken } from '@/lib/api';
@@ -281,6 +281,32 @@ export default function SettingsPage() {
         </div>
         <Link href="/settings/sso" className="btn btn--ghost">
           Configurar SSO
+        </Link>
+      </section>
+
+      <section
+        className="surface-table-card"
+        style={{
+          padding: '1.1rem 1.25rem',
+          marginBottom: 'var(--space-5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 12,
+          flexWrap: 'wrap',
+        }}
+      >
+        <div>
+          <h3 className="panel__title" style={{ display: 'flex', alignItems: 'center', gap: 8, margin: 0 }}>
+            <Paintbrush size={17} strokeWidth={1.9} aria-hidden />
+            Branding
+          </h3>
+          <p className="text-muted" style={{ margin: '4px 0 0' }}>
+            Logótipo, nome e cor de destaque personalizados (CMS, login e preview).
+          </p>
+        </div>
+        <Link href="/settings/branding" className="btn btn--ghost">
+          Configurar branding
         </Link>
       </section>
 

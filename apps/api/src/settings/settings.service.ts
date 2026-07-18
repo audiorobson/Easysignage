@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { TenantQuotaService } from '../tenant-quota/tenant-quota.service';
 import { UpdateAlertNotificationsDto } from './dto/update-alert-notifications.dto';
+import { UpdateBrandingDto } from './dto/update-branding.dto';
 import { UpdateSsoConfigDto } from './dto/update-sso-config.dto';
 
 const ALERT_NOTIFICATIONS_SELECT = {
@@ -16,6 +17,12 @@ const SSO_CONFIG_SELECT = {
   ssoIssuerUrl: true,
   ssoClientId: true,
   ssoClientSecret: true,
+} as const;
+
+const BRANDING_SELECT = {
+  brandName: true,
+  brandLogoUrl: true,
+  brandPrimaryColor: true,
 } as const;
 
 /** Mascara o segredo do webhook na resposta — nunca devolve o valor em claro após a gravação inicial. */
@@ -126,6 +133,34 @@ export class SettingsService {
     });
 
     return this.presentSsoConfig(updated);
+  }
+
+  async getBranding(tenantId: string) {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: BRANDING_SELECT,
+    });
+    if (!tenant) throw new NotFoundException('Tenant não encontrado');
+    return tenant;
+  }
+
+  async updateBranding(tenantId: string, dto: UpdateBrandingDto) {
+    const data: Record<string, string | null> = {};
+    if ('brandName' in dto) {
+      data.brandName = dto.brandName?.trim() || null;
+    }
+    if ('brandLogoUrl' in dto) {
+      data.brandLogoUrl = dto.brandLogoUrl?.trim() || null;
+    }
+    if ('brandPrimaryColor' in dto) {
+      data.brandPrimaryColor = dto.brandPrimaryColor?.trim() || null;
+    }
+
+    return this.prisma.tenant.update({
+      where: { id: tenantId },
+      data,
+      select: BRANDING_SELECT,
+    });
   }
 
   private presentSsoConfig(tenant: {

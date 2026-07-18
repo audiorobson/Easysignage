@@ -7,6 +7,7 @@ import { P } from '../common/permissions';
 import { CurrentUser, JwtUser } from '../common/decorators/current-user.decorator';
 import { SettingsService } from './settings.service';
 import { UpdateAlertNotificationsDto } from './dto/update-alert-notifications.dto';
+import { UpdateBrandingDto } from './dto/update-branding.dto';
 import { UpdateSsoConfigDto } from './dto/update-sso-config.dto';
 
 @ApiTags('settings')
@@ -50,5 +51,18 @@ export class SettingsController {
   @RequirePermissions(P.SETTINGS_READ)
   getQuotaUsage(@CurrentUser() user: JwtUser) {
     return this.settings.getQuotaUsage(user.tenantId);
+  }
+
+  /** Branding do tenant (logo/cor/nome) — PR 6.6. */
+  @Get('branding')
+  @RequirePermissions(P.SETTINGS_READ)
+  getBranding(@CurrentUser() user: JwtUser) {
+    return this.settings.getBranding(user.tenantId);
+  }
+
+  @Patch('branding')
+  @RequirePermissions(P.SETTINGS_WRITE)
+  updateBranding(@CurrentUser() user: JwtUser, @Body() dto: UpdateBrandingDto) {
+    return this.settings.updateBranding(user.tenantId, dto);
   }
 }

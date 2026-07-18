@@ -506,3 +506,46 @@ teste unitário do bloqueio.
 - **Sem auto-serviço de upgrade** — o `planTier`/`maxDevices`/`maxUsers` só
   podem ser alterados directamente na base de dados pelo fornecedor; não há
   fluxo de checkout/upgrade de plano nesta versão.
+
+## Teste manual — Branding por tenant (Fase 6, PR 6.6)
+
+O fluxo tem um E2E Playwright completo (`apps/e2e/tests/branding-smoke.spec.ts`):
+guarda nome/cor em `/settings/branding`, confirma a persistência após reload,
+confirma que o nome aparece na barra lateral do CMS e, por fim, abre o modal
+de pré-visualização de uma playlist (`/embed/preview/[playlistId]`) e valida
+que a marca de água com o nome e a cor customizados aparece dentro do iframe.
+
+### Passos (validação manual complementar)
+
+1. Em `/settings/branding`, defina um nome, uma URL de logótipo (https,
+   PNG/SVG com fundo transparente) e uma cor primária. Guarde.
+2. Confirme visualmente: a barra lateral do CMS deve mostrar o logótipo/nome
+   customizados; botões primários (`.btn--primary`, `.btn--brand`) devem usar
+   a nova cor.
+3. Faça logout. Na tela de login, escreva o slug do tenant no campo
+   "Tenant (slug)" — após ~400ms (debounce), o logótipo/nome customizados
+   devem aparecer no cartão de login (via `GET /public/tenants/:slug/branding`,
+   sem autenticação).
+4. Abra uma playlist em `/playlists`, clique no ícone de pré-visualização
+   ("Modo teste") — o preview embutido deve mostrar uma marca de água no
+   canto superior direito com o logótipo/nome e um contorno na cor
+   customizada.
+5. Repare em `/settings/branding` e clique em "Repor para EasySignage" →
+   "Guardar branding" para confirmar que os campos voltam a `null` e a
+   aparência por defeito volta em todos os pontos acima.
+
+### Limitações conhecidas
+
+- **Sem validação de URL/cor no servidor** — os campos `brandLogoUrl` e
+  `brandPrimaryColor` são guardados como texto livre (para permitir limpar
+  com uma string vazia); um valor mal formado simplesmente não é aplicado no
+  browser (`<img>` não carrega; `applyBrandingCssVars` ignora cores que não
+  sejam hex de 6 dígitos) — não há mensagem de erro dedicada para isso hoje.
+- **Sem branding por sub-recurso** — o preview embutido usado em
+  `apps/cms/src/app/embed` é a área de pré-visualização interna do editor de
+  playlists (autenticada via `postMessage` com o token do CMS), não uma
+  página pública de partilha; um embed público para clientes finais fica
+  fora do âmbito desta PR.
+- **Sem upload de logótipo** — o campo aceita apenas uma URL já hospedada
+  (ex.: outro serviço de storage); não há upload directo de ficheiro para a
+  biblioteca de assets nesta versão.

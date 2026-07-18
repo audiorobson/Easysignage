@@ -1,9 +1,10 @@
 'use client';
 
-import { FormEvent, useState } from 'react';
+import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { MonitorPlay } from 'lucide-react';
 import { api, API_BASE, setToken } from '@/lib/api';
+import { applyBrandingCssVars, type TenantBranding } from '@/lib/branding';
 
 type LoginResponse =
   | { accessToken: string; requires2fa?: undefined }
@@ -18,6 +19,35 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [challengeToken, setChallengeToken] = useState<string | null>(null);
   const [code, setCode] = useState('');
+  const [branding, setBranding] = useState<TenantBranding | null>(null);
+
+  useEffect(() => {
+    const slug = tenantSlug.trim();
+    if (!slug) {
+      setBranding(null);
+      applyBrandingCssVars(null);
+      return;
+    }
+    let cancelled = false;
+    const t = window.setTimeout(async () => {
+      try {
+        const data = await api<TenantBranding>(`/public/tenants/${encodeURIComponent(slug)}/branding`);
+        if (!cancelled) {
+          setBranding(data);
+          applyBrandingCssVars(data);
+        }
+      } catch {
+        if (!cancelled) {
+          setBranding(null);
+          applyBrandingCssVars(null);
+        }
+      }
+    }, 400);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(t);
+    };
+  }, [tenantSlug]);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -123,11 +153,20 @@ export default function LoginPage() {
     <main className="login-screen">
       <form className="login-card" onSubmit={onSubmit}>
         <div className="login-card__brand">
-          <span className="login-card__mark" aria-hidden>
-            <MonitorPlay size={22} strokeWidth={2} />
-          </span>
+          {branding?.brandLogoUrl ? (
+            <img
+              src={branding.brandLogoUrl}
+              alt=""
+              data-testid="brand-logo"
+              className="login-card__mark login-card__mark--logo"
+            />
+          ) : (
+            <span className="login-card__mark" aria-hidden>
+              <MonitorPlay size={22} strokeWidth={2} />
+            </span>
+          )}
           <div>
-            <h1 style={{ margin: 0, fontSize: 'var(--text-xl)' }}>EasySignage</h1>
+            <h1 style={{ margin: 0, fontSize: 'var(--text-xl)' }}>{branding?.brandName || 'EasySignage'}</h1>
             <p className="text-muted" style={{ margin: '4px 0 0', fontSize: 13 }}>
               CMS — operador de rede
             </p>
