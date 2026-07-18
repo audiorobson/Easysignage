@@ -1,14 +1,15 @@
 import { AlertsService } from './alerts.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { LicenseService } from '../license/license.service';
+import { AlertNotificationsService } from '../notifications/alert-notifications.service';
 
 function buildPrismaMock() {
   return {
     device: { findFirst: jest.fn(), findMany: jest.fn() },
     alert: {
       findUnique: jest.fn(),
-      create: jest.fn(),
-      update: jest.fn(),
+      create: jest.fn().mockResolvedValue({ id: 'created-alert-id' }),
+      update: jest.fn().mockResolvedValue({ id: 'updated-alert-id' }),
       updateMany: jest.fn(),
       findMany: jest.fn(),
       count: jest.fn(),
@@ -145,6 +146,123 @@ describe('AlertsService.evaluateDevice', () => {
         data: expect.objectContaining({ status: 'open' }),
       })
     );
+  });
+});
+
+function buildNotificationsMock() {
+  return { notify: jest.fn().mockResolvedValue(undefined) } as unknown as jest.Mocked<AlertNotificationsService>;
+}
+
+describe('AlertsService — notificações (PR 5.18)', () => {
+  it('notifica ao abrir um alerta novo (status "open")', async () => {
+    const prisma = buildPrismaMock();
+    prisma.device.findFirst.mockResolvedValue({
+      ...DEVICE_ROW_BASE,
+      lastSeenAt: new Date(Date.now() - 10 * 60 * 1000),
+    });
+    prisma.alert.findUnique.mockResolvedValue(null);
+    prisma.alert.create.mockResolvedValue({ id: 'alert-new' });
+    prisma.alert.findMany.mockResolvedValue([]);
+    const notifications = buildNotificationsMock();
+    const service = new AlertsService(
+      prisma as unknown as PrismaService,
+      buildLicenseMock('STD'),
+      notifications
+    );
+
+    await service.evaluateDevice('tenant-1', 'device-1');
+
+    expect(notifications.notify).toHaveBeenCalledWith(
+      expect.objectContaining({
+        alertId: 'alert-new',
+        alertType: 'device_offline',
+        status: 'open',
+        tenantId: 'tenant-1',
+        deviceId: 'device-1',
+      })
+    );
+  });
+
+  it('notifica ao reabrir um alerta previamente resolvido', async () => {
+    const prisma = buildPrismaMock();
+    prisma.device.findFirst.mockResolvedValue({
+      ...DEVICE_ROW_BASE,
+      lastSeenAt: new Date(Date.now() - 10 * 60 * 1000),
+    });
+    prisma.alert.findUnique.mockResolvedValue({ id: 'alert-1', status: 'resolved' });
+    prisma.alert.update.mockResolvedValue({ id: 'alert-1' });
+    prisma.alert.findMany.mockResolvedValue([]);
+    const notifications = buildNotificationsMock();
+    const service = new AlertsService(
+      prisma as unknown as PrismaService,
+      buildLicenseMock('STD'),
+      notifications
+    );
+
+    await service.evaluateDevice('tenant-1', 'device-1');
+
+    expect(notifications.notify).toHaveBeenCalledWith(
+      expect.objectContaining({ alertId: 'alert-1', status: 'open' })
+    );
+  });
+
+  it('não notifica quando o alerta já estava aberto (apenas refresca lastSeenAt)', async () => {
+    const prisma = buildPrismaMock();
+    prisma.device.findFirst.mockResolvedValue({
+      ...DEVICE_ROW_BASE,
+      lastSeenAt: new Date(Date.now() - 10 * 60 * 1000),
+    });
+    prisma.alert.findUnique.mockResolvedValue({ id: 'alert-1', status: 'open' });
+    prisma.alert.findMany.mockResolvedValue([]);
+    const notifications = buildNotificationsMock();
+    const service = new AlertsService(
+      prisma as unknown as PrismaService,
+      buildLicenseMock('STD'),
+      notifications
+    );
+
+    await service.evaluateDevice('tenant-1', 'device-1');
+
+    expect(notifications.notify).not.toHaveBeenCalled();
+  });
+
+  it('notifica com status "resolved" para cada alerta resolvido', async () => {
+    const prisma = buildPrismaMock();
+    prisma.device.findFirst.mockResolvedValue({ ...DEVICE_ROW_BASE, lastSeenAt: new Date() });
+    prisma.alert.findMany.mockResolvedValue([
+      {
+        id: 'alert-offline',
+        alertType: 'device_offline',
+        severity: 'warning',
+        title: 'Totem Entrada — offline',
+        message: null,
+      },
+    ]);
+    const notifications = buildNotificationsMock();
+    const service = new AlertsService(
+      prisma as unknown as PrismaService,
+      buildLicenseMock('STD'),
+      notifications
+    );
+
+    await service.evaluateDevice('tenant-1', 'device-1');
+
+    expect(notifications.notify).toHaveBeenCalledWith(
+      expect.objectContaining({ alertId: 'alert-offline', status: 'resolved' })
+    );
+  });
+
+  it('funciona sem o serviço de notificações injetado (compatibilidade retroativa)', async () => {
+    const prisma = buildPrismaMock();
+    prisma.device.findFirst.mockResolvedValue({
+      ...DEVICE_ROW_BASE,
+      lastSeenAt: new Date(Date.now() - 10 * 60 * 1000),
+    });
+    prisma.alert.findUnique.mockResolvedValue(null);
+    prisma.alert.create.mockResolvedValue({ id: 'alert-new' });
+    const service = new AlertsService(prisma as unknown as PrismaService, buildLicenseMock('STD'));
+
+    await expect(service.evaluateDevice('tenant-1', 'device-1')).resolves.not.toThrow();
   });
 });
 

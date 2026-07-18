@@ -1508,6 +1508,8 @@ Ganhar capacidade operacional.
 
 ## 19.6 Fase 5 — Robustez operacional
 
+> **Status (jul/2026): concluída.** PRs 5.1–5.18 entregues — ver detalhe por sub-fase na secção "Fase 5 — Núcleo operacional e confiabilidade" de [`docs/estado-desenvolvimento.md`](docs/estado-desenvolvimento.md). O objetivo e escopo abaixo permanecem como referência normativa da fase.
+
 ### Objetivo
 Preparar produto para ambientes reais.
 

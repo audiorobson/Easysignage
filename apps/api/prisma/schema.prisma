@@ -17,6 +17,13 @@ model Tenant {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
+  /** Notificações de alerta (PR 5.18) — configuráveis via `/settings/notifications`. */
+  alertWebhookUrl    String? @map("alert_webhook_url")
+  /** Usado para assinar o payload do webhook (header `X-EasySignage-Signature`, HMAC-SHA256). */
+  alertWebhookSecret String? @map("alert_webhook_secret")
+  /** Lista de e-mails separados por vírgula. */
+  alertNotifyEmails  String? @map("alert_notify_emails")
+
   users   User[]
   roles   Role[]
   sites   Site[]

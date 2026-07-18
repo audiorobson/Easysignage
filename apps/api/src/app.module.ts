@@ -20,6 +20,7 @@ import { AlertsModule } from './alerts/alerts.module';
 import { LicenseModule } from './license/license.module';
 import { ReleasesModule } from './releases/releases.module';
 import { QueueModule } from './queue/queue.module';
+import { SettingsModule } from './settings/settings.module';
 
 @Module({
   imports: [
@@ -43,6 +44,7 @@ import { QueueModule } from './queue/queue.module';
     PublicModule,
     DeviceApiModule,
     ReleasesModule,
+    SettingsModule,
   ],
   controllers: [HealthController],
 })

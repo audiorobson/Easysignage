@@ -1,7 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import { tierHasFeature } from '@easysignage/license-core';
 import { PrismaService } from '../prisma/prisma.service';
 import { LicenseService } from '../license/license.service';
+import { AlertNotificationsService } from '../notifications/alert-notifications.service';
 
 const MONITORING_ONLINE_MS = 5 * 60 * 1000;
 const MONITORING_OFFLINE_LONG_MS = 24 * 60 * 60 * 1000;
@@ -33,7 +34,8 @@ type UpsertInput = {
 export class AlertsService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly license: LicenseService
+    private readonly license: LicenseService,
+    @Optional() private readonly notifications?: AlertNotificationsService
   ) {}
 
   async list(tenantId: string, status?: string) {
@@ -215,7 +217,7 @@ export class AlertsService {
     });
 
     if (!existing) {
-      await this.prisma.alert.create({
+      const created = await this.prisma.alert.create({
         data: {
           tenantId: input.tenantId,
           deviceId: input.deviceId,
@@ -228,11 +230,22 @@ export class AlertsService {
           lastSeenAt: now,
         },
       });
+      this.notifyAsync({
+        tenantId: input.tenantId,
+        deviceId: input.deviceId,
+        alertId: created.id,
+        alertType: input.alertType,
+        severity: input.severity,
+        status: 'open',
+        title: input.title,
+        message: input.message ?? null,
+        occurredAt: now.toISOString(),
+      });
       return;
     }
 
     if (existing.status === 'resolved') {
-      await this.prisma.alert.update({
+      const updated = await this.prisma.alert.update({
         where: { id: existing.id },
         data: {
           severity: input.severity,
@@ -243,6 +256,17 @@ export class AlertsService {
           acknowledgedById: null,
           acknowledgedAt: null,
         },
+      });
+      this.notifyAsync({
+        tenantId: input.tenantId,
+        deviceId: input.deviceId,
+        alertId: updated.id,
+        alertType: input.alertType,
+        severity: input.severity,
+        status: 'open',
+        title: input.title,
+        message: input.message ?? null,
+        occurredAt: now.toISOString(),
       });
       return;
     }
@@ -259,6 +283,16 @@ export class AlertsService {
   }
 
   private async resolve(tenantId: string, deviceId: string, alertType: string) {
+    const toResolve =
+      (await this.prisma.alert.findMany({
+        where: {
+          tenantId,
+          deviceId,
+          alertType,
+          status: { in: ['open', 'acknowledged'] },
+        },
+      })) ?? [];
+
     await this.prisma.alert.updateMany({
       where: {
         tenantId,
@@ -268,6 +302,26 @@ export class AlertsService {
       },
       data: { status: 'resolved' },
     });
+
+    const now = new Date().toISOString();
+    for (const a of toResolve) {
+      this.notifyAsync({
+        tenantId,
+        deviceId,
+        alertId: a.id,
+        alertType,
+        severity: a.severity,
+        status: 'resolved',
+        title: a.title,
+        message: a.message,
+        occurredAt: now,
+      });
+    }
+  }
+
+  /** Fire-and-forget: nunca bloqueia/interrompe a avaliação de alertas (`AlertNotificationsService` já é best-effort por dentro). */
+  private notifyAsync(payload: Parameters<AlertNotificationsService['notify']>[0]) {
+    void this.notifications?.notify(payload);
   }
 
   private toRow(

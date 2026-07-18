@@ -2,10 +2,17 @@
 
 import { type FormEvent, useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Copy, KeyRound, RefreshCw } from 'lucide-react';
+import { Bell, Copy, KeyRound, RefreshCw } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { tierLabelPt, featureLabelPt, type LicenseTier, type LicenseFeature } from '@easysignage/license-core/browser';
 import { api, getToken } from '@/lib/api';
+
+type AlertNotificationsSettings = {
+  alertWebhookUrl: string | null;
+  alertWebhookSecretMasked: string | null;
+  hasWebhookSecret: boolean;
+  alertNotifyEmails: string | null;
+};
 
 type LicenseStatus = {
   hardwareId: string;
@@ -29,10 +36,25 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
   const [applying, setApplying] = useState(false);
 
+  const [notifSettings, setNotifSettings] = useState<AlertNotificationsSettings | null>(null);
+  const [webhookUrl, setWebhookUrl] = useState('');
+  const [webhookSecret, setWebhookSecret] = useState('');
+  const [notifyEmails, setNotifyEmails] = useState('');
+  const [notifSaving, setNotifSaving] = useState(false);
+  const [notifError, setNotifError] = useState<string | null>(null);
+  const [notifSaved, setNotifSaved] = useState(false);
+
   const load = useCallback(async () => {
     setError(null);
     const data = await api<LicenseStatus>('/license/status');
     setStatus(data);
+  }, []);
+
+  const loadNotifications = useCallback(async () => {
+    const data = await api<AlertNotificationsSettings>('/settings/notifications');
+    setNotifSettings(data);
+    setWebhookUrl(data.alertWebhookUrl ?? '');
+    setNotifyEmails(data.alertNotifyEmails ?? '');
   }, []);
 
   useEffect(() => {
@@ -50,11 +72,40 @@ export default function SettingsPage() {
       } finally {
         if (!cancelled) setLoading(false);
       }
+      try {
+        await loadNotifications();
+      } catch {
+        /** Sem permissão settings.read ou endpoint indisponível — secção fica oculta. */
+      }
     })();
     return () => {
       cancelled = true;
     };
-  }, [router, load]);
+  }, [router, load, loadNotifications]);
+
+  async function onSaveNotifications(ev: FormEvent) {
+    ev.preventDefault();
+    setNotifSaving(true);
+    setNotifError(null);
+    setNotifSaved(false);
+    try {
+      const data = await api<AlertNotificationsSettings>('/settings/notifications', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          alertWebhookUrl: webhookUrl,
+          ...(webhookSecret.trim() ? { alertWebhookSecret: webhookSecret } : {}),
+          alertNotifyEmails: notifyEmails,
+        }),
+      });
+      setNotifSettings(data);
+      setWebhookSecret('');
+      setNotifSaved(true);
+    } catch (e) {
+      setNotifError(e instanceof Error ? e.message : 'Erro ao guardar');
+    } finally {
+      setNotifSaving(false);
+    }
+  }
 
   async function onApply(ev: FormEvent) {
     ev.preventDefault();
@@ -205,6 +256,81 @@ export default function SettingsPage() {
             <button type="submit" className="btn btn--primary" disabled={applying || !licenseKey.trim()}>
               {applying ? 'A aplicar…' : 'Activar licença'}
             </button>
+          </form>
+        </section>
+      )}
+
+      {notifSettings && (
+        <section className="surface-table-card" style={{ padding: '1.25rem', marginTop: 'var(--space-5)' }}>
+          <h3
+            className="panel__title"
+            style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: '0.5rem' }}
+          >
+            <Bell size={17} strokeWidth={1.9} aria-hidden />
+            Notificações de alerta
+          </h3>
+          <p className="text-muted" style={{ margin: '0 0 1rem' }}>
+            Recebe um webhook e/ou e-mail sempre que um alerta for aberto ou resolvido
+            (dispositivo offline, falha de reprodução, publicação pendente…).
+          </p>
+
+          {notifError && <p className="text-danger">{notifError}</p>}
+          {notifSaved && !notifError && (
+            <p style={{ color: 'var(--color-success)', margin: '0 0 0.75rem' }}>Definições guardadas.</p>
+          )}
+
+          <form onSubmit={onSaveNotifications}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+              <label>
+                <span className="text-muted">URL do webhook (POST, JSON)</span>
+                <input
+                  type="text"
+                  className="input"
+                  value={webhookUrl}
+                  onChange={(e) => setWebhookUrl(e.target.value)}
+                  placeholder="https://hooks.exemplo.com/easysignage-alerts"
+                  style={{ width: '100%', marginTop: 6 }}
+                  disabled={notifSaving}
+                />
+              </label>
+              <label>
+                <span className="text-muted">
+                  Segredo do webhook (assina o corpo em HMAC-SHA256, header{' '}
+                  <code>X-EasySignage-Signature</code>)
+                  {notifSettings.hasWebhookSecret ? ' — já definido' : ''}
+                </span>
+                <input
+                  type="password"
+                  className="input"
+                  value={webhookSecret}
+                  onChange={(e) => setWebhookSecret(e.target.value)}
+                  placeholder={
+                    notifSettings.hasWebhookSecret
+                      ? `Definido (${notifSettings.alertWebhookSecretMasked}) — deixe em branco para manter`
+                      : 'Opcional'
+                  }
+                  style={{ width: '100%', marginTop: 6, fontFamily: 'monospace' }}
+                  disabled={notifSaving}
+                />
+              </label>
+              <label>
+                <span className="text-muted">E-mails para notificar (separados por vírgula)</span>
+                <input
+                  type="text"
+                  className="input"
+                  value={notifyEmails}
+                  onChange={(e) => setNotifyEmails(e.target.value)}
+                  placeholder="ops@empresa.com, gestor@empresa.com"
+                  style={{ width: '100%', marginTop: 6 }}
+                  disabled={notifSaving}
+                />
+              </label>
+              <div>
+                <button type="submit" className="btn btn--primary" disabled={notifSaving}>
+                  {notifSaving ? 'A guardar…' : 'Guardar notificações'}
+                </button>
+              </div>
+            </div>
           </form>
         </section>
       )}

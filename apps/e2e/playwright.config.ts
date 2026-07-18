@@ -42,5 +42,12 @@ export default defineConfig({
         baseURL: process.env.CMS_URL ?? 'http://localhost:3000',
       },
     },
+    {
+      name: 'cms-settings',
+      testMatch: /settings-notifications-smoke\.spec\.ts/,
+      use: {
+        baseURL: process.env.CMS_URL ?? 'http://localhost:3000',
+      },
+    },
   ],
 });

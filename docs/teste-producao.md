@@ -334,3 +334,52 @@ recodificação em si com um `ffmpeg` real instalado.
 - Vídeos muito longos/grandes podem exceder o timeout de recodificação
   configurado (5 min) — o worker regista a falha e preserva o ficheiro
   original em vez de travar a fila.
+
+---
+
+## Teste manual — notificações de alerta por webhook/e-mail (Fase 5.E, PR 5.18)
+
+O disparo (webhook assinado + e-mail via Resend) e a normalização de dados
+(`parseEmailList`, `signWebhookBody`) têm cobertura unitária completa
+(`apps/api/src/notifications/alert-notifications.service.spec.ts`,
+`apps/api/src/settings/settings.service.spec.ts`,
+`apps/api/src/alerts/alerts.service.spec.ts`) e a UI de configuração tem
+cobertura Playwright (`apps/e2e/tests/settings-notifications-smoke.spec.ts`).
+Falta apenas validar manualmente a entrega real a um endpoint HTTP/e-mail
+externo.
+
+### Passos
+
+1. Em `/settings` no CMS, na secção "Notificações de alerta", configure:
+   - **URL do webhook**: um endpoint que aceite `POST` (ex. um bin de teste
+     como `https://webhook.site/<id>` ou um servidor local).
+   - **Segredo do webhook** (opcional): qualquer string; será usado para
+     assinar o corpo em HMAC-SHA256 no header `X-EasySignage-Signature`.
+   - **E-mails**: um ou mais endereços válidos, separados por vírgula.
+   - Defina `RESEND_API_KEY` no `.env` da API para o envio de e-mail ser
+     real (sem a chave, o `NullEmailSender` apenas regista um aviso no log).
+2. Provoque a abertura de um alerta — ex. desligue um dispositivo pareado e
+   aguarde o `AlertsService` marcar `heartbeat_missing` como aberto (ver
+   `docs/manual-instalacao-mini-pc.md` para o intervalo de heartbeat).
+3. **Verificar o webhook:** o endpoint configurado deve receber um `POST`
+   JSON com `{ tenantId, alertId, alertType, deviceId, severity, message,
+   status: "open", occurredAt }` e, se um segredo foi definido, o header
+   `X-EasySignage-Signature` com a assinatura HMAC-SHA256 do corpo bruto.
+4. **Verificar o e-mail:** cada endereço configurado deve receber um e-mail
+   com assunto `[EasySignage] Alerta aberto — <tipo>` e corpo com os
+   detalhes do dispositivo/alerta.
+5. Resolva o alerta (reconecte o dispositivo) e confirme que chega um novo
+   disparo com `status: "resolved"` (webhook) e assunto `[EasySignage]
+   Alerta resolvido — <tipo>` (e-mail).
+6. Repita sem `RESEND_API_KEY`/URL de webhook configurados — o alerta deve
+   continuar a abrir/resolver normalmente na API (o disparo é *best-effort*:
+   falhas são registadas em log e nunca bloqueiam a operação principal).
+
+### Limitações conhecidas
+
+- O disparo é *fire-and-forget*: não há fila de retry — se o webhook
+  estiver indisponível no momento exato da abertura/resolução, a
+  notificação é perdida (fica só o registo do alerta em si, consultável na
+  tela de alertas do CMS).
+- O segredo do webhook é armazenado em texto simples na base de dados
+  (mascarado apenas na UI); tratar o acesso à base de dados como sensível.

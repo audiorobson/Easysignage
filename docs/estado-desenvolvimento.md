@@ -15,9 +15,9 @@ O próprio roadmap, em **§19** (início da secção), aponta para **este fichei
 | **19.3** | Fase 2 — Biblioteca e playlists | **Parcial avançado:** upload multipart, vários tipos no player (imagem, vídeo, PDF, HTML, URL, **RTSP**), playlists + DnD no CMS, **cache offline leve**. **RTSP:** servidor só configura `remoteUrl`; player liga directo à rede. **Distribuição:** `deploy/server-box` (Docker mini PC). **Pendente:** media-worker; decoder RTSP no electron-player. |
 | **19.4** | Fase 3 — Agendamento e publicação | **Parcial avançado:** `Publication` + publicar no CMS; **`ScheduleRule` + motor** (playlist, layout ou video wall); **`Campaign` + motor** (playlist promocional com prioridade sobre agenda); **ack de publicação**; **manifest com `manifestRevision`**; CMS campanhas + agendamento. **Pendente:** métricas de entrega, campanhas com layout/wall. |
 | **19.4b–19.5b** | **Layouts, zonas e video wall** | **Feito (L1–L5):** viewport, layouts multi-zona, fit, video wall, drift, WS sync, editor visual, agenda layout/wall, snap/guias, **templates custom por tenant**. |
-| **19.5** | Fase 4 — Controle remoto e monitoramento | **Parcial (MVP):** telemetria, overview, comandos (`wol`), **preview JPEG**, **realtime-gateway** com wall sync, painel de drift, **alertas automáticos** (`/alerts`). **Pendente:** dashboard agregado real (sem dados demo), e-mail/webhook. |
-| **19.6** | Fase 5 — Robustez operacional | **Não iniciado** |
-| **19.7** | Fase 6 — Multi-tenant comercial | **Parcial:** multi-tenant no modelo; **pendente:** quotas, branding. |
+| **19.5** | Fase 4 — Controle remoto e monitoramento | **Feito (MVP+):** telemetria, overview, comandos (`wol` + **reboot/restart/clear-cache/open-url/screenshot** via Electron), **preview JPEG**, **realtime-gateway** com wall sync, painel de drift, **alertas automáticos** (`/alerts`) com **notificação por webhook (HMAC) e e-mail (Resend)**. |
+| **19.6** | Fase 5 — Robustez operacional | **Concluída (jul/2026 — PRs 5.1–5.18):** CI com Postgres real + migrations, Playwright E2E (CMS + web-player), cobertura Jest nos motores críticos; **proof-of-play** completo (modelo, ingestão, fila offline no web-player, relatório + export CSV, tela no CMS); **Electron real** (bridge RTSP via `ffmpeg`, executor de comandos remotos, watchdog + kiosk + autostart, auto-update); **fila Redis/BullMQ** + `media-worker` real (thumbnail/metadata/transcode); **dashboard sem dados demo** (uptime real via `Heartbeat`); **notificações de alerta** (webhook assinado + e-mail). Ver secções dedicadas abaixo. |
+| **19.7** | Fase 6 — Multi-tenant comercial | **Parcial:** multi-tenant no modelo; **pendente (em execução):** OpenAPI pública, audit log, 2FA, SSO SAML/OIDC, quotas, branding. |
 
 ---
 
@@ -100,8 +100,8 @@ O próprio roadmap, em **§19** (início da secção), aponta para **este fichei
 | `apps/cms` | Next.js: gestão + agendamento + monitorização + video walls. |
 | `apps/web-player` | Vite: playback multi-zona, wall tile, captura de preview. |
 | `apps/realtime-gateway` | WebSocket: rooms por parede, `wall.sync`/`wall.tick`, broadcast interno. |
-| `apps/electron-player` | Esqueleto. |
-| `apps/media-worker` | Worker BullMQ/Redis: consome `asset.uploaded`, gera miniatura (sharp/ffmpeg) e extrai metadados (dimensões, duração, codecs) — PR 5.15. Transcode/normalização ainda pendente (PR 5.16). |
+| `apps/electron-player` | **Real (Fase 5.C):** bridge RTSP nativo (`ffmpeg` → fMP4/HTTP local), executor de comandos remotos (restart/clear-cache/open-url/reboot/screenshot), watchdog + kiosk + autostart documentado, auto-update (`electron-updater` + `SoftwareRelease`). |
+| `apps/media-worker` | Worker BullMQ/Redis real: consome `asset.uploaded`, gera miniatura (sharp/ffmpeg), extrai metadados (dimensões, duração, codecs) e **normaliza vídeo fora do padrão para MP4 H.264/AAC** — PR 5.15/5.16. |
 | `docker-compose.yml` | Postgres + Redis + API + media-worker + CMS. |
 
 ---
@@ -120,8 +120,9 @@ O próprio roadmap, em **§19** (início da secção), aponta para **este fichei
 | `/monitoring` | Operacional (overview + preview) |
 | `/campaigns` | Operacional (CRUD, ativar/pausar, reaplicar) |
 | `/alerts` | Operacional (offline, playback, sync pendente, ack) |
-| `/dashboard` | Parcial (overview com dados demo em partes) |
-| `/settings` | **Licença** operacional (HWID, serial, limites players) |
+| `/reports` (proof-of-play) | Operacional (filtro por device/período/asset + export CSV) |
+| `/dashboard` | Operacional — sem dados demo (uptime real via `Heartbeat`) |
+| `/settings` | Operacional — **Licença** (HWID, serial, limites players) + **Notificações de alerta** (webhook/e-mail) |
 
 ---
 
@@ -264,6 +265,55 @@ Integração de **streaming RTSP** como tipo de asset — o servidor **apenas co
 
 ---
 
+## Fase 5 — Núcleo operacional e confiabilidade (concluída, jul/2026)
+
+Fecha o backlog interno ("Próximos passos sugeridos" da revisão anterior) e as maiores lacunas identificadas na pesquisa de mercado: qualidade automatizada, proof-of-play, Electron real e pipeline de mídia real.
+
+### 5.A — Fundação de qualidade
+
+| PR | Entrega |
+|----|---------|
+| 5.1 | CI (`.github/workflows/ci.yml`) com serviço `postgres:16` real + `prisma migrate deploy` antes dos testes de integração |
+| 5.2 | Playwright E2E (`apps/e2e`) — smoke API (pareamento → publicação ponta-a-ponta) e CMS (login, assets, reports, settings) |
+| 5.3 | Cobertura Jest ampliada em `schedule-engine`, `campaign-engine`, `alerts.service`, cálculo de drift de video wall |
+| 5.4 | Sincronização com `main` + branch protection exigindo CI verde |
+
+### 5.B — Proof of play
+
+| PR | Entrega |
+|----|---------|
+| 5.5 | Modelo `PlaybackLog` (device, asset/playlist, tipo, evento, duração) + migration + tipos em `shared-types` |
+| 5.6 | `POST /device/playback-events` (lote) no device-api, com `DeviceAuthGuard` |
+| 5.7 | Web-player emite eventos com fila offline (IndexedDB) e retry/flush ao voltar online |
+| 5.8 | `GET /monitoring/playback-logs` com filtros (device/período/asset) + export CSV |
+| 5.9 | Tela `/reports` no CMS — tabela filtrável + botão de export |
+
+### 5.C — Electron player real
+
+| PR | Entrega |
+|----|---------|
+| 5.10 | Bridge RTSP nativo — `ffmpeg` remuxa RTSP → fragmented MP4 servido por HTTP local; renderer consome via `<video>`/MSE |
+| 5.11 | Executor de comandos remotos — `restart_player`, `clear_cache`, `open_url`, `reboot_os`, `take_screenshot`, com ack via `POST /device-api/commands/:id/ack` |
+| 5.12 | Watchdog (auto-relança renderer em crash), modo kiosk fullscreen, scripts de autostart documentados |
+| 5.13 | Auto-update — modelo `SoftwareRelease` (versão/canal) + `electron-updater`; comparador semver/canal em `shared-types` |
+
+### 5.D — Media pipeline real
+
+| PR | Entrega |
+|----|---------|
+| 5.14 | Fila Redis/BullMQ (`docker-compose.yml` + `deploy/server-box`); API publica job `asset.uploaded` |
+| 5.15 | `apps/media-worker` real — consome a fila, gera thumbnail (sharp/ffmpeg) e extrai duração/resolução/codec |
+| 5.16 | Normalização de vídeo fora do padrão para MP4 H.264/AAC; CMS exibe thumbnails reais + badge "A processar…" com polling em `/assets` |
+
+### 5.E — Dashboard real e notificações
+
+| PR | Entrega |
+|----|---------|
+| 5.17 | Dashboard sem dados demo — histórico de disponibilidade agregado de `Heartbeat` via `GET /monitoring/uptime-history` |
+| 5.18 | Notificações de alerta — webhook por tenant (HMAC-SHA256) + e-mail (Resend) quando um `Alert` é aberto/re-aberto/resolvido; configuração em `/settings` (`GET/PATCH /settings/notifications`) |
+
+---
+
 ## Documentos relacionados
 
 | Documento | Conteúdo |
@@ -273,18 +323,22 @@ Integração de **streaming RTSP** como tipo de asset — o servidor **apenas co
 | `easysignage_diretrizes_interface_css.md` | Diretrizes de interface |
 | `easysignage_automation_core.md` | WOL, automação futura |
 | `docs/producao-e-auto-hospedagem.md` | Deploy |
+| `docs/teste-producao.md` | Testes manuais de produção (RTSP, comandos remotos, auto-update, normalização de vídeo, notificações de alerta) |
 
 ---
 
 ## Próximos passos sugeridos
 
-| Prioridade | Item |
-|------------|------|
-| 1 | Decoder RTSP no `electron-player` (`easysignage.rtsp.play`) |
-| 2 | Dashboard real (sem dados demo) |
-| 3 | Media-worker (thumbnails/transcode) |
-| 4 | Campanhas com layout/wall; métricas de entrega |
-| 5 | Notificações de alertas (e-mail/webhook) |
+Fase 5 (núcleo operacional) está **concluída** — ver secção dedicada abaixo.
+O trabalho corrente segue o roadmap de nível de mercado (Fases 6–10):
+
+| Prioridade | Item | Fase |
+|------------|------|------|
+| 1 | OpenAPI pública, audit log, 2FA, SSO SAML/OIDC, quotas, branding por tenant | 6 — Enterprise readiness |
+| 2 | Players nativos (Android TV, webOS, Tizen, Fire TV) | 7 — TV nativa |
+| 3 | Marketplace de widgets/apps (clima, RSS, relógio, sandbox no player) | 8 — Widgets |
+| 4 | Geração de conteúdo por IA (texto/roteiro, imagem, "AI Studio" no CMS) | 9 — IA generativa |
+| 5 | Revisão de segurança, runbook operacional, release v1.0.0 | 10 — Lançamento GA |
 
 ---
 
@@ -311,4 +365,4 @@ Integração de **streaming RTSP** como tipo de asset — o servidor **apenas co
 
 ---
 
-*Última atualização: 10 de julho de 2026 — pacote teste de produção instalável (Docker + staging + ZIP).*
+*Última atualização: 18 de julho de 2026 — Fase 5 (núcleo operacional e confiabilidade) concluída: proof-of-play, Electron real (RTSP/comandos/watchdog/auto-update), media pipeline real (fila + thumbnail/transcode), dashboard sem dados demo e notificações de alerta.*
