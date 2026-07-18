@@ -1668,6 +1668,38 @@ Permitir que operadores configurem **como** o conteúdo ocupa o ecrã — não a
 
 ---
 
+## 19.10 Fase 7 — Players nativos para hardware de TV comercial
+
+> **Status (jul/2026): concluída.** PRs 7.1–7.5 entregues — ver detalhe por PR na secção
+> "Fase 7 — Players nativos de TV comercial" de
+> [`docs/estado-desenvolvimento.md`](docs/estado-desenvolvimento.md) e a matriz de
+> homologação por hardware em [`docs/matriz-hardware-tv.md`](docs/matriz-hardware-tv.md).
+
+### Objetivo
+
+Reduzir o maior gap de alcance de mercado vs. Xibo/OptiSigns/ScreenCloud: rodar o
+`apps/web-player` nativamente em hardware de TV comercial (Android TV, webOS, Tizen,
+Fire TV) sem reescrever o motor de playback por plataforma — wrappers finos de
+kiosk/WebView com o mesmo contrato de bridge (`window.easysignage`) já usado no Electron.
+
+### Entregas
+
+- `apps/androidtv-player` — Kotlin, WebView kiosk, RTSP nativo via Media3/ExoPlayer.
+- `apps/webos-player` — app webOS, bridge via `webOS.service.request` (luna-service).
+- `apps/tizen-player` — app Tizen, bridge via API global `tizen`.
+- `apps/firetv-player` — reaproveita a base do Android TV com manifest ajustado.
+- `docs/matriz-hardware-tv.md` — matriz de homologação por plataforma/SoC.
+
+### Risco residual explícito
+
+Build smoke em CI (Gradle/`ares-package`/`tizen build`) valida que os projetos compilam e
+empacotam — **não substitui teste em hardware real**. Nenhuma das quatro plataformas foi
+validada em device físico ou emulador oficial da fabricante até o fechamento desta fase;
+isso é pré-requisito explícito antes de qualquer piloto (ver "Próximos passos recomendados"
+em `docs/matriz-hardware-tv.md`).
+
+---
+
 ## 20. Distribuição por Times
 
 ## 20.1 Backend Team

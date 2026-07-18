@@ -6,6 +6,34 @@
 > deve ser considerado "pronto para piloto" depois de pelo menos uma validação manual
 > registrada aqui.
 
+## Resumo executivo (fechamento da Fase 7, PR 7.5)
+
+| Plataforma | Fonte entregue | Testes automatizados | Build/empacotamento | Hardware físico validado |
+|---|---|---|---|---|
+| Android TV | ✅ | ✅ (JUnit) | ✅ local + CI | ❌ |
+| webOS (LG) | ✅ | ✅ (`node --test`) | ✅ local + CI (`.ipk`) | ❌ |
+| Tizen (Samsung) | ✅ | ✅ (`node --test`) | ⚠️ condicional a secrets (`.wgt`) | ❌ |
+| Fire TV (Amazon) | ✅ | ✅ (JUnit, reaproveita Android TV) | ✅ local + CI | ❌ |
+
+**Conclusão da fase:** as quatro plataformas têm wrapper de kiosk + bridge JS
+implementados e testados unitariamente, com build/empacotamento automatizado (exceto
+Tizen, que depende de secrets de assinatura ainda não configurados). **Nenhuma foi
+validada em hardware ou emulador oficial da respectiva fabricante** — este é o principal
+item de risco residual antes de qualquer piloto real, e é responsabilidade de quem for
+conduzir o piloto preencher esta matriz com resultados reais por device.
+
+### Próximos passos recomendados antes de um piloto
+
+1. Obter ao menos um device físico por plataforma (ou emulador oficial onde aplicável:
+   LG webOS TV Simulator, Tizen TV Emulator, Android TV emulator/Chromecast with Google TV
+   real, Fire TV Stick de baixo custo) e atualizar cada seção desta matriz.
+2. Validar RTSP com uma câmera/stream real em pelo menos Android TV (única plataforma com
+   decodificação nativa implementada).
+3. Configurar os secrets de assinatura Tizen (`TIZEN_AUTHOR_KEY`/`TIZEN_AUTHOR_KEY_PW`) e a
+   variável `TIZEN_BUILD_ENABLED` se o piloto incluir Samsung.
+4. Medir consumo de memória/CPU em sessão longa (>24h) por plataforma — nenhuma foi testada
+   quanto a estabilidade de longa duração ainda.
+
 ## Como usar esta matriz
 
 Cada linha é preenchida manualmente após testar num device físico (ou, na ausência

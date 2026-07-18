@@ -18,6 +18,7 @@ O próprio roadmap, em **§19** (início da secção), aponta para **este fichei
 | **19.5** | Fase 4 — Controle remoto e monitoramento | **Feito (MVP+):** telemetria, overview, comandos (`wol` + **reboot/restart/clear-cache/open-url/screenshot** via Electron), **preview JPEG**, **realtime-gateway** com wall sync, painel de drift, **alertas automáticos** (`/alerts`) com **notificação por webhook (HMAC) e e-mail (Resend)**. |
 | **19.6** | Fase 5 — Robustez operacional | **Concluída (jul/2026 — PRs 5.1–5.18):** CI com Postgres real + migrations, Playwright E2E (CMS + web-player), cobertura Jest nos motores críticos; **proof-of-play** completo (modelo, ingestão, fila offline no web-player, relatório + export CSV, tela no CMS); **Electron real** (bridge RTSP via `ffmpeg`, executor de comandos remotos, watchdog + kiosk + autostart, auto-update); **fila Redis/BullMQ** + `media-worker` real (thumbnail/metadata/transcode); **dashboard sem dados demo** (uptime real via `Heartbeat`); **notificações de alerta** (webhook assinado + e-mail). Ver secções dedicadas abaixo. |
 | **19.7** | Fase 6 — Multi-tenant comercial (enterprise readiness) | **Concluída (jul/2026 — PRs 6.1–6.6):** multi-tenant no modelo; **OpenAPI pública** exportada e verificada em CI (`contracts/openapi/openapi.json`); **audit log** (interceptor global + `/settings/audit`); **2FA (TOTP)** com QR code e desafio no login; **SSO OpenID Connect** por tenant (`/settings/sso`, login único); **quotas por tenant** (`maxDevices`/`maxUsers`/`planTier`, enforcement na criação de dispositivos); **branding por tenant** (logótipo/nome/cor aplicados no CMS, login e preview embutido). Ver secções dedicadas abaixo. |
+| **19.10** | Fase 7 — Players nativos para hardware de TV comercial | **Concluída (jul/2026 — PRs 7.1–7.5):** wrappers de kiosk/WebView reaproveitando o `apps/web-player` para **Android TV** (Kotlin, RTSP nativo via Media3/ExoPlayer), **webOS** (LG, bridge via luna-service), **Tizen** (Samsung) e **Fire TV** (Amazon, base do Android TV); todos com bridge JS testado unitariamente e build/empacotamento automatizado em CI. **Risco residual explícito:** nenhuma plataforma validada em hardware/emulador oficial ainda — ver `docs/matriz-hardware-tv.md`. Ver secção dedicada abaixo. |
 
 ---
 
@@ -329,6 +330,22 @@ Fecha "Fase 6 — multi-tenant comercial" do roadmap arquitetural e a lacuna de 
 
 ---
 
+## Fase 7 — Players nativos de TV comercial (concluída, jul/2026)
+
+Fecha o maior gap de alcance de mercado vs. Xibo/OptiSigns/ScreenCloud identificado na pesquisa: rodar o `apps/web-player` nativamente em hardware de TV comercial, sem reescrever o motor de playback por plataforma — wrappers finos de kiosk/WebView reaproveitando o mesmo contrato de bridge (`window.easysignage`) já usado no Electron.
+
+| PR | Entrega |
+|----|---------|
+| 7.1 | `apps/androidtv-player` — app Kotlin (compileSdk 34, AGP 8.7.2), WebView kiosk fullscreen/leanback, `CommandDispatcher`/`PlayerActions` testáveis em JVM pura (JUnit), RTSP nativo via Media3/ExoPlayer num `SurfaceView` atrás da WebView, handlers `restart_player`/`clear_cache`/`open_url`/`reboot_os`/`take_screenshot`, CI dedicado (`androidtv.yml`) |
+| 7.2 | `apps/webos-player` — app webOS (LG), `window.easysignage` via `webOS.service.request` (luna-service) com fallback gracioso, roteamento puro testado com `node --test`, empacotamento validado localmente e em CI gerando `.ipk` real via `@webosose/ares-cli` |
+| 7.3 | `apps/tizen-player` — app Tizen (Samsung), bridge via API global `tizen` (`tizen.systeminfo`), reboot/screenshot retornam indisponibilidade explícita (sem privilégio partner/platform), testes unitários sempre em CI; empacotamento `.wgt` assinado condicional a secrets de assinatura (ainda não configurados) |
+| 7.4 | `apps/firetv-player` — reaproveita integralmente a base do `androidtv-player` (`com.easysignage.firetv`), manifest ajustado por recomendação da Amazon (`android.software.leanback` `required="false"`, `faketouch` declarado); build local e CI validados |
+| 7.5 | `docs/matriz-hardware-tv.md` — matriz de homologação por plataforma/SoC, com resumo executivo e riscos explícitos; nenhuma das quatro plataformas foi validada em hardware/emulador oficial ainda — tratado como pré-requisito explícito antes de qualquer piloto |
+
+**Nota de risco (herdada do roadmap):** build smoke em CI não substitui teste em hardware real. Cada player desta fase deve ser validado manualmente em pelo menos um device físico antes de ser considerado "pronto para piloto" — ver `docs/matriz-hardware-tv.md`.
+
+---
+
 ## Documentos relacionados
 
 | Documento | Conteúdo |
@@ -339,21 +356,22 @@ Fecha "Fase 6 — multi-tenant comercial" do roadmap arquitetural e a lacuna de 
 | `easysignage_automation_core.md` | WOL, automação futura |
 | `docs/producao-e-auto-hospedagem.md` | Deploy |
 | `docs/teste-producao.md` | Testes manuais de produção (RTSP, comandos remotos, auto-update, normalização de vídeo, notificações de alerta) |
+| `docs/matriz-hardware-tv.md` | Matriz de homologação dos players nativos de TV por plataforma/SoC (Fase 7) |
 
 ---
 
 ## Próximos passos sugeridos
 
-Fases 5 (núcleo operacional) e 6 (enterprise readiness) estão **concluídas** —
-ver secções dedicadas acima. O trabalho corrente segue o roadmap de nível de
-mercado (Fases 7–10):
+Fases 5 (núcleo operacional), 6 (enterprise readiness) e 7 (players nativos de TV) estão
+**concluídas** — ver secções dedicadas acima. O trabalho corrente segue o roadmap de nível
+de mercado (Fases 8–10):
 
 | Prioridade | Item | Fase |
 |------------|------|------|
-| 1 | Players nativos (Android TV, webOS, Tizen, Fire TV) | 7 — TV nativa |
-| 2 | Marketplace de widgets/apps (clima, RSS, relógio, sandbox no player) | 8 — Widgets |
-| 3 | Geração de conteúdo por IA (texto/roteiro, imagem, "AI Studio" no CMS) | 9 — IA generativa |
-| 4 | Revisão de segurança, runbook operacional, release v1.0.0 | 10 — Lançamento GA |
+| 1 | Marketplace de widgets/apps (clima, RSS, relógio, sandbox no player) | 8 — Widgets |
+| 2 | Geração de conteúdo por IA (texto/roteiro, imagem, "AI Studio" no CMS) | 9 — IA generativa |
+| 3 | Revisão de segurança, runbook operacional, release v1.0.0 | 10 — Lançamento GA |
+| — | Validação em hardware físico real dos players de TV (nenhuma plataforma testada ainda) | 7 (risco residual) — ver `docs/matriz-hardware-tv.md` |
 
 ---
 
@@ -380,4 +398,4 @@ mercado (Fases 7–10):
 
 ---
 
-*Última atualização: 18 de julho de 2026 — Fase 6 (enterprise readiness) concluída: OpenAPI pública, audit log, 2FA (TOTP), SSO OpenID Connect, quotas por tenant e branding por tenant. Fase 5 (núcleo operacional e confiabilidade) já concluída anteriormente: proof-of-play, Electron real (RTSP/comandos/watchdog/auto-update), media pipeline real (fila + thumbnail/transcode), dashboard sem dados demo e notificações de alerta.*
+*Última atualização: 18 de julho de 2026 — Fase 7 (players nativos de TV comercial) concluída: Android TV, webOS, Tizen e Fire TV, todos com bridge JS↔nativo testado unitariamente e build/empacotamento automatizado em CI (validação em hardware físico real ainda pendente — ver `docs/matriz-hardware-tv.md`). Fase 6 (enterprise readiness) já concluída anteriormente: OpenAPI pública, audit log, 2FA (TOTP), SSO OpenID Connect, quotas por tenant e branding por tenant. Fase 5 (núcleo operacional e confiabilidade) também concluída: proof-of-play, Electron real (RTSP/comandos/watchdog/auto-update), media pipeline real (fila + thumbnail/transcode), dashboard sem dados demo e notificações de alerta.*
