@@ -18,6 +18,7 @@ import { RealtimeModule } from './realtime/realtime.module';
 import { CampaignsModule } from './campaigns/campaigns.module';
 import { AlertsModule } from './alerts/alerts.module';
 import { LicenseModule } from './license/license.module';
+import { ReleasesModule } from './releases/releases.module';
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { LicenseModule } from './license/license.module';
     VideoWallsModule,
     PublicModule,
     DeviceApiModule,
+    ReleasesModule,
   ],
   controllers: [HealthController],
 })

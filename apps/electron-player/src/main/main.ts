@@ -1,4 +1,5 @@
 import { app, BrowserWindow, ipcMain, session } from 'electron';
+import { autoUpdater } from 'electron-updater';
 import path from 'node:path';
 import { RtspBridgeMain } from './rtsp-bridge';
 import {
@@ -9,6 +10,7 @@ import {
   restartPlayer,
 } from './remote-commands';
 import { isKioskModeEnabled, RendererWatchdog } from './watchdog';
+import { handleUpdateAvailable, type UpdateAvailableInfo } from './auto-updater';
 
 /** Mesma UI do web-player (Vite). Ex.: `WEB_PLAYER_URL=http://localhost:5173 pnpm exec electron .` */
 function playerUrl(): string {
@@ -105,6 +107,17 @@ ipcMain.handle('commands:takeScreenshot', async () => {
     capturePage: () => mainWindow!.webContents.capturePage(),
   });
   return { base64, mime: 'image/jpeg' };
+});
+
+/**
+ * PR 5.13 — auto-update. O web-player faz o polling de `GET /device/releases/latest`
+ * (tem o device token) e avisa aqui via IPC quando há uma versão mais recente.
+ */
+ipcMain.handle('updater:notifyAvailable', async (_event, info: UpdateAvailableInfo) => {
+  await handleUpdateAvailable(info, autoUpdater, {
+    isPackaged: app.isPackaged,
+    log: (message) => console.log(message),
+  });
 });
 
 app.whenReady().then(() => {

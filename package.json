@@ -14,7 +14,7 @@
     "license:test-serial": "node deploy/release/generate-test-license.mjs",
     "release:zip": "node deploy/release/build-server-box-zip.mjs",
     "prod:test": "powershell -NoProfile -ExecutionPolicy Bypass -File deploy/release/prod-test.ps1",
-  "prod:test:packages": "pnpm --filter @easysignage/shared-types build && pnpm --filter @easysignage/license-core build && pnpm --filter @easysignage/device-protocol build && pnpm --filter @easysignage/realtime-gateway build",
+    "prod:test:packages": "pnpm --filter @easysignage/shared-types build && pnpm --filter @easysignage/license-core build && pnpm --filter @easysignage/device-protocol build && pnpm --filter @easysignage/realtime-gateway build",
     "build": "turbo run build",
     "dev": "turbo run dev",
     "start": "turbo run start --filter=@easysignage/api --filter=@easysignage/cms",

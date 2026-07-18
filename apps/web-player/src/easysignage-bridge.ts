@@ -14,10 +14,20 @@ export type RemoteCommandsBridge = {
   takeScreenshot(): Promise<{ base64: string; mime: string }>;
 };
 
+/** PR 5.13 — auto-update: o web-player deteta a nova versão, o Electron aciona o download/instalação. */
+export type UpdaterBridge = {
+  notifyUpdateAvailable(release: {
+    version: string;
+    channel: string;
+    downloadUrl?: string | null;
+  }): Promise<void>;
+};
+
 export type EasySignageBridge = {
   platform?: string;
   rtsp?: RtspBridge;
   commands?: RemoteCommandsBridge;
+  updater?: UpdaterBridge;
 };
 
 declare global {

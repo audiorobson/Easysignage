@@ -5,6 +5,7 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
+  Query,
   Req,
   Res,
   UseGuards,
@@ -30,6 +31,7 @@ import {
 } from '../telemetry/dto/telemetry-batch.dto';
 import { PlaybackService } from '../playback/playback.service';
 import { PlaybackEventBatchDto } from '../playback/dto/playback-event.dto';
+import { ReleasesService } from '../releases/releases.service';
 import { computeContentRevision } from './content-revision';
 import { HeartbeatDto } from './dto/heartbeat.dto';
 import { normalizeDeviceViewport } from '@easysignage/shared-types';
@@ -47,7 +49,8 @@ export class DeviceApiController {
     private readonly devicePreview: DevicePreviewService,
     private readonly scheduleEngine: ScheduleEngineService,
     private readonly alerts: AlertsService,
-    private readonly playback: PlaybackService
+    private readonly playback: PlaybackService,
+    private readonly releases: ReleasesService
   ) {}
 
   /**
@@ -112,6 +115,24 @@ export class DeviceApiController {
       ok,
       body.result
     );
+  }
+
+  /**
+   * Auto-update (Fase 5.C, PR 5.13): devolve a release mais recente compatível com
+   * o canal do device (`updateChannel`), ou `{ release: null }` se já estiver atualizado
+   * ou não houver nenhuma release publicada para o produto.
+   */
+  @Get('releases/latest')
+  async latestRelease(
+    @CurrentDevice() device: DeviceWithSite,
+    @Query('product') product?: string
+  ) {
+    const channel = device.updateChannel === 'beta' ? 'beta' : 'stable';
+    const release = await this.releases.latestForChannel(
+      product?.trim() || 'electron-player',
+      channel
+    );
+    return { release };
   }
 
   @Post('heartbeat')

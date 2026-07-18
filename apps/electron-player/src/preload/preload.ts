@@ -44,6 +44,18 @@ async function takeScreenshot(): Promise<{ base64: string; mime: string }> {
   return ipcRenderer.invoke('commands:takeScreenshot');
 }
 
+/**
+ * PR 5.13 — auto-update. O web-player consulta a API (tem o device token) e
+ * avisa o main process quando há uma versão mais recente compatível.
+ */
+async function notifyUpdateAvailable(release: {
+  version: string;
+  channel: string;
+  downloadUrl?: string | null;
+}): Promise<void> {
+  await ipcRenderer.invoke('updater:notifyAvailable', release);
+}
+
 contextBridge.exposeInMainWorld('easysignage', {
   platform: process.platform,
   rtsp: {
@@ -56,5 +68,8 @@ contextBridge.exposeInMainWorld('easysignage', {
     openUrl,
     rebootOs,
     takeScreenshot,
+  },
+  updater: {
+    notifyUpdateAvailable,
   },
 });

@@ -5,6 +5,7 @@ import { SchedulesModule } from '../schedules/schedules.module';
 import { TelemetryModule } from '../telemetry/telemetry.module';
 import { AlertsModule } from '../alerts/alerts.module';
 import { PlaybackModule } from '../playback/playback.module';
+import { ReleasesModule } from '../releases/releases.module';
 import { DeviceApiController } from './device-api.controller';
 
 @Module({
@@ -15,6 +16,7 @@ import { DeviceApiController } from './device-api.controller';
     TelemetryModule,
     AlertsModule,
     PlaybackModule,
+    ReleasesModule,
   ],
   controllers: [DeviceApiController],
 })

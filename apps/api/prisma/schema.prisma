@@ -195,6 +195,8 @@ model Device {
   platform         String    @default("unknown")
   runtimeVersion   String?   @map("runtime_version")
   status           String
+  /** Canal de auto-update do player nativo (Fase 5.C, PR 5.13): stable | beta. */
+  updateChannel    String    @default("stable") @map("update_channel")
   authTokenHash    String?   @map("auth_token_hash")
   pairingCode      String?   @unique @map("pairing_code")
   pairingExpiresAt DateTime? @map("pairing_expires_at")
@@ -474,6 +476,28 @@ model PlaybackLog {
   @@index([tenantId, assetId])
   @@index([tenantId, playlistId])
   @@map("playback_logs")
+}
+
+/**
+ * Catálogo de versões dos players nativos (Fase 5.C, PR 5.13). Global — não é
+ * dado de tenant, é distribuição de software da própria EasySignage. `channel`:
+ * stable | beta (dispositivos "stable" só recebem releases "stable"; ver
+ * `packages/shared-types/src/software-release.ts`).
+ */
+model SoftwareRelease {
+  id          String   @id @default(uuid()) @db.Uuid
+  product     String   @default("electron-player")
+  version     String
+  channel     String   @default("stable")
+  checksum    String?
+  downloadUrl String?  @map("download_url")
+  notes       String?
+  publishedAt DateTime @default(now()) @map("published_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@unique([product, version])
+  @@index([product, channel, publishedAt(sort: Desc)])
+  @@map("software_releases")
 }
 
 /**

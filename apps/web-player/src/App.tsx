@@ -23,6 +23,7 @@ import {
 } from './deviceAssetCache';
 import { enqueuePlaybackEvent, startPlaybackFlushLoop } from './playbackEvents';
 import { startRemoteCommandsLoop } from './remoteCommands';
+import { startUpdateCheckLoop } from './updateChecker';
 import {
   clearMediaCache,
   getCachedMedia,
@@ -898,6 +899,13 @@ export function App() {
         ),
     });
   }, [deviceToken, displayMedia?.kind]);
+
+  useEffect(() => {
+    return startUpdateCheckLoop(APP_VERSION, {
+      apiBase: API,
+      getToken: () => deviceToken ?? localStorage.getItem('device_token'),
+    });
+  }, [deviceToken]);
 
   async function onPair(e: FormEvent) {
     e.preventDefault();

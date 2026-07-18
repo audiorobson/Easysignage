@@ -248,4 +248,47 @@ só é visível manualmente.
 
 ---
 
-*Ver também `docs/manual-instalacao-mini-pc.md` e `deploy/keys/README.md`.*
+## Teste manual — auto-update do Electron player (Fase 5.C, PR 5.13)
+
+A comparação de versão/canal tem cobertura unitária completa
+(`packages/shared-types/src/software-release.test.ts`,
+`apps/web-player/src/updateChecker.test.ts`,
+`apps/electron-player/src/main/auto-updater.test.ts`), mas o fluxo real de
+download/instalação do `electron-updater` só é validável manualmente — requer
+uma build empacotada e um artefacto publicado, que ainda não fazem parte deste
+ambiente de testes (ver Fase 10, PR 10.4).
+
+### Passos (verificar só a deteção de update, sem instalar nada)
+
+1. Publique uma release "mais nova" no catálogo (utilizador com `settings.write`):
+
+   ```bash
+   curl -X POST "$API_URL/releases" \
+     -H "Authorization: Bearer $USER_JWT" \
+     -H "Content-Type: application/json" \
+     -d '{"version":"9.9.9","channel":"stable","downloadUrl":"https://example.com/fake.zip"}'
+   ```
+
+2. Com o web-player/Electron a correr (device pareado), o
+   `startUpdateCheckLoop` (`apps/web-player/src/updateChecker.ts`) consulta
+   `GET /device/releases/latest` a cada 6h (chamada imediata no arranque) e
+   compara com `APP_VERSION` (`0.0.1` no código atual — qualquer release
+   publicada será "mais nova").
+3. **Verificar:** no terminal do Electron deve aparecer
+   `[auto-updater] update disponível: v9.9.9 (canal stable)` — vindo de
+   `handleUpdateAvailable` via IPC `updater:notifyAvailable`. Fora de uma build
+   empacotada (`app.isPackaged === false`, o caso normal em DEV), a mensagem
+   seguinte é `a correr fora de build empacotada — a ignorar` — é o
+   comportamento esperado, não é uma falha.
+4. Para simular canal beta: `PATCH` o device (via SQL direto,
+   `UPDATE devices SET update_channel = 'beta' WHERE id = '...'`, não há UI no
+   CMS ainda) e publique uma release `channel: "beta"` — deve continuar a
+   detetar.
+
+### Limitações conhecidas
+
+- Não existe ainda pipeline real de publicação de instaladores assinados (GHCR/S3)
+  — o `downloadUrl` de teste acima não resulta numa instalação real, só valida a
+  deteção/decisão de update.
+- Sem UI no CMS para gerir `update_channel` por device nem para publicar releases
+  — por agora é só API (`POST /releases`, `GET /releases`).

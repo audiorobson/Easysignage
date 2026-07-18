@@ -143,3 +143,14 @@ export {
   playbackEventTypeLabelPt,
   playbackItemTypeLabelPt,
 } from './playback-log.js';
+
+export {
+  SOFTWARE_RELEASE_CHANNELS,
+  type SoftwareReleaseChannel,
+  type SoftwareReleaseSummary,
+  compareVersions,
+  isChannelCompatible,
+  isSoftwareReleaseChannel,
+  pickLatestRelease,
+  shouldUpdateTo,
+} from './software-release.js';
