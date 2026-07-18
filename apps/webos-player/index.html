@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+  <title>EasySignage Player</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      background: #000;
+      overflow: hidden;
+    }
+    iframe {
+      border: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+  </style>
+  <!--
+    webOSTV.js é distribuído pelo SDK oficial (não redistribuível via npm) — copie o
+    ficheiro do SDK instalado (`.../lib/webostv/webOSTV.js`) para esta pasta antes de
+    empacotar para produção. Sem o ficheiro, o bridge degrada graciosamente (ver README).
+  -->
+  <script src="webOSTV.js" onerror="console.warn('webOSTV.js ausente — funcionalidades luna-service ficam indisponíveis nesta sessão.')"></script>
+  <script src="js/command-dispatcher.js"></script>
+  <script src="js/webos-bridge.js"></script>
+</head>
+<body>
+  <!--
+    Kiosk: reaproveita o apps/web-player existente via iframe em vez de reimplementar o
+    motor de playback — mesma estratégia do Electron/Android TV. Configure a URL real via
+    query string `?playerUrl=` ou edite o valor por defeito abaixo antes de empacotar.
+  -->
+  <iframe id="player-frame" title="EasySignage Player" allow="autoplay; fullscreen"></iframe>
+  <script>
+    (function () {
+      var params = new URLSearchParams(window.location.search);
+      var playerUrl = params.get('playerUrl') || 'https://player.easysignage.example.com';
+      document.getElementById('player-frame').src = playerUrl;
+    })();
+  </script>
+</body>
+</html>

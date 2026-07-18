@@ -36,10 +36,11 @@ teste real). Atualize esta tabela sempre que:
 
 | Item | Estado | Notas |
 |---|---|---|
-| Empacotamento (`ares-package`) | ⚠️ Best-effort em CI | Sem acesso a webOS TV SDK/CLI no ambiente de desenvolvimento local; workflow de CI tenta empacotar via `@webosose/ares-cli` (npm) |
-| App nativa (kiosk) | 📝 Fonte entregue | `index.html` + bridge JS carregando o web-player em `<iframe>`/navegação direta |
-| Bridge JS↔webOS | 📝 Stub | Comandos remotos (restart/reboot) usam `webOS.service.request` onde disponível; sem SDK nativo de RTSP equivalente ao ExoPlayer — depende do decoder de vídeo do próprio navegador webOS |
-| Hardware físico testado | ❌ Nenhum | Pendente TV LG real ou emulador oficial (LG webOS TV Simulator) |
+| Empacotamento (`ares-package`) | ✅ Validado localmente | `npm run package` gera `.ipk` real via `@webosose/ares-cli` (npm, sem SDK completo instalado); `.github/workflows/webos.yml` repete o smoke em CI |
+| Testes unitários do bridge | ✅ Validado | `node --test` sobre `command-dispatcher.js` (roteamento puro, sem DOM/webOS) |
+| App nativa (kiosk) | 📝 Fonte entregue | `index.html` + bridge JS carregando o web-player em `<iframe>` |
+| Bridge JS↔webOS | 📝 Implementado com fallback gracioso | Comandos remotos (restart/reboot) usam `webOS.service.request` (luna-service) quando `webOSTV.js` está presente; sem SDK nativo de RTSP equivalente ao ExoPlayer — depende do decoder de vídeo do próprio navegador webOS |
+| Hardware físico / simulador testado | ❌ Nenhum | Pendente TV LG real ou emulador oficial (LG webOS TV Simulator) — `.ipk` nunca foi instalado/lançado num runtime webOS real |
 
 ## Tizen (Samsung) — `apps/tizen-player`
 

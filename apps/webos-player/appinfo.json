@@ -1,0 +1,17 @@
+{
+  "id": "com.easysignage.webosplayer",
+  "version": "1.0.0",
+  "vendor": "EasySignage",
+  "type": "web",
+  "main": "index.html",
+  "title": "EasySignage Player",
+  "icon": "icon.png",
+  "largeIcon": "largeIcon.png",
+  "iconColor": "#2563eb",
+  "resolution": "1920x1080",
+  "disableBackHistoryAPI": true,
+  "requiredPermissions": [
+    "time.query",
+    "network.tv.info"
+  ]
+}

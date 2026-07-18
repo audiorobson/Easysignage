@@ -1,0 +1,50 @@
+name: webOS Player
+
+# PR 7.2 — smoke test isolado do apps/webos-player (não faz parte do workspace pnpm; ver
+# pnpm-workspace.yaml). Só corre quando o módulo muda.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/webos-player/**'
+      - '.github/workflows/webos.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'apps/webos-player/**'
+      - '.github/workflows/webos.yml'
+
+concurrency:
+  group: webos-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/webos-player
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Unit tests do bridge (command-dispatcher)
+        run: npm test
+
+      - name: Empacotamento smoke (ares-package)
+        # Valida a estrutura de appinfo.json/ícones gerando um .ipk real; não substitui
+        # teste em hardware/simulador webOS (ver docs/matriz-hardware-tv.md).
+        run: npm run package
+
+      - name: Upload .ipk
+        uses: actions/upload-artifact@v4
+        with:
+          name: webos-player-ipk
+          path: apps/webos-player/dist/*.ipk
+          retention-days: 14
