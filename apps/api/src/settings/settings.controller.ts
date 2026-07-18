@@ -44,4 +44,11 @@ export class SettingsController {
   updateSsoConfig(@CurrentUser() user: JwtUser, @Body() dto: UpdateSsoConfigDto) {
     return this.settings.updateSsoConfig(user.tenantId, dto);
   }
+
+  /** Uso atual de quotas do plano (dispositivos/utilizadores) — PR 6.5. */
+  @Get('quota')
+  @RequirePermissions(P.SETTINGS_READ)
+  getQuotaUsage(@CurrentUser() user: JwtUser) {
+    return this.settings.getQuotaUsage(user.tenantId);
+  }
 }

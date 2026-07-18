@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE "tenants" ADD COLUMN "plan_tier" TEXT NOT NULL DEFAULT 'starter',
+ADD COLUMN "max_devices" INTEGER NOT NULL DEFAULT 25,
+ADD COLUMN "max_users" INTEGER NOT NULL DEFAULT 10;

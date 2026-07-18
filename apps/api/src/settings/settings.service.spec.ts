@@ -1,6 +1,7 @@
 import { SettingsService } from './settings.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { ConfigService } from '@nestjs/config';
+import { TenantQuotaService } from '../tenant-quota/tenant-quota.service';
 
 function buildPrismaMock() {
   return {
@@ -12,6 +13,10 @@ function buildConfigMock() {
   return { get: jest.fn() } as unknown as ConfigService;
 }
 
+function buildQuotaMock() {
+  return { getUsage: jest.fn() } as unknown as TenantQuotaService;
+}
+
 describe('SettingsService.getAlertNotifications', () => {
   it('mascara o segredo do webhook e indica presença sem devolver o valor em claro', async () => {
     const prisma = buildPrismaMock();
@@ -20,7 +25,11 @@ describe('SettingsService.getAlertNotifications', () => {
       alertWebhookSecret: 'super-segredo-1234',
       alertNotifyEmails: 'a@x.com',
     });
-    const service = new SettingsService(prisma as unknown as PrismaService, buildConfigMock());
+    const service = new SettingsService(
+      prisma as unknown as PrismaService,
+      buildConfigMock(),
+      buildQuotaMock()
+    );
 
     const result = await service.getAlertNotifications('tenant-1');
 
@@ -34,7 +43,11 @@ describe('SettingsService.getAlertNotifications', () => {
   it('lança NotFoundException quando o tenant não existe', async () => {
     const prisma = buildPrismaMock();
     prisma.tenant.findUnique.mockResolvedValue(null);
-    const service = new SettingsService(prisma as unknown as PrismaService, buildConfigMock());
+    const service = new SettingsService(
+      prisma as unknown as PrismaService,
+      buildConfigMock(),
+      buildQuotaMock()
+    );
 
     await expect(service.getAlertNotifications('tenant-x')).rejects.toThrow('Tenant não encontrado');
   });
@@ -48,7 +61,11 @@ describe('SettingsService.updateAlertNotifications', () => {
       alertWebhookSecret: null,
       alertNotifyEmails: 'ops@loja.com',
     });
-    const service = new SettingsService(prisma as unknown as PrismaService, buildConfigMock());
+    const service = new SettingsService(
+      prisma as unknown as PrismaService,
+      buildConfigMock(),
+      buildQuotaMock()
+    );
 
     await service.updateAlertNotifications('tenant-1', {
       alertWebhookUrl: '   ',
@@ -70,7 +87,11 @@ describe('SettingsService.updateAlertNotifications', () => {
       alertWebhookSecret: null,
       alertNotifyEmails: null,
     });
-    const service = new SettingsService(prisma as unknown as PrismaService, buildConfigMock());
+    const service = new SettingsService(
+      prisma as unknown as PrismaService,
+      buildConfigMock(),
+      buildQuotaMock()
+    );
 
     await service.updateAlertNotifications('tenant-1', { alertWebhookSecret: 'novo-segredo' });
 
@@ -89,7 +110,11 @@ describe('SettingsService.getSsoConfig', () => {
       ssoClientId: 'client-abc',
       ssoClientSecret: 'super-secreto',
     });
-    const service = new SettingsService(prisma as unknown as PrismaService, buildConfigMock());
+    const service = new SettingsService(
+      prisma as unknown as PrismaService,
+      buildConfigMock(),
+      buildQuotaMock()
+    );
 
     const result = await service.getSsoConfig('tenant-1');
 
@@ -105,7 +130,11 @@ describe('SettingsService.getSsoConfig', () => {
   it('lança NotFoundException quando o tenant não existe', async () => {
     const prisma = buildPrismaMock();
     prisma.tenant.findUnique.mockResolvedValue(null);
-    const service = new SettingsService(prisma as unknown as PrismaService, buildConfigMock());
+    const service = new SettingsService(
+      prisma as unknown as PrismaService,
+      buildConfigMock(),
+      buildQuotaMock()
+    );
 
     await expect(service.getSsoConfig('tenant-x')).rejects.toThrow('Tenant não encontrado');
   });
@@ -120,7 +149,11 @@ describe('SettingsService.updateSsoConfig', () => {
       ssoClientId: null,
       ssoClientSecret: null,
     });
-    const service = new SettingsService(prisma as unknown as PrismaService, buildConfigMock());
+    const service = new SettingsService(
+      prisma as unknown as PrismaService,
+      buildConfigMock(),
+      buildQuotaMock()
+    );
 
     await expect(service.updateSsoConfig('tenant-1', { ssoEnabled: true })).rejects.toThrow(
       'Para ativar o SSO'
@@ -142,7 +175,11 @@ describe('SettingsService.updateSsoConfig', () => {
       ssoClientId: 'client-abc',
       ssoClientSecret: 'segredo',
     });
-    const service = new SettingsService(prisma as unknown as PrismaService, buildConfigMock());
+    const service = new SettingsService(
+      prisma as unknown as PrismaService,
+      buildConfigMock(),
+      buildQuotaMock()
+    );
 
     const result = await service.updateSsoConfig('tenant-1', { ssoEnabled: true });
 
@@ -168,7 +205,11 @@ describe('SettingsService.updateSsoConfig', () => {
       ssoClientId: 'client-novo',
       ssoClientSecret: 'segredo-atual',
     });
-    const service = new SettingsService(prisma as unknown as PrismaService, buildConfigMock());
+    const service = new SettingsService(
+      prisma as unknown as PrismaService,
+      buildConfigMock(),
+      buildQuotaMock()
+    );
 
     await service.updateSsoConfig('tenant-1', { ssoClientId: 'client-novo' });
 
@@ -196,10 +237,36 @@ describe('SettingsService.updateSsoConfig', () => {
       ssoClientId: 'client-abc',
       ssoClientSecret: 'segredo',
     });
-    const service = new SettingsService(prisma as unknown as PrismaService, buildConfigMock());
+    const service = new SettingsService(
+      prisma as unknown as PrismaService,
+      buildConfigMock(),
+      buildQuotaMock()
+    );
 
     const result = await service.updateSsoConfig('tenant-1', { ssoEnabled: false });
 
     expect(result.ssoEnabled).toBe(false);
+  });
+});
+
+describe('SettingsService.getQuotaUsage', () => {
+  it('delega no TenantQuotaService', async () => {
+    const prisma = buildPrismaMock();
+    const quota = buildQuotaMock();
+    (quota.getUsage as jest.Mock).mockResolvedValue({
+      planTier: 'starter',
+      devices: { used: 3, max: 25 },
+      users: { used: 1, max: 10 },
+    });
+    const service = new SettingsService(prisma as unknown as PrismaService, buildConfigMock(), quota);
+
+    const usage = await service.getQuotaUsage('tenant-1');
+
+    expect(quota.getUsage).toHaveBeenCalledWith('tenant-1');
+    expect(usage).toEqual({
+      planTier: 'starter',
+      devices: { used: 3, max: 25 },
+      users: { used: 1, max: 10 },
+    });
   });
 });

@@ -24,6 +24,7 @@ import {
 } from '@easysignage/shared-types';
 import { VideoWallsService } from '../video-walls/video-walls.service';
 import { LicenseService } from '../license/license.service';
+import { TenantQuotaService } from '../tenant-quota/tenant-quota.service';
 
 const PAIRING_TTL_MS = 30 * 60 * 1000;
 
@@ -94,7 +95,8 @@ export class DevicesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly videoWalls: VideoWallsService,
-    private readonly license: LicenseService
+    private readonly license: LicenseService,
+    private readonly quota: TenantQuotaService
   ) {}
 
   async list(tenantId: string, filters: DeviceListFilters = {}) {
@@ -203,6 +205,8 @@ export class DevicesService {
       where: { id: dto.siteId, tenantId },
     });
     if (!site) throw new NotFoundException('Site não encontrado');
+
+    await this.quota.assertCanCreateDevice(tenantId);
 
     const pairingCode = generatePairingCode(8);
     const pairingExpiresAt = new Date(Date.now() + PAIRING_TTL_MS);

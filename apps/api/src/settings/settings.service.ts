@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
+import { TenantQuotaService } from '../tenant-quota/tenant-quota.service';
 import { UpdateAlertNotificationsDto } from './dto/update-alert-notifications.dto';
 import { UpdateSsoConfigDto } from './dto/update-sso-config.dto';
 
@@ -27,8 +28,14 @@ function maskSecret(secret: string | null): string | null {
 export class SettingsService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly config: ConfigService
+    private readonly config: ConfigService,
+    private readonly quota: TenantQuotaService
   ) {}
+
+  /** Uso atual de quotas do plano do tenant (PR 6.5) — apenas leitura; o plano é gerido pelo fornecedor. */
+  getQuotaUsage(tenantId: string) {
+    return this.quota.getUsage(tenantId);
+  }
 
   /** URL de callback a registar na app OIDC do provedor de identidade. */
   get ssoRedirectUri(): string {

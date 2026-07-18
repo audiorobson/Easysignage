@@ -30,6 +30,11 @@ model Tenant {
   ssoClientId     String? @map("sso_client_id")
   ssoClientSecret String? @map("sso_client_secret")
 
+  /** Quotas por plano (PR 6.5) — geridas pelo fornecedor; visíveis (read-only) em `/settings`. */
+  planTier   String @default("starter") @map("plan_tier")
+  maxDevices Int    @default(25) @map("max_devices")
+  maxUsers   Int    @default(10) @map("max_users")
+
   users   User[]
   roles   Role[]
   sites   Site[]

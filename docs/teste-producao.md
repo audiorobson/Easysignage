@@ -470,3 +470,39 @@ domínio externo, fora do controlo do CMS/API em CI).
 - **Cache de discovery de 10 minutos** — alterar a configuração de SSO de um
   tenant pode demorar até 10 minutos para ter efeito, devido ao cache do
   documento de *discovery* do provedor.
+
+## Teste manual — Quotas por tenant (Fase 6, PR 6.5)
+
+O *enforcement* (bloqueio ao exceder a quota) e a leitura de uso têm cobertura
+unitária completa (`apps/api/src/tenant-quota/tenant-quota.service.spec.ts` e
+`apps/api/src/devices/devices.service.spec.ts`, este último validando que a
+criação de `Device` é interrompida antes de chegar ao Prisma quando a quota
+está esgotada). Os campos `planTier`/`maxDevices`/`maxUsers` em `Tenant` são
+geridos apenas pelo fornecedor (sem UI de auto-serviço) — por isso não há E2E
+Playwright: seria necessário criar 25+ dispositivos ou alterar a quota
+directamente na base de dados só para exercitar a UI, sem ganho real sobre o
+teste unitário do bloqueio.
+
+### Passos
+
+1. Verifique a quota actual do tenant em `/settings` no CMS (secção "Quotas do
+   plano") ou via `GET /settings/quota` (Bearer JWT) — devolve
+   `{ planTier, devices: { used, max }, users: { used, max } }`.
+2. Para testar o bloqueio manualmente, reduza `max_devices` do tenant para um
+   valor já atingido (ex. `UPDATE tenants SET max_devices = 1 WHERE slug =
+   'demo';` directamente na base de dados de um ambiente de teste) e tente
+   criar um novo dispositivo em `/devices/new` no CMS — deve receber
+   `403 Forbidden` com `code: "TENANT_DEVICE_QUOTA_EXCEEDED"` e uma mensagem
+   clara.
+3. Reponha o valor original de `max_devices` e confirme que a criação volta a
+   funcionar normalmente.
+
+### Limitações conhecidas
+
+- **Sem enforcement de utilizadores** — `assertCanCreateUser` já existe no
+  `TenantQuotaService`, mas ainda não há nenhum endpoint de criação de
+  utilizadores na aplicação (utilizadores são geridos via seed); o método
+  fica pronto para ser chamado assim que esse módulo existir.
+- **Sem auto-serviço de upgrade** — o `planTier`/`maxDevices`/`maxUsers` só
+  podem ser alterados directamente na base de dados pelo fornecedor; não há
+  fluxo de checkout/upgrade de plano nesta versão.
