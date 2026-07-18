@@ -28,5 +28,12 @@ export default defineConfig({
         baseURL: process.env.CMS_URL ?? 'http://localhost:3000',
       },
     },
+    {
+      name: 'cms-reports',
+      testMatch: /reports-smoke\.spec\.ts/,
+      use: {
+        baseURL: process.env.CMS_URL ?? 'http://localhost:3000',
+      },
+    },
   ],
 });

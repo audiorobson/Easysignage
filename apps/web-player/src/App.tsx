@@ -16,10 +16,12 @@ import {
   orientationRotateDeg,
   type DeviceViewport,
 } from '@easysignage/shared-types';
+import type { PlaybackItemType } from '@easysignage/shared-types';
 import {
   clearDeviceAssetCache,
   evictDeviceAssetCacheExcept,
 } from './deviceAssetCache';
+import { enqueuePlaybackEvent, startPlaybackFlushLoop } from './playbackEvents';
 import {
   clearMediaCache,
   getCachedMedia,
@@ -207,6 +209,14 @@ export function App() {
     contentRevision: string | null;
   }>({ publicationVersion: null, contentRevision: null });
   const wallPlaybackSyncRef = useRef<WallPlaybackSync | null>(null);
+  /** Proof-of-play: item de conteúdo atualmente rastreado (para emitir "completed" na troca). */
+  const playbackTrackRef = useRef<{
+    key: string;
+    itemType: PlaybackItemType;
+    assetId?: string;
+    playlistId?: string;
+    startedAt: number;
+  } | null>(null);
   const [playlistManifest, setPlaylistManifest] = useState<PlaylistManifest | null>(null);
   const [slideIndex, setSlideIndex] = useState(0);
 
@@ -334,6 +344,72 @@ export function App() {
     };
   }, [serverPublicationVersion]);
 
+  /**
+   * Proof-of-play: ao trocar de item, fecha o item anterior com "completed" (duração real
+   * exibida) e abre o novo com "started". `key` deve identificar unicamente o item exibido
+   * (ex.: playlistId+assetId+posição) para não duplicar eventos em cada poll de estado.
+   */
+  const trackPlaybackStart = useCallback(
+    (key: string, itemType: PlaybackItemType, assetId?: string, playlistId?: string) => {
+      const prev = playbackTrackRef.current;
+      if (prev?.key === key) return;
+      const now = Date.now();
+      if (prev) {
+        void enqueuePlaybackEvent({
+          itemType: prev.itemType,
+          assetId: prev.assetId ?? null,
+          playlistId: prev.playlistId ?? null,
+          eventType: 'completed',
+          startedAt: new Date(prev.startedAt).toISOString(),
+          durationMs: now - prev.startedAt,
+        });
+      }
+      playbackTrackRef.current = { key, itemType, assetId, playlistId, startedAt: now };
+      void enqueuePlaybackEvent({
+        itemType,
+        assetId: assetId ?? null,
+        playlistId: playlistId ?? null,
+        eventType: 'started',
+        startedAt: new Date(now).toISOString(),
+      });
+    },
+    []
+  );
+
+  const reportPlaybackError = useCallback(
+    (itemType: PlaybackItemType, assetId: string | undefined, message: string) => {
+      void enqueuePlaybackEvent({
+        itemType,
+        assetId: assetId ?? null,
+        eventType: 'error',
+        startedAt: new Date().toISOString(),
+        errorMessage: message.slice(0, 2000),
+      });
+    },
+    []
+  );
+
+  useEffect(() => {
+    return startPlaybackFlushLoop(API, () => deviceToken ?? localStorage.getItem('device_token'));
+  }, [deviceToken]);
+
+  useEffect(() => {
+    const onUnload = () => {
+      const prev = playbackTrackRef.current;
+      if (!prev) return;
+      void enqueuePlaybackEvent({
+        itemType: prev.itemType,
+        assetId: prev.assetId ?? null,
+        playlistId: prev.playlistId ?? null,
+        eventType: 'completed',
+        startedAt: new Date(prev.startedAt).toISOString(),
+        durationMs: Date.now() - prev.startedAt,
+      });
+    };
+    window.addEventListener('beforeunload', onUnload);
+    return () => window.removeEventListener('beforeunload', onUnload);
+  }, []);
+
   useEffect(() => {
     displayMediaRef.current = displayMedia;
   }, [displayMedia]);
@@ -389,9 +465,10 @@ export function App() {
         }, transitionMs + 80);
       } catch {
         setContentHint('Falha ao carregar mídia');
+        reportPlaybackError('asset', assetId, 'Falha ao carregar mídia');
       }
     },
-    [deviceToken, transitionKind, transitionMs, markContentApplied, finishTransition]
+    [deviceToken, transitionKind, transitionMs, markContentApplied, finishTransition, reportPlaybackError]
   );
 
   const sendHeartbeat = useCallback(async () => {
@@ -706,7 +783,8 @@ export function App() {
       `${playlistManifest?.name ?? ''} — ${idx + 1}/${playableSlides.length}`
     );
     void applyMedia(slide.assetId, slide.kind);
-  }, [slideIndex, playlistId, playableSlides, playlistManifest?.name, applyMedia]);
+    trackPlaybackStart(`playlist:${playlistId}:${idx}:${slide.assetId}`, 'asset', slide.assetId, playlistId ?? undefined);
+  }, [slideIndex, playlistId, playableSlides, playlistManifest?.name, applyMedia, trackPlaybackStart]);
 
   useEffect(() => {
     if (layoutItem || wallTileItem) return;
@@ -715,7 +793,8 @@ export function App() {
       return;
     }
     void applyMedia(singleAssetId, singleAssetKind);
-  }, [singleAssetId, singleAssetKind, playlistId, contentRevision, applyMedia, clearStage]);
+    trackPlaybackStart(`asset:${singleAssetId}:${contentRevision ?? ''}`, 'asset', singleAssetId);
+  }, [singleAssetId, singleAssetKind, playlistId, contentRevision, applyMedia, clearStage, trackPlaybackStart]);
 
   useEffect(() => {
     if (layoutItem || wallTileItem) return;
@@ -763,11 +842,16 @@ export function App() {
       setContentHint(
         `Video wall — tile (${wallTileItem.tile.row + 1},${wallTileItem.tile.col + 1}) de ${wallTileItem.tile.rows}×${wallTileItem.tile.cols}`
       );
+      trackPlaybackStart(
+        `wall:${wallTileItem.wallId}:${wallTileItem.wallRevision}:${wallTileItem.tile.row}:${wallTileItem.tile.col}`,
+        'wall_tile'
+      );
       return;
     }
     if (!layoutItem) return;
     setContentHint(`Layout ${layoutItem.templateSlug} — ${layoutItem.zones.length} zona(s)`);
-  }, [layoutItem, wallTileItem]);
+    trackPlaybackStart(`layout:${layoutItem.templateSlug}:${layoutItem.revision}`, 'layout');
+  }, [layoutItem, wallTileItem, trackPlaybackStart]);
 
   useEffect(() => {
     const token = deviceToken ?? localStorage.getItem('device_token');

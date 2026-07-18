@@ -126,3 +126,20 @@ export {
   parseWallSyncFromSnapshot,
   wallSyncStatusLabelPt,
 } from './wall-sync.js';
+
+export {
+  PLAYBACK_EVENT_TYPES,
+  PLAYBACK_ITEM_TYPES,
+  type PlaybackEventBatchInput,
+  type PlaybackEventInput,
+  type PlaybackEventType,
+  type PlaybackItemType,
+  type PlaybackLogFilters,
+  type PlaybackLogPage,
+  type PlaybackLogRow,
+  isPlaybackEventInput,
+  isPlaybackEventType,
+  isPlaybackItemType,
+  playbackEventTypeLabelPt,
+  playbackItemTypeLabelPt,
+} from './playback-log.js';

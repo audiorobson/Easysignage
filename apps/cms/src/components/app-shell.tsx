@@ -15,6 +15,7 @@ import {
   Users,
   Megaphone,
   TriangleAlert,
+  FileBarChart,
   Settings,
   Search,
   Bell,
@@ -30,6 +31,7 @@ const NAV_OPERACAO: NavItem[] = [
   { href: '/video-walls', label: 'Video walls', Icon: Grid2x2 },
   { href: '/monitoring', label: 'Monitorização', Icon: Activity },
   { href: '/alerts', label: 'Alertas', Icon: TriangleAlert },
+  { href: '/reports', label: 'Relatórios', Icon: FileBarChart },
   { href: '/sites', label: 'Sites', Icon: MapPin },
 ];
 

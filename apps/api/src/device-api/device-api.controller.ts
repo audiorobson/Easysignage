@@ -28,6 +28,8 @@ import {
   DeviceCommandAckDto,
   TelemetryBatchDto,
 } from '../telemetry/dto/telemetry-batch.dto';
+import { PlaybackService } from '../playback/playback.service';
+import { PlaybackEventBatchDto } from '../playback/dto/playback-event.dto';
 import { computeContentRevision } from './content-revision';
 import { HeartbeatDto } from './dto/heartbeat.dto';
 import { normalizeDeviceViewport } from '@easysignage/shared-types';
@@ -44,7 +46,8 @@ export class DeviceApiController {
     private readonly telemetry: TelemetryService,
     private readonly devicePreview: DevicePreviewService,
     private readonly scheduleEngine: ScheduleEngineService,
-    private readonly alerts: AlertsService
+    private readonly alerts: AlertsService,
+    private readonly playback: PlaybackService
   ) {}
 
   /**
@@ -57,6 +60,18 @@ export class DeviceApiController {
     @Body() body: TelemetryBatchDto
   ) {
     return this.telemetry.ingestFromDevice(device.tenantId, device.id, body);
+  }
+
+  /**
+   * Proof-of-play em lote (Fase 5.B). O player mantém uma fila local (offline-safe) e
+   * envia em lotes de até 200 eventos por chamada; ver `PlaybackEventBatchDto`.
+   */
+  @Post('playback-events')
+  async postPlaybackEvents(
+    @CurrentDevice() device: DeviceWithSite,
+    @Body() body: PlaybackEventBatchDto
+  ) {
+    return this.playback.ingestBatch(device.tenantId, device.id, body.events);
   }
 
   /** Pré-visualização JPEG/PNG (~1 fps) enviada pelo player para o CMS (sem WebRTC). */

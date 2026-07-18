@@ -8,6 +8,7 @@ import {
   ParseUUIDPipe,
   Post,
   Query,
+  Res,
   StreamableFile,
   UseGuards,
 } from '@nestjs/common';
@@ -17,9 +18,12 @@ import { PermissionsGuard } from '../common/guards/permissions.guard';
 import { RequirePermissions } from '../common/decorators/require-permissions.decorator';
 import { P } from '../common/permissions';
 import { CurrentUser, JwtUser } from '../common/decorators/current-user.decorator';
+import type { FastifyReply } from 'fastify';
 import { DevicePreviewService } from '../telemetry/device-preview.service';
 import { TelemetryService } from '../telemetry/telemetry.service';
 import { EnqueueCommandDto } from './dto/enqueue-command.dto';
+import { PlaybackService } from '../playback/playback.service';
+import { PlaybackLogQueryDto } from './dto/playback-log-query.dto';
 
 @ApiTags('monitoring')
 @ApiBearerAuth('access-token')
@@ -28,7 +32,8 @@ import { EnqueueCommandDto } from './dto/enqueue-command.dto';
 export class MonitoringController {
   constructor(
     private readonly telemetry: TelemetryService,
-    private readonly devicePreview: DevicePreviewService
+    private readonly devicePreview: DevicePreviewService,
+    private readonly playback: PlaybackService
   ) {}
 
   @Get('overview')
@@ -101,5 +106,28 @@ export class MonitoringController {
       dto.channel,
       dto.payload
     );
+  }
+
+  /** Relatório de proof-of-play (Fase 5.B) — paginado, filtrável por device/asset/playlist/tipo/período. */
+  @Get('playback-logs')
+  @RequirePermissions(P.MONITORING_READ)
+  playbackLogs(@CurrentUser() user: JwtUser, @Query() query: PlaybackLogQueryDto) {
+    return this.playback.list(user.tenantId, query);
+  }
+
+  /** Export CSV do mesmo filtro (sem paginação, limitado a 20k linhas). */
+  @Get('playback-logs/export.csv')
+  @RequirePermissions(P.MONITORING_READ)
+  async exportPlaybackLogsCsv(
+    @CurrentUser() user: JwtUser,
+    @Query() query: PlaybackLogQueryDto,
+    @Res({ passthrough: false }) reply: FastifyReply
+  ) {
+    const rows = await this.playback.listForExport(user.tenantId, query);
+    const csv = this.playback.toCsv(rows);
+    reply
+      .header('Content-Type', 'text/csv; charset=utf-8')
+      .header('Content-Disposition', 'attachment; filename="playback-logs.csv"')
+      .send(csv);
   }
 }

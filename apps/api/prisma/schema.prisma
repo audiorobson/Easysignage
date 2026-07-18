@@ -31,6 +31,7 @@ model Tenant {
   deviceTelemetryEvents DeviceTelemetryEvent[]
   deviceCommands        DeviceCommand[]
   layoutTemplates       LayoutTemplate[]
+  playbackLogs          PlaybackLog[]
   deviceLayouts         DeviceLayout[]
   videoWalls            VideoWall[]
 
@@ -57,6 +58,7 @@ model Asset {
   tenant         Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   playlistItems PlaylistItem[]
   siteCovers    Site[]    @relation("SiteCoverAsset")
+  playbackLogs  PlaybackLog[]
 
   @@index([tenantId, createdAt])
   @@index([tenantId, kind])
@@ -74,6 +76,7 @@ model Playlist {
 
   tenant Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   items  PlaylistItem[]
+  playbackLogs  PlaybackLog[]
   scheduleRules ScheduleRule[]
   campaigns     Campaign[]
   videoWalls VideoWall[]
@@ -218,6 +221,7 @@ model Device {
   alerts        Alert[]
   telemetryEvents DeviceTelemetryEvent[]
   commands        DeviceCommand[]
+  playbackLogs    PlaybackLog[]
   deviceLayout    DeviceLayout?
   videoWallTile   VideoWallTile?
 
@@ -438,6 +442,38 @@ model DeviceCommand {
   @@index([tenantId, deviceId, status])
   @@index([tenantId, status, createdAt])
   @@map("device_commands")
+}
+
+/**
+ * Proof-of-play: um registo por item de conteúdo efetivamente exibido (ou que falhou a exibir).
+ * `itemType`: asset | playlist | layout | wall_tile | widget (alinhado a `current_item_json.type`).
+ * `eventType`: started | completed | skipped | error.
+ * Enviado em lote pelo player via `POST /device/playback-events` (Fase 5.6).
+ */
+model PlaybackLog {
+  id           String    @id @default(uuid()) @db.Uuid
+  tenantId     String    @map("tenant_id") @db.Uuid
+  deviceId     String    @map("device_id") @db.Uuid
+  itemType     String    @map("item_type")
+  assetId      String?   @map("asset_id") @db.Uuid
+  playlistId   String?   @map("playlist_id") @db.Uuid
+  eventType    String    @map("event_type")
+  startedAt    DateTime  @map("started_at")
+  durationMs   Int?      @map("duration_ms")
+  errorMessage String?   @map("error_message")
+  metaJson     Json?     @map("meta_json")
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  device   Device    @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  asset    Asset?    @relation(fields: [assetId], references: [id], onDelete: SetNull)
+  playlist Playlist? @relation(fields: [playlistId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, deviceId, startedAt(sort: Desc)])
+  @@index([tenantId, startedAt(sort: Desc)])
+  @@index([tenantId, assetId])
+  @@index([tenantId, playlistId])
+  @@map("playback_logs")
 }
 
 /**
