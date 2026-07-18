@@ -3159,6 +3159,52 @@
         ]
       }
     },
+    "/settings/sso": {
+      "get": {
+        "operationId": "SettingsController_getSsoConfig",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "settings"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      },
+      "patch": {
+        "operationId": "SettingsController_updateSsoConfig",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateSsoConfigDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "settings"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
     "/audit-logs": {
       "get": {
         "operationId": "AuditLogController_list",
@@ -3194,6 +3240,43 @@
           {
             "access-token": []
           }
+        ]
+      }
+    },
+    "/auth/sso/{tenantSlug}/login": {
+      "get": {
+        "operationId": "SsoController_login",
+        "parameters": [
+          {
+            "name": "tenantSlug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "sso"
+        ]
+      }
+    },
+    "/auth/sso/callback": {
+      "get": {
+        "operationId": "SsoController_callback",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "sso"
         ]
       }
     }
@@ -3410,6 +3493,10 @@
         "properties": {}
       },
       "UpdateAlertNotificationsDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdateSsoConfigDto": {
         "type": "object",
         "properties": {}
       }

@@ -22,6 +22,7 @@ import { ReleasesModule } from './releases/releases.module';
 import { QueueModule } from './queue/queue.module';
 import { SettingsModule } from './settings/settings.module';
 import { AuditModule } from './audit/audit.module';
+import { SsoModule } from './sso/sso.module';
 
 @Module({
   imports: [
@@ -47,6 +48,7 @@ import { AuditModule } from './audit/audit.module';
     ReleasesModule,
     SettingsModule,
     AuditModule,
+    SsoModule,
   ],
   controllers: [HealthController],
 })

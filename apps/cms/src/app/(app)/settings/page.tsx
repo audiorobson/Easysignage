@@ -3,7 +3,7 @@
 import { type FormEvent, useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Bell, Copy, KeyRound, Lock, RefreshCw, ShieldCheck } from 'lucide-react';
+import { Bell, Copy, KeyRound, Lock, RefreshCw, ShieldCheck, Building2 } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { tierLabelPt, featureLabelPt, type LicenseTier, type LicenseFeature } from '@easysignage/license-core/browser';
 import { api, getToken } from '@/lib/api';
@@ -200,6 +200,32 @@ export default function SettingsPage() {
         </div>
         <Link href="/settings/security" className="btn btn--ghost">
           Configurar 2FA
+        </Link>
+      </section>
+
+      <section
+        className="surface-table-card"
+        style={{
+          padding: '1.1rem 1.25rem',
+          marginBottom: 'var(--space-5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 12,
+          flexWrap: 'wrap',
+        }}
+      >
+        <div>
+          <h3 className="panel__title" style={{ display: 'flex', alignItems: 'center', gap: 8, margin: 0 }}>
+            <Building2 size={17} strokeWidth={1.9} aria-hidden />
+            Login único (SSO)
+          </h3>
+          <p className="text-muted" style={{ margin: '4px 0 0' }}>
+            Autenticação via OpenID Connect (Azure AD, Okta, Google Workspace…) para esta organização.
+          </p>
+        </div>
+        <Link href="/settings/sso" className="btn btn--ghost">
+          Configurar SSO
         </Link>
       </section>
 

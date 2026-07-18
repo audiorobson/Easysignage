@@ -3,7 +3,7 @@
 import { FormEvent, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { MonitorPlay } from 'lucide-react';
-import { api, setToken } from '@/lib/api';
+import { api, API_BASE, setToken } from '@/lib/api';
 
 type LoginResponse =
   | { accessToken: string; requires2fa?: undefined }
@@ -173,6 +173,17 @@ export default function LoginPage() {
           className="btn btn--brand btn--block"
         >
           {loading ? 'A entrar…' : 'Entrar'}
+        </button>
+        <button
+          type="button"
+          className="btn btn--ghost btn--block"
+          style={{ marginTop: 'var(--space-2)' }}
+          disabled={!tenantSlug.trim()}
+          onClick={() => {
+            window.location.href = `${API_BASE}/auth/sso/${encodeURIComponent(tenantSlug.trim())}/login`;
+          }}
+        >
+          Entrar com SSO (OIDC)
         </button>
       </form>
     </main>

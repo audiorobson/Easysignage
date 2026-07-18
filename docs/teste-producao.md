@@ -416,5 +416,57 @@ conta `admin@demo.local` partilhada por todas as outras specs de E2E.
   dispositivo com a app de autenticação, só um administrador com acesso
   direto à base de dados pode repor `totp_enabled = false` manualmente.
 - Não há SSO/2FA obrigatório por política de tenant nesta PR — a ativação é
-  por utilizador, de forma voluntária (a aplicação obrigatória por tenant
-  fica coberta em conjunto com a PR 6.4, de SSO).
+  por utilizador, de forma voluntária.
+
+## Teste manual — SSO OpenID Connect por tenant (Fase 6, PR 6.4)
+
+O fluxo OIDC completo (discovery → authorization URL → troca do código →
+validação do id_token → emissão de sessão) tem um teste de integração real
+contra um IdP OIDC mínimo em memória (`apps/api/src/sso/testing/fake-oidc-provider.ts`,
+usado em `apps/api/src/sso/sso.service.spec.ts`) — não um mock da biblioteca,
+mas um servidor HTTP real com JWKS e endpoint de token que assina
+`id_token`s reais em RS256. Falta apenas validar manualmente com um provedor
+comercial real (Azure AD, Okta, Google Workspace…), por isso não há E2E
+Playwright para esta PR (o fluxo passa por um redirecionamento para um
+domínio externo, fora do controlo do CMS/API em CI).
+
+### Passos
+
+1. Registe uma aplicação OIDC no provedor de identidade (ex. Azure AD →
+   "App registrations"). Tipo: "Web", *redirect URI*: copie o valor exibido
+   em `/settings/sso` no CMS (ex. `http://localhost:3001/api/v1/auth/sso/callback`).
+2. Anote o **Issuer URL** (ex. `https://login.microsoftonline.com/<tenant-id>/v2.0`),
+   o **Client ID** e gere um **Client secret**.
+3. Garanta que já existe, no EasySignage, um `User` com o mesmo e-mail da
+   conta que vai usar para testar o SSO (o login único não cria utilizadores
+   automaticamente — ver "Limitações conhecidas").
+4. Em `/settings/sso` no CMS, ative o SSO e preencha Issuer URL/Client
+   ID/Client secret. Guarde.
+5. Faça logout e, na tela de login, introduza o slug do tenant e clique em
+   "Entrar com SSO (OIDC)" — deve ser redirecionado para o provedor.
+6. Após autenticar no provedor, deve voltar para
+   `/login/sso-callback` no CMS e, em seguida, para o `/dashboard` já
+   autenticado.
+7. Teste o caso de erro: tente o SSO com uma conta cujo e-mail não existe no
+   EasySignage — deve voltar para `/login/sso-callback` com uma mensagem de
+   erro clara, sem sessão.
+
+### Limitações conhecidas
+
+- **Sem SAML** — apenas OpenID Connect está implementado (`openid-client`);
+  organizações que só suportam SAML 2.0 ficam de fora nesta versão.
+- **Sem provisionamento automático (JIT)** — o SSO só autentica utilizadores
+  que já existem no tenant (por e-mail); não há hoje nenhum módulo de
+  gestão de utilizadores na aplicação (utilizadores são criados via seed),
+  por isso criar contas automaticamente a partir do IdP fica para quando
+  esse módulo existir.
+- **Estado do fluxo em memória** — o `state`/`nonce` pendentes de cada
+  tentativa de login SSO ficam num `Map` em memória do processo Node (TTL de
+  10 minutos); numa implantação horizontalmente escalada (múltiplas
+  instâncias da API), o pedido de callback deve cair na mesma instância que
+  gerou o `state`, ou terá de migrar para um armazenamento partilhado
+  (Redis) — aceitável para o modelo de implantação atual (single-instance
+  self-hosted ou SaaS de instância única).
+- **Cache de discovery de 10 minutos** — alterar a configuração de SSO de um
+  tenant pode demorar até 10 minutos para ter efeito, devido ao cache do
+  documento de *discovery* do provedor.

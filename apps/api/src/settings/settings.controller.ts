@@ -7,6 +7,7 @@ import { P } from '../common/permissions';
 import { CurrentUser, JwtUser } from '../common/decorators/current-user.decorator';
 import { SettingsService } from './settings.service';
 import { UpdateAlertNotificationsDto } from './dto/update-alert-notifications.dto';
+import { UpdateSsoConfigDto } from './dto/update-sso-config.dto';
 
 @ApiTags('settings')
 @ApiBearerAuth('access-token')
@@ -29,5 +30,18 @@ export class SettingsController {
     @Body() dto: UpdateAlertNotificationsDto
   ) {
     return this.settings.updateAlertNotifications(user.tenantId, dto);
+  }
+
+  /** Configuração de SSO OIDC do tenant autenticado (PR 6.4). */
+  @Get('sso')
+  @RequirePermissions(P.SETTINGS_READ)
+  getSsoConfig(@CurrentUser() user: JwtUser) {
+    return this.settings.getSsoConfig(user.tenantId);
+  }
+
+  @Patch('sso')
+  @RequirePermissions(P.SETTINGS_WRITE)
+  updateSsoConfig(@CurrentUser() user: JwtUser, @Body() dto: UpdateSsoConfigDto) {
+    return this.settings.updateSsoConfig(user.tenantId, dto);
   }
 }

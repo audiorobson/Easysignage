@@ -24,6 +24,12 @@ model Tenant {
   /** Lista de e-mails separados por vírgula. */
   alertNotifyEmails  String? @map("alert_notify_emails")
 
+  /** SSO OpenID Connect por tenant (PR 6.4) — configurável via `/settings/sso`. */
+  ssoEnabled      Boolean @default(false) @map("sso_enabled")
+  ssoIssuerUrl    String? @map("sso_issuer_url")
+  ssoClientId     String? @map("sso_client_id")
+  ssoClientSecret String? @map("sso_client_secret")
+
   users   User[]
   roles   Role[]
   sites   Site[]
