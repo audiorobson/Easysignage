@@ -189,4 +189,63 @@ manualmente — este é o "teste manual documentado" previsto no plano.
 
 ---
 
+## Teste manual — comandos remotos no Electron player (Fase 5.C, PR 5.11)
+
+Os handlers (`apps/electron-player/src/main/remote-commands.ts`) têm cobertura
+unitária com duplos de `child_process`/`electron`
+(`pnpm --filter @easysignage/electron-player test`), mas o efeito real em SO/janela
+só é visível manualmente.
+
+### Passos
+
+1. Compile e execute o Electron player (ver secção anterior) com um device já
+   pareado.
+2. Peça ao backend para enfileirar um comando para esse device
+   (`POST /monitoring/devices/:deviceId/commands`, permissão `monitoring:write`;
+   pode usar o `token` de um utilizador com sessão no CMS):
+
+   ```bash
+   curl -X POST "$API_URL/monitoring/devices/$DEVICE_ID/commands" \
+     -H "Authorization: Bearer $USER_JWT" \
+     -H "Content-Type: application/json" \
+     -d '{"channel":"take_screenshot","payload":{}}'
+   ```
+
+   Canais suportados pelo player: `restart_player`, `clear_cache`, `open_url`
+   (`payload.url`, precisa de `http(s)://`), `reboot_os`, `take_screenshot`.
+3. O web-player faz polling de `GET /device/commands/pending` a cada 5 segundos
+   (`startRemoteCommandsLoop` em `apps/web-player/src/remoteCommands.ts`) e delega
+   a execução a `window.easysignage.commands.*` (exposto pelo `preload.ts`).
+4. **Verificar por canal:**
+   - `restart_player` — a janela Electron relança o processo (`app.relaunch()` +
+     `app.exit()`); o player deve reaparecer em poucos segundos.
+   - `clear_cache` — `session.defaultSession.clearCache()/clearStorageData()` e a
+     janela recarrega; útil para forçar reload de conteúdo após uma publicação
+     problemática.
+   - `open_url` — a janela navega para a URL indicada (uso de diagnóstico; não há
+     retorno automático ao conteúdo — recarregar manualmente ou usar
+     `restart_player` para voltar).
+   - `reboot_os` — **cuidado**: reinicia o SO onde o player está a correr
+     (`shutdown /r /t 0` no Windows, `reboot` no Linux, `shutdown -r now` no
+     macOS). Só testar em hardware descartável/VM.
+   - `take_screenshot` — captura a janela inteira via `webContents.capturePage`
+     e envia como JPEG para `POST /device/preview` (mesmo endpoint da
+     pré-visualização periódica); confirmar em `GET /monitoring/devices/:id/preview`
+     ou na tela de monitorização do CMS.
+5. Em todos os casos, confirmar em
+   `GET /monitoring/devices/:deviceId/commands` que o comando passou de
+   `pending` para `acked` (ou `failed`, com `resultJson.error` a explicar o motivo
+   — por exemplo `reboot_os` chamado a partir de um browser sem o bridge nativo).
+
+### Limitações conhecidas
+
+- `open_url` e `reboot_os` não têm um caminho de "undo" automático — são comandos
+  de diagnóstico/operação avançada, a usar com o operador consciente do impacto.
+- Sem o bridge nativo (ex.: a correr o `web-player` isolado no browser, sem
+  Electron), `reboot_os` falha sempre (não há privilégio de SO no browser) e
+  `restart_player`/`clear_cache` caem para um fallback best-effort
+  (`window.location.reload()` / limpeza de `Cache Storage`).
+
+---
+
 *Ver também `docs/manual-instalacao-mini-pc.md` e `deploy/keys/README.md`.*

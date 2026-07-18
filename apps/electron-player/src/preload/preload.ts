@@ -19,10 +19,42 @@ function rtspStop(url: string): void {
   ipcRenderer.send('rtsp:stop', url);
 }
 
+/**
+ * PR 5.11 — executor de comandos remotos. O web-player faz o polling de
+ * `GET /device/commands/pending` e delega a execução a estas funções;
+ * o resultado é confirmado depois via `POST /device/commands/:id/ack`.
+ */
+async function restartPlayer(): Promise<void> {
+  await ipcRenderer.invoke('commands:restartPlayer');
+}
+
+async function clearCache(): Promise<void> {
+  await ipcRenderer.invoke('commands:clearCache');
+}
+
+async function openUrl(url: string): Promise<void> {
+  await ipcRenderer.invoke('commands:openUrl', url);
+}
+
+async function rebootOs(): Promise<void> {
+  await ipcRenderer.invoke('commands:rebootOs');
+}
+
+async function takeScreenshot(): Promise<{ base64: string; mime: string }> {
+  return ipcRenderer.invoke('commands:takeScreenshot');
+}
+
 contextBridge.exposeInMainWorld('easysignage', {
   platform: process.platform,
   rtsp: {
     play: rtspPlay,
     stop: rtspStop,
+  },
+  commands: {
+    restartPlayer,
+    clearCache,
+    openUrl,
+    rebootOs,
+    takeScreenshot,
   },
 });

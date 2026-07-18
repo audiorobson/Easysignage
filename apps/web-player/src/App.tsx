@@ -22,6 +22,7 @@ import {
   evictDeviceAssetCacheExcept,
 } from './deviceAssetCache';
 import { enqueuePlaybackEvent, startPlaybackFlushLoop } from './playbackEvents';
+import { startRemoteCommandsLoop } from './remoteCommands';
 import {
   clearMediaCache,
   getCachedMedia,
@@ -883,6 +884,20 @@ export function App() {
     const id = window.setInterval(tick, PREVIEW_INTERVAL_SEC * 1000);
     return () => window.clearInterval(id);
   }, [deviceToken, displayMedia?.kind, displayMedia?.assetId]);
+
+  useEffect(() => {
+    return startRemoteCommandsLoop({
+      apiBase: API,
+      getToken: () => deviceToken ?? localStorage.getItem('device_token'),
+      captureFallback: () =>
+        drawStageToJpegBlob(
+          displayMedia?.kind ?? null,
+          imageRef.current,
+          videoRef.current,
+          0.72
+        ),
+    });
+  }, [deviceToken, displayMedia?.kind]);
 
   async function onPair(e: FormEvent) {
     e.preventDefault();
