@@ -8,6 +8,7 @@ import {
   rebootOs,
   restartPlayer,
 } from './remote-commands';
+import { isKioskModeEnabled, RendererWatchdog } from './watchdog';
 
 /** Mesma UI do web-player (Vite). Ex.: `WEB_PLAYER_URL=http://localhost:5173 pnpm exec electron .` */
 function playerUrl(): string {
@@ -15,18 +16,48 @@ function playerUrl(): string {
 }
 
 const rtspBridge = new RtspBridgeMain();
+const kioskMode = isKioskModeEnabled();
 let mainWindow: BrowserWindow | null = null;
+
+/**
+ * PR 5.12 — watchdog do renderer. Um mini PC de sinalização normalmente não tem
+ * alguém a olhar para o ecrã; se o renderer travar, o player deve recuperar-se
+ * sozinho (recriar a janela) em vez de ficar preto indefinidamente.
+ */
+const watchdog = new RendererWatchdog({
+  reload: () => mainWindow?.reload(),
+  recreateWindow: () => {
+    mainWindow?.destroy();
+    createWindow();
+  },
+  log: (message) => console.error(message),
+});
 
 function createWindow() {
   const win = new BrowserWindow({
     width: 1280,
     height: 720,
+    fullscreen: kioskMode,
+    kiosk: kioskMode,
+    autoHideMenuBar: kioskMode,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
     },
   });
   win.loadURL(playerUrl());
   mainWindow = win;
+
+  win.webContents.on('render-process-gone', (_event, details) => {
+    watchdog.handleRendererGone(details.reason);
+  });
+  win.webContents.on('unresponsive', () => {
+    watchdog.handleUnresponsive();
+  });
+  win.webContents.on('did-fail-load', (_event, errorCode, errorDescription) => {
+    if (errorCode === -3) return; // ERR_ABORTED — navegação cancelada (ex.: open_url seguido de outro loadURL)
+    watchdog.handleLoadFailed(errorDescription, () => win.loadURL(playerUrl()));
+  });
+
   win.on('closed', () => {
     if (mainWindow === win) mainWindow = null;
   });

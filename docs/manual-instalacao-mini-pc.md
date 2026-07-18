@@ -135,4 +135,107 @@ Logs: `docker compose logs -f api`
 
 ---
 
-*Ver também `docs/planejamento-distribuicao-licenciamento.md`.*
+## 8. Player Electron em modo kiosk (mini PC dedicado à tela)
+
+Aplica-se ao mini PC que fica **ligado à TV/monitor** a correr o `apps/electron-player`
+(distinto do mini PC "servidor" das secções 2–3, embora possam ser a mesma máquina
+numa instalação pequena).
+
+### 8.1 Modo kiosk
+
+Por padrão o player arranca em **kiosk fullscreen** (sem barra de menu, sem chrome de
+janela) — ver `apps/electron-player/src/main/main.ts`. Para desativar durante
+desenvolvimento (útil para abrir o DevTools, redimensionar, etc.):
+
+```bash
+# Windows (PowerShell)
+$env:EASYSIGNAGE_KIOSK = "0"; pnpm --filter @easysignage/electron-player exec electron .
+
+# Linux/macOS
+EASYSIGNAGE_KIOSK=0 pnpm --filter @easysignage/electron-player exec electron .
+```
+
+### 8.2 Watchdog (recuperação automática)
+
+O processo principal (`watchdog.ts`) fica atento ao renderer:
+
+| Evento | Ação automática |
+|--------|------------------|
+| `render-process-gone` (crash/OOM/kill) | Destrói a janela e recria do zero |
+| `unresponsive` (loop bloqueante) | Recarrega a página na mesma janela |
+| `did-fail-load` (ex.: API/web-player ainda não arrancaram) | Nova tentativa de `loadURL` após 3s |
+
+Se ocorrerem 5+ crashes em 60s, é registado um aviso de "possível crash loop" nos
+logs (`stderr` do processo Electron) — útil para diagnosticar hardware com problema
+recorrente (ex.: driver de GPU instável) sem deixar o player preso.
+
+### 8.3 Arranque automático (autostart)
+
+**Windows** — atalho na pasta de arranque do utilizador:
+
+1. Crie um atalho para o executável empacotado (ou para
+   `pnpm --filter @easysignage/electron-player exec electron .` dentro de um `.bat`,
+   em builds a partir do código-fonte).
+2. Pressione `Win+R`, digite `shell:startup` e Enter.
+3. Cole o atalho nessa pasta — vai arrancar automaticamente no login do Windows.
+4. Configure o Windows para **login automático** (`netplwiz` → desmarcar "Os
+   utilizadores devem digitar um nome de utilizador e senha") para não depender de
+   interação humana após um reboot (ex.: após o comando remoto `reboot_os`).
+
+**Linux** — serviço `systemd --user` (recomendado, reinicia se o processo morrer,
+complementando o watchdog interno):
+
+```ini
+# ~/.config/systemd/user/easysignage-player.service
+[Unit]
+Description=EasySignage Player (kiosk)
+After=graphical-session.target
+
+[Service]
+ExecStart=/usr/bin/easysignage-player   # ou o caminho do binário empacotado
+Restart=always
+RestartSec=3
+Environment=WEB_PLAYER_URL=http://localhost:3010
+
+[Install]
+WantedBy=graphical-session.target
+```
+
+```bash
+systemctl --user enable --now easysignage-player.service
+loginctl enable-linger "$USER"   # mantém o serviço --user ativo mesmo sem login gráfico completo
+```
+
+Configure também **autologin** no gestor de display (LightDM/GDM) para o mini PC
+entrar direto na sessão gráfica após reboot.
+
+### 8.4 Teste manual de crash simulado
+
+1. Arranque o player normalmente (kiosk ou não).
+2. Force o crash do renderer a partir do DevTools (`Ctrl+Shift+I` com kiosk
+   desativado) executando `process.crash()` na consola, **ou** termine o processo
+   filho do renderer no Gestor de Tarefas/`kill` (procure por um processo
+   `electron` adicional — o renderer corre em processo separado do main).
+3. **Esperado:** a janela deve reaparecer automaticamente em 1–2s (recriada pelo
+   watchdog), sem precisar reiniciar a aplicação inteira.
+4. Confirme no terminal onde o Electron foi lançado a mensagem
+   `[watchdog] renderer terminou (...) — a recriar janela`.
+5. Repita 5+ vezes rapidamente para validar o aviso de "possível crash loop" no
+   log — não deve travar nem parar de tentar recuperar.
+
+### Checklist de validação (kiosk + autostart)
+
+- [ ] Player arranca em fullscreen sem chrome de janela (kiosk).
+- [ ] `EASYSIGNAGE_KIOSK=0` desativa o kiosk (útil em DEV).
+- [ ] Crash simulado do renderer é recuperado automaticamente (sem tela preta
+      permanente).
+- [ ] Reboot completo do mini PC (autologin + autostart) resulta no player a
+      exibir conteúdo sem qualquer interação humana.
+- [ ] Comando remoto `restart_player` (PR 5.11) funciona mesmo com autostart
+      configurado (o processo relançado é redetetado pelo `systemd`/pasta de
+      arranque, não gera duplicação de janelas).
+
+---
+
+*Ver também `docs/planejamento-distribuicao-licenciamento.md` e
+`docs/teste-producao.md` (testes manuais de RTSP e comandos remotos).*
