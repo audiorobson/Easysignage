@@ -124,4 +124,69 @@ Usa `deploy/keys/staging-private.pem` (não commitada).
 
 ---
 
+## Teste manual — RTSP nativo no Electron player (Fase 5.C, PR 5.10)
+
+O bridge RTSP (`apps/electron-player/src/main/rtsp-bridge.ts` + `ffmpeg-rtsp.ts`) tem
+cobertura unitária (`pnpm --filter @easysignage/electron-player test`, com `ffmpeg`
+mockado), mas o remux real com um stream RTSP verdadeiro só pode ser validado
+manualmente — este é o "teste manual documentado" previsto no plano.
+
+### Pré-requisitos
+
+- `ffmpeg` no `PATH` (ou definir `FFMPEG_PATH=/caminho/para/ffmpeg`).
+- API + CMS + web-player em execução (`pnpm dev` na raiz, ou os três serviços
+  individualmente: `pnpm --filter @easysignage/api dev`,
+  `pnpm --filter @easysignage/cms dev`, `pnpm --filter @easysignage/web-player dev`).
+- Um stream RTSP acessível — uma câmara IP na rede local, ou um stream público de
+  teste (ex.: gerar um em https://rtsp.stream/, gratuito, para testes pontuais).
+
+### Passos
+
+1. **Criar a fonte RTSP no CMS.** Biblioteca → filtro "Streams RTSP" → "Nova fonte
+   RTSP". Preencha `rtsp://…` (ex.: o stream de teste do rtsp.stream) e grave.
+   Requer plano com a feature `rtsp` ativa (Standard/Elite; ver `LicenseFeatureBanner`
+   na própria página se estiver bloqueado).
+2. **Publicar no device de teste.** Dispositivos → escolha (ou crie) um device →
+   atribua o asset RTSP como conteúdo de teste (`PATCH /devices/:id/test-content`,
+   já exposto na tela do device) ou adicione-o a uma playlist publicada.
+3. **Compilar e correr o Electron player.**
+
+   ```bash
+   pnpm --filter @easysignage/electron-player build
+   WEB_PLAYER_URL=http://localhost:3010 pnpm --filter @easysignage/electron-player exec electron .
+   ```
+
+   (Ajuste a porta se o `web-player` estiver a correr noutra — o script `dev` do
+   `web-player` usa `3010` por padrão.)
+4. **Parear o device** no ecrã que abrir (ou usar um device já pareado, reutilizando
+   o token gravado). O player deve carregar o `web-player` dentro da janela Electron.
+5. Quando o item RTSP entrar em exibição, o `RtspStreamView` chama
+   `window.easysignage.rtsp.play(url, videoElement)` → o preload pede ao processo
+   main (`ipcRenderer.invoke('rtsp:start', url)`) para abrir um stream → o main
+   regista o URL e devolve `http://127.0.0.1:<porta>/rtsp/<id>` → o `<video>` aponta
+   para esse URL local.
+6. **Verificar:**
+   - O vídeo deve começar a tocar em poucos segundos (tempo de arranque do ffmpeg
+     + primeiro keyframe). Sem áudio (o remux descarta a faixa de áudio — `-an`).
+   - Na consola onde o Electron foi lançado, **não deve haver** stack traces do
+     `ffmpeg` (erros são filtrados com `-loglevel error`; se o stream falhar, o
+     `<video>` fica em estado `unsupported`/`error`, visível no overlay do
+     `RtspStreamView`).
+   - Trocar de item na playlist (ou remover o conteúdo) deve terminar o processo
+     `ffmpeg` — confirmar com `ps aux | grep ffmpeg` (Linux/macOS) ou o Gestor de
+     Tarefas (Windows) que não sobra processo órfão.
+   - Fechar a janela Electron (`window-all-closed` → `before-quit`) deve encerrar
+     todos os processos `ffmpeg` e o servidor HTTP local.
+
+### Limitações conhecidas
+
+- `-c:v copy` não re-encoda vídeo: se a câmara enviar um codec que o Chromium não
+  suporta nativamente (ex.: MJPEG bruto, H.265 em builds sem suporte), o `<video>`
+  fica em `error`. Nesse caso, um encode explícito (`-c:v libx264`) seria o próximo
+  passo — fora do escopo deste PR, ficou registado como possível iteração futura.
+- Streams RTSP sobre UDP instáveis podem cortar a ligação; o wrapper usa
+  `-rtsp_transport tcp` para reduzir esse risco.
+
+---
+
 *Ver também `docs/manual-instalacao-mini-pc.md` e `deploy/keys/README.md`.*

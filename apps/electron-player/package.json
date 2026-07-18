@@ -6,6 +6,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.main.json && tsc -p tsconfig.preload.json",
     "dev": "echo \"Electron dev: configurar electron + vite renderer na próxima iteração\"",
+    "test": "vitest run",
     "lint": "echo \"lint pending\""
   },
   "dependencies": {
@@ -13,7 +14,9 @@
     "@easysignage/shared-types": "workspace:*"
   },
   "devDependencies": {
+    "@types/node": "^22.10.2",
     "electron": "^33.3.1",
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
   }
 }
