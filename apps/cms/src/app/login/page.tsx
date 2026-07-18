@@ -183,7 +183,7 @@ export default function LoginPage() {
             window.location.href = `${API_BASE}/auth/sso/${encodeURIComponent(tenantSlug.trim())}/login`;
           }}
         >
-          Entrar com SSO (OIDC)
+          Continuar com SSO (OIDC)
         </button>
       </form>
     </main>
