@@ -383,3 +383,38 @@ externo.
   tela de alertas do CMS).
 - O segredo do webhook é armazenado em texto simples na base de dados
   (mascarado apenas na UI); tratar o acesso à base de dados como sensível.
+
+## Teste manual — 2FA/TOTP no login do CMS (Fase 6, PR 6.3)
+
+O fluxo completo (setup → confirmação → login com desafio → desativação) tem
+cobertura unitária completa (`apps/api/src/auth/totp.spec.ts`,
+`apps/api/src/auth/auth.service.spec.ts`, `apps/api/src/auth/jwt.strategy.spec.ts`).
+Falta apenas validar manualmente a experiência ponta-a-ponta com uma app de
+autenticação real (Google Authenticator, Authy, 1Password…), por isso não
+há E2E Playwright automatizado para esta PR — evita também ativar 2FA na
+conta `admin@demo.local` partilhada por todas as outras specs de E2E.
+
+### Passos
+
+1. Faça login normalmente no CMS e abra `/settings/security`.
+2. Clique em "Ativar 2FA" — a tela mostra um QR code e a chave manual
+   (`otpauth://totp/EasySignage:<email>?secret=...`).
+3. Digitalize o QR code com a app de autenticação (ou introduza a chave
+   manualmente) e introduza o código de 6 dígitos gerado para confirmar.
+4. A tela deve passar a mostrar "2FA ativado". Faça logout.
+5. Faça login novamente com o mesmo tenant/e-mail/palavra-passe — em vez de
+   entrar directamente, o CMS deve pedir o código de verificação (ecrã
+   "Verificação em duas etapas").
+6. Introduza o código atual da app de autenticação — deve entrar
+   normalmente no dashboard.
+7. Volte a `/settings/security` e desative o 2FA introduzindo um código
+   válido — confirme que o próximo login já não pede o código.
+
+### Limitações conhecidas
+
+- Não há códigos de recuperação (*backup codes*): se o utilizador perder o
+  dispositivo com a app de autenticação, só um administrador com acesso
+  direto à base de dados pode repor `totp_enabled = false` manualmente.
+- Não há SSO/2FA obrigatório por política de tenant nesta PR — a ativação é
+  por utilizador, de forma voluntária (a aplicação obrigatória por tenant
+  fica coberta em conjunto com a PR 6.4, de SSO).

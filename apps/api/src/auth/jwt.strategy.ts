@@ -9,6 +9,8 @@ type JwtPayload = {
   tenantId: string;
   email: string;
   permissions?: string[];
+  /** Presente apenas em tokens de desafio de 2FA — nunca válidos como Bearer normal. */
+  purpose?: string;
 };
 
 @Injectable()
@@ -26,7 +28,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
   }
 
   validate(payload: JwtPayload): JwtUser {
-    if (!payload.sub || !payload.tenantId) {
+    if (!payload.sub || !payload.tenantId || payload.purpose) {
       throw new UnauthorizedException();
     }
     return {
