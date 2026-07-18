@@ -40,6 +40,17 @@ function computeMonitoringBorder(
   return 'online';
 }
 
+export interface UptimeHistoryPoint {
+  /** Data (UTC) no formato `YYYY-MM-DD`. */
+  date: string;
+  /** % de devices do tenant com pelo menos um heartbeat nesse dia (0–100, 1 decimal). */
+  onlinePct: number;
+}
+
+function dayKey(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
 type ParsedPlayback = {
   playlistId?: string;
   playlistNameFromTelemetry?: string;
@@ -241,6 +252,54 @@ export class TelemetryService {
         hasPreview: Boolean(d.state?.previewSnapshotKey),
       };
     });
+  }
+
+  /**
+   * Histórico de disponibilidade da rede (PR 5.17 — substitui o array
+   * `DEMO_UPTIME` fixo no dashboard do CMS). Para cada dia dos últimos
+   * `days`, calcula `deviceCount / totalDevices` a partir de heartbeats
+   * distintos por device em `heartbeats` — uma aproximação real e simples
+   * de "% de players que estiveram online naquele dia", sem depender de
+   * telemetria minuto-a-minuto.
+   */
+  async uptimeHistory(
+    tenantId: string,
+    days = 24
+  ): Promise<UptimeHistoryPoint[]> {
+    const clampedDays = Math.min(Math.max(1, Math.floor(days) || 24), 90);
+    const totalDevices = await this.prisma.device.count({ where: { tenantId } });
+
+    const since = new Date();
+    since.setUTCHours(0, 0, 0, 0);
+    since.setUTCDate(since.getUTCDate() - (clampedDays - 1));
+
+    const byDay = new Map<string, number>();
+    if (totalDevices > 0) {
+      const rows = await this.prisma.$queryRaw<
+        { day: Date; deviceCount: bigint }[]
+      >`SELECT date_trunc('day', received_at) AS day, COUNT(DISTINCT device_id) AS "deviceCount"
+        FROM heartbeats
+        WHERE tenant_id = ${tenantId}::uuid AND received_at >= ${since}
+        GROUP BY 1
+        ORDER BY 1`;
+      for (const r of rows) {
+        byDay.set(dayKey(new Date(r.day)), Number(r.deviceCount));
+      }
+    }
+
+    const points: UptimeHistoryPoint[] = [];
+    for (let i = 0; i < clampedDays; i++) {
+      const d = new Date(since);
+      d.setUTCDate(d.getUTCDate() + i);
+      const key = dayKey(d);
+      const seenDevices = Math.min(byDay.get(key) ?? 0, totalDevices);
+      const onlinePct =
+        totalDevices > 0
+          ? Math.round((seenDevices / totalDevices) * 1000) / 10
+          : 0;
+      points.push({ date: key, onlinePct });
+    }
+    return points;
   }
 
   async getDeviceSnapshot(tenantId: string, deviceId: string) {

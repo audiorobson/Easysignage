@@ -42,6 +42,15 @@ export class MonitoringController {
     return this.telemetry.overviewForTenant(user.tenantId);
   }
 
+  /** Histórico de disponibilidade da rede (PR 5.17) — alimenta o gráfico do dashboard. */
+  @Get('uptime-history')
+  @RequirePermissions(P.MONITORING_READ)
+  uptimeHistory(@CurrentUser() user: JwtUser, @Query('days') daysStr?: string) {
+    const n = daysStr ? parseInt(daysStr, 10) : 24;
+    const days = Number.isFinite(n) ? n : 24;
+    return this.telemetry.uptimeHistory(user.tenantId, days);
+  }
+
   @Get('devices/:deviceId/preview')
   @Header('Cache-Control', 'private, no-store, must-revalidate')
   @RequirePermissions(P.MONITORING_READ)

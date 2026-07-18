@@ -23,12 +23,15 @@ import {
   type DashboardData,
   type OverviewRow,
 } from '@/lib/dashboard-overview';
+import {
+  buildChart,
+  buildDonut,
+  uptimeSeriesFromHistory,
+  type UptimeHistoryPoint,
+} from '@/lib/dashboard-charts';
 import type { BadgeTone } from '@/lib/device-labels';
 
-const DEMO_UPTIME = [
-  99.2, 99.4, 98.9, 99.6, 99.8, 99.1, 98.4, 97.9, 98.6, 99.2, 99.7, 99.9, 99.5,
-  99.3, 98.8, 99.0, 99.4, 99.6, 99.2, 98.7, 99.1, 99.5, 99.8, 99.6,
-];
+const UPTIME_HISTORY_DAYS = 24;
 
 const KPI_ICON: Record<string, React.ReactNode> = {
   monitor: <MonitorPlay size={20} strokeWidth={1.9} />,
@@ -56,36 +59,10 @@ const LIST_ICON_BG: Record<BadgeTone, [string, string]> = {
   neutral: ['#f1f5f9', '#64748b'],
 };
 
-function buildChart(pts: number[]) {
-  const W = 560;
-  const H = 180;
-  const mn = 97;
-  const mx = 100;
-  const x = (i: number) => i * (W / (pts.length - 1));
-  const y = (v: number) => H - ((v - mn) / (mx - mn)) * H + 8;
-  let d = `M0 ${y(pts[0]).toFixed(1)}`;
-  pts.forEach((v, i) => {
-    if (i > 0) d += ` L${x(i).toFixed(1)} ${y(v).toFixed(1)}`;
-  });
-  return { line: d, area: `${d} L${W} ${H + 8} L0 ${H + 8} Z` };
-}
-
-function buildDonut(seg: { val: number }[]) {
-  const total = seg.reduce((a, b) => a + b.val, 0) || 1;
-  const circ = 2 * Math.PI * 54;
-  let acc = 0;
-  return seg.map((s) => {
-    const frac = s.val / total;
-    const dash = `${(frac * circ).toFixed(2)} ${circ.toFixed(2)}`;
-    const off = (-acc * circ).toFixed(2);
-    acc += frac;
-    return { dash, off };
-  });
-}
-
 export default function DashboardPage() {
   const router = useRouter();
   const [data, setData] = useState<DashboardData | null>(null);
+  const [uptimeHistory, setUptimeHistory] = useState<UptimeHistoryPoint[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -99,8 +76,16 @@ export default function DashboardPage() {
       try {
         setLoading(true);
         setError(null);
-        const rows = await api<OverviewRow[]>('/monitoring/overview');
-        if (!cancelled) setData(buildDashboardFromOverview(rows));
+        const [rows, history] = await Promise.all([
+          api<OverviewRow[]>('/monitoring/overview'),
+          api<UptimeHistoryPoint[]>(
+            `/monitoring/uptime-history?days=${UPTIME_HISTORY_DAYS}`
+          ).catch(() => [] as UptimeHistoryPoint[]),
+        ]);
+        if (!cancelled) {
+          setData(buildDashboardFromOverview(rows));
+          setUptimeHistory(history);
+        }
       } catch (e) {
         if (!cancelled) {
           setError(e instanceof Error ? e.message : 'Erro ao carregar dados');
@@ -115,7 +100,7 @@ export default function DashboardPage() {
     };
   }, [router]);
 
-  const chart = buildChart(DEMO_UPTIME);
+  const chart = buildChart(uptimeSeriesFromHistory(uptimeHistory));
   const dash = data ?? buildDashboardFromOverview([]);
   const donutPaths = buildDonut(dash.donut);
 
@@ -181,7 +166,9 @@ export default function DashboardPage() {
             <div>
               <h3 className="panel__title">Disponibilidade da rede</h3>
               <p className="text-muted" style={{ margin: '4px 0 0' }}>
-                Histórico ilustrativo — telemetria agregada em breve
+                {uptimeHistory.length > 0
+                  ? `Últimos ${uptimeHistory.length} dias — % de players com heartbeat por dia`
+                  : 'Sem heartbeats registados no período'}
               </p>
             </div>
             <div style={{ textAlign: 'right' }}>
