@@ -13,8 +13,32 @@ concurrency:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: easysignage
+          POSTGRES_PASSWORD: easysignage_dev
+          POSTGRES_DB: easysignage
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     env:
       DATABASE_URL: postgresql://easysignage:easysignage_dev@localhost:5432/easysignage
+      REDIS_URL: redis://localhost:6379
       JWT_SECRET: ci-jwt-secret-not-for-production
       NEXT_PUBLIC_API_URL: http://localhost:3001/api/v1
     steps:
@@ -34,6 +58,9 @@ jobs:
 
       - name: Generate Prisma Client
         run: pnpm --filter @easysignage/api exec prisma generate
+
+      - name: Apply migrations
+        run: pnpm --filter @easysignage/api exec prisma migrate deploy
 
       - name: Test
         run: pnpm test

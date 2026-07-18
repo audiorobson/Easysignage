@@ -1,0 +1,86 @@
+name: E2E
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: easysignage
+          POSTGRES_PASSWORD: easysignage_dev
+          POSTGRES_DB: easysignage
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://easysignage:easysignage_dev@localhost:5432/easysignage
+      JWT_SECRET: ci-jwt-secret-not-for-production
+      NEXT_PUBLIC_API_URL: http://localhost:3001/api/v1
+      API_URL: http://localhost:3001/api/v1
+      CMS_URL: http://localhost:3000
+      CORS_ORIGINS: http://localhost:3000,http://localhost:3010
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        run: pnpm --filter @easysignage/e2e exec playwright install --with-deps chromium
+
+      - name: Generate Prisma Client + build packages
+        run: |
+          pnpm --filter @easysignage/api exec prisma generate
+          pnpm --filter @easysignage/shared-types build
+          pnpm --filter @easysignage/license-core build
+          pnpm --filter @easysignage/device-protocol build
+
+      - name: Apply migrations + seed
+        run: |
+          pnpm --filter @easysignage/api exec prisma migrate deploy
+          pnpm --filter @easysignage/api exec prisma db seed
+
+      - name: Start API (background)
+        run: pnpm --filter @easysignage/api build && pnpm --filter @easysignage/api start &
+
+      - name: Start CMS (background)
+        run: pnpm --filter @easysignage/cms build && pnpm --filter @easysignage/cms start &
+
+      - name: Wait for API and CMS
+        run: |
+          npx wait-on http://localhost:3001/api/v1/health http://localhost:3000/login -t 120000
+
+      - name: Run Playwright smoke tests
+        run: pnpm --filter @easysignage/e2e test
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: apps/e2e/playwright-report/
+          retention-days: 7

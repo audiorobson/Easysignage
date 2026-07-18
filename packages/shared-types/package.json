@@ -16,9 +16,14 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "dev": "tsc -p tsconfig.json --watch",
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js --config jest.config.cjs",
     "lint": "echo \"lint pending\""
   },
   "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "@types/node": "^22.10.2",
+    "jest": "^30.3.0",
+    "ts-jest": "^29.4.9",
     "typescript": "^5.7.2"
   }
 }

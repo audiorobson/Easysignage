@@ -25,3 +25,7 @@ deploy/server-box/config/hardware.id
 deploy/server-box/config/license.key
 deploy/server-box/config/license-public.pem
 dist/release
+apps/e2e/test-results
+apps/e2e/playwright-report
+apps/e2e/blob-report
+apps/e2e/playwright/.cache
