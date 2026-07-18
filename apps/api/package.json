@@ -10,7 +10,9 @@
     "test": "jest --config jest.config.cjs",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
-    "prisma:seed": "tsx prisma/seed.ts"
+    "prisma:seed": "tsx prisma/seed.ts",
+    "export:openapi": "node dist/scripts/export-openapi.js",
+    "export:openapi:dev": "npm run build && node dist/scripts/export-openapi.js"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

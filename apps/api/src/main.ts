@@ -7,8 +7,9 @@ import {
   FastifyAdapter,
   NestFastifyApplication,
 } from '@nestjs/platform-fastify';
-import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
+import { buildSwaggerConfig } from './openapi';
 import multipart from '@fastify/multipart';
 
 /** CORS: use CORS_ORIGINS no .env (lista separada por vírgula). */
@@ -55,33 +56,7 @@ async function bootstrap() {
 
   /** OpenAPI (§19.0.1 roadmap): desativar em produção com `SWAGGER=0`. */
   if (process.env.SWAGGER !== '0') {
-    const swaggerConfig = new DocumentBuilder()
-      .setTitle('EasySignage API')
-      .setDescription(
-        'REST do CMS (JWT), rotas públicas de pareamento e API do player (Bearer de device). ' +
-          'Especificação evolutiva — alinhar com `digital_signage_arquitetura_roadmap.md`.'
-      )
-      .setVersion('1.0')
-      .addBearerAuth(
-        { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
-        'access-token'
-      )
-      .addBearerAuth(
-        { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
-        'device-token'
-      )
-      .addTag('auth', 'Login e sessão')
-      .addTag('sites', 'Espaços (sites)')
-      .addTag('devices', 'Dispositivos / publicação / pareamento')
-      .addTag('assets', 'Biblioteca de média')
-      .addTag('playlists', 'Playlists')
-      .addTag('groups', 'Grupos de dispositivos')
-      .addTag('public', 'Pareamento público (sem JWT de utilizador)')
-      .addTag('device', 'Player autenticado (token de device)')
-      .addTag('health', 'Saúde do serviço')
-      .build();
-
-    const document = SwaggerModule.createDocument(app, swaggerConfig);
+    const document = SwaggerModule.createDocument(app, buildSwaggerConfig());
     SwaggerModule.setup('docs', app, document, {
       swaggerOptions: { persistAuthorization: true },
       jsonDocumentUrl: '/openapi.json',

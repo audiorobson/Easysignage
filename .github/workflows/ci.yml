@@ -78,3 +78,27 @@ jobs:
 
       - name: Test license-core
         run: pnpm --filter @easysignage/license-core test
+
+      - name: Export OpenAPI
+        # PR 6.1 — gera contracts/openapi/openapi.json a partir do Swagger real
+        # (@nestjs/swagger); o próprio script valida a estrutura do documento
+        # (openapi/info/paths/securitySchemes) e falha o build se algo quebrar.
+        run: pnpm --filter @easysignage/api export:openapi
+
+      - name: Verify OpenAPI is up to date
+        # contracts/openapi/openapi.json é versionado (contrato público consultável
+        # sem precisar de CI); esta verificação garante que ninguém alterou uma rota
+        # sem regenerar o ficheiro publicado.
+        run: |
+          if ! git diff --quiet -- contracts/openapi/openapi.json; then
+            echo "::error::contracts/openapi/openapi.json está desatualizado. Rode 'pnpm --filter @easysignage/api export:openapi' e faça commit do resultado."
+            git diff -- contracts/openapi/openapi.json
+            exit 1
+          fi
+
+      - name: Upload OpenAPI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: openapi-spec
+          path: contracts/openapi/openapi.json
+          retention-days: 30
