@@ -41,6 +41,7 @@ model Tenant {
   playbackLogs          PlaybackLog[]
   deviceLayouts         DeviceLayout[]
   videoWalls            VideoWall[]
+  auditLogs             AuditLog[]
 
   @@map("tenants")
 }
@@ -640,4 +641,35 @@ model LicenseState {
   updatedAt      DateTime  @updatedAt @map("updated_at")
 
   @@map("license_state")
+}
+
+/**
+ * Trilha de auditoria (Fase 6, PR 6.2) — gravada por um interceptor Nest global
+ * em toda mutação (POST/PUT/PATCH/DELETE) feita por um utilizador autenticado do
+ * CMS. `requestJson`/`responseJson` funcionam como o par "antes/depois": o corpo
+ * pedido pelo actor e o estado resultante devolvido pela API (campos sensíveis
+ * são mascarados antes de gravar — ver `sanitizeForAudit`).
+ */
+model AuditLog {
+  id           String   @id @default(uuid()) @db.Uuid
+  tenantId     String   @map("tenant_id") @db.Uuid
+  actorUserId  String?  @map("actor_user_id") @db.Uuid
+  actorEmail   String?  @map("actor_email")
+  method       String
+  entityType   String   @map("entity_type")
+  entityId     String?  @map("entity_id")
+  statusCode   Int      @map("status_code")
+  success      Boolean
+  requestJson  Json?    @map("request_json")
+  responseJson Json?    @map("response_json")
+  ip           String?
+  userAgent    String?  @map("user_agent")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, createdAt(sort: Desc)])
+  @@index([tenantId, entityType, createdAt(sort: Desc)])
+  @@index([tenantId, actorUserId, createdAt(sort: Desc)])
+  @@map("audit_logs")
 }

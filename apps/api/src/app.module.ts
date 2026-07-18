@@ -21,6 +21,7 @@ import { LicenseModule } from './license/license.module';
 import { ReleasesModule } from './releases/releases.module';
 import { QueueModule } from './queue/queue.module';
 import { SettingsModule } from './settings/settings.module';
+import { AuditModule } from './audit/audit.module';
 
 @Module({
   imports: [
@@ -45,6 +46,7 @@ import { SettingsModule } from './settings/settings.module';
     DeviceApiModule,
     ReleasesModule,
     SettingsModule,
+    AuditModule,
   ],
   controllers: [HealthController],
 })

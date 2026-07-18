@@ -3038,6 +3038,44 @@
           }
         ]
       }
+    },
+    "/audit-logs": {
+      "get": {
+        "operationId": "AuditLogController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "audit"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/audit-logs/entity-types": {
+      "get": {
+        "operationId": "AuditLogController_entityTypes",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "audit"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
     }
   },
   "info": {

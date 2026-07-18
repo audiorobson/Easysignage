@@ -45,7 +45,7 @@ const NAV_CONTEUDO: NavItem[] = [
 ];
 
 const NAV_SISTEMA: NavItem[] = [
-  { href: '/settings', label: 'Configurações', Icon: Settings, soon: true },
+  { href: '/settings', label: 'Configurações', Icon: Settings },
 ];
 
 function isActive(href: string, pathname: string): boolean {

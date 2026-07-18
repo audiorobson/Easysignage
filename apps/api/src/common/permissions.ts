@@ -22,6 +22,7 @@ export const P = {
   SETTINGS_WRITE: 'settings.write',
   MONITORING_READ: 'monitoring.read',
   MONITORING_WRITE: 'monitoring.write',
+  AUDIT_READ: 'audit.read',
 } as const;
 
 export type Permission = (typeof P)[keyof typeof P] | '*';

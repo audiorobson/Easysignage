@@ -2,7 +2,8 @@
 
 import { type FormEvent, useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Bell, Copy, KeyRound, RefreshCw } from 'lucide-react';
+import Link from 'next/link';
+import { Bell, Copy, KeyRound, RefreshCw, ShieldCheck } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { tierLabelPt, featureLabelPt, type LicenseTier, type LicenseFeature } from '@easysignage/license-core/browser';
 import { api, getToken } from '@/lib/api';
@@ -149,6 +150,32 @@ export default function SettingsPage() {
           </button>
         }
       />
+
+      <section
+        className="surface-table-card"
+        style={{
+          padding: '1.1rem 1.25rem',
+          marginBottom: 'var(--space-5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 12,
+          flexWrap: 'wrap',
+        }}
+      >
+        <div>
+          <h3 className="panel__title" style={{ display: 'flex', alignItems: 'center', gap: 8, margin: 0 }}>
+            <ShieldCheck size={17} strokeWidth={1.9} aria-hidden />
+            Auditoria
+          </h3>
+          <p className="text-muted" style={{ margin: '4px 0 0' }}>
+            Quem criou, editou ou removeu o quê, e quando — no CMS.
+          </p>
+        </div>
+        <Link href="/settings/audit" className="btn btn--ghost">
+          Ver trilha de auditoria
+        </Link>
+      </section>
 
       {error && <p className="text-danger">{error}</p>}
       {loading && !status && <p className="text-muted">A carregar…</p>}
