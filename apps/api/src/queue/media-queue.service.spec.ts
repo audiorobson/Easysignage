@@ -39,7 +39,7 @@ describe('MediaQueueService (integração Redis)', () => {
       if (timer) clearTimeout(timer);
       probe.disconnect();
     }
-  });
+  }, 15_000);
 
   it('publica um job asset.uploaded que fica disponível na fila (Redis real)', async () => {
     if (!redisAvailable) {

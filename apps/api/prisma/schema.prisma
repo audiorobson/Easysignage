@@ -55,6 +55,18 @@ model Asset {
   status     String   @default("ready")
   createdAt  DateTime @default(now()) @map("created_at")
 
+  /**
+   * Metadados extraídos de forma síncrona (upload) e/ou reprocessados pelo
+   * `apps/media-worker` via fila `asset.uploaded` (PR 5.15). `processedAt`
+   * marca a última vez que o worker confirmou/atualizou estes campos.
+   */
+  width       Int?      @map("width_px")
+  height      Int?      @map("height_px")
+  durationMs  Int?      @map("duration_ms")
+  videoCodec  String?   @map("video_codec")
+  audioCodec  String?   @map("audio_codec")
+  processedAt DateTime? @map("processed_at")
+
   tenant         Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   playlistItems PlaylistItem[]
   siteCovers    Site[]    @relation("SiteCoverAsset")

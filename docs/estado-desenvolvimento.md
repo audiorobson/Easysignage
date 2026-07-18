@@ -101,8 +101,8 @@ O próprio roadmap, em **§19** (início da secção), aponta para **este fichei
 | `apps/web-player` | Vite: playback multi-zona, wall tile, captura de preview. |
 | `apps/realtime-gateway` | WebSocket: rooms por parede, `wall.sync`/`wall.tick`, broadcast interno. |
 | `apps/electron-player` | Esqueleto. |
-| `apps/media-worker` | Placeholder (thumbnails/transcode — Fase 2+). |
-| `docker-compose.yml` | Postgres + API + CMS. |
+| `apps/media-worker` | Worker BullMQ/Redis: consome `asset.uploaded`, gera miniatura (sharp/ffmpeg) e extrai metadados (dimensões, duração, codecs) — PR 5.15. Transcode/normalização ainda pendente (PR 5.16). |
+| `docker-compose.yml` | Postgres + Redis + API + media-worker + CMS. |
 
 ---
 

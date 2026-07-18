@@ -12,6 +12,11 @@ services:
       context: ../..
       dockerfile: docker/api.Dockerfile
 
+  media-worker:
+    build:
+      context: ../..
+      dockerfile: docker/media-worker.Dockerfile
+
   cms:
     build:
       context: ../..

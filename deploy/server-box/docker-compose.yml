@@ -77,6 +77,21 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  media-worker:
+    image: ${EASYSIGNAGE_MEDIA_WORKER_IMAGE:-easysignage-media-worker:local}
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-easysignage}:${POSTGRES_PASSWORD:-changeme}@postgres:5432/${POSTGRES_DB:-easysignage}
+      REDIS_URL: redis://redis:6379
+      STORAGE_ROOT: /app/uploads
+    volumes:
+      - ./data/uploads:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
   cms:
     image: ${EASYSIGNAGE_CMS_IMAGE:-easysignage-cms:local}
     ports:

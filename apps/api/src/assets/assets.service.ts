@@ -29,6 +29,24 @@ import { MediaQueueService } from '../queue/media-queue.service';
 import { CreateAssetDto } from './dto/create-asset.dto';
 import { UpdateAssetDto } from './dto/update-asset.dto';
 
+const ASSET_SELECT = {
+  id: true,
+  name: true,
+  kind: true,
+  mimeType: true,
+  remoteUrl: true,
+  thumbnailKey: true,
+  fileSize: true,
+  status: true,
+  width: true,
+  height: true,
+  durationMs: true,
+  videoCodec: true,
+  audioCodec: true,
+  processedAt: true,
+  createdAt: true,
+} as const;
+
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 const MAX_FILE_BYTES = Math.min(
   Number(process.env.ASSET_MAX_BYTES) || 100 * 1024 * 1024,
@@ -58,17 +76,7 @@ export class AssetsService {
         ...(kindFilter?.trim() ? { kind: kindFilter.trim() } : {}),
       },
       orderBy: { createdAt: 'desc' },
-      select: {
-        id: true,
-        name: true,
-        kind: true,
-        mimeType: true,
-        remoteUrl: true,
-        thumbnailKey: true,
-        fileSize: true,
-        status: true,
-        createdAt: true,
-      },
+      select: ASSET_SELECT,
     });
     return rows.map((r) => ({
       ...r,
@@ -160,17 +168,7 @@ export class AssetsService {
         fileSize: 0n,
         status: 'ready',
       },
-      select: {
-        id: true,
-        name: true,
-        kind: true,
-        mimeType: true,
-        remoteUrl: true,
-        thumbnailKey: true,
-        fileSize: true,
-        status: true,
-        createdAt: true,
-      },
+      select: ASSET_SELECT,
     });
     return { ...asset, fileSize: asset.fileSize.toString() };
   }
@@ -229,8 +227,13 @@ export class AssetsService {
     await writeFile(this.absPath(storageKey), buf);
 
     let thumbnailKey: string | null = null;
+    let width: number | null = null;
+    let height: number | null = null;
     if (kind === 'image') {
       thumbnailKey = await this.tryWriteImageThumbnail(tenantId, id, buf);
+      const dims = await this.tryReadImageDimensions(buf);
+      width = dims?.width ?? null;
+      height = dims?.height ?? null;
     } else if (kind === 'video') {
       thumbnailKey = await this.tryWriteVideoThumbnail(
         tenantId,
@@ -251,18 +254,10 @@ export class AssetsService {
         thumbnailKey,
         fileSize: BigInt(buf.length),
         status: 'ready',
+        width,
+        height,
       },
-      select: {
-        id: true,
-        name: true,
-        kind: true,
-        mimeType: true,
-        remoteUrl: true,
-        thumbnailKey: true,
-        fileSize: true,
-        status: true,
-        createdAt: true,
-      },
+      select: ASSET_SELECT,
     });
 
     if (kind === 'image' || kind === 'video') {
@@ -277,6 +272,19 @@ export class AssetsService {
     }
 
     return { ...asset, fileSize: asset.fileSize.toString() };
+  }
+
+  /** Largura/altura em pixels; falha silenciosa (ex.: SVG sem viewBox). */
+  private async tryReadImageDimensions(
+    buf: Buffer
+  ): Promise<{ width: number; height: number } | null> {
+    try {
+      const meta = await sharp(buf).metadata();
+      if (!meta.width || !meta.height) return null;
+      return { width: meta.width, height: meta.height };
+    } catch {
+      return null;
+    }
   }
 
   /** JPEG ~320px para pré-visualização CMS; falha silenciosa (SVG, corruptos). */
@@ -390,17 +398,7 @@ export class AssetsService {
         ...(hasName ? { name: dto.name!.trim() } : {}),
         ...(remoteUrl !== undefined ? { remoteUrl } : {}),
       },
-      select: {
-        id: true,
-        name: true,
-        kind: true,
-        mimeType: true,
-        remoteUrl: true,
-        thumbnailKey: true,
-        fileSize: true,
-        status: true,
-        createdAt: true,
-      },
+      select: ASSET_SELECT,
     });
     return { ...updated, fileSize: updated.fileSize.toString() };
   }

@@ -28,6 +28,9 @@ jobs:
           - name: realtime-gateway
             dockerfile: docker/realtime-gateway.Dockerfile
             image: easysignage-realtime-gateway
+          - name: media-worker
+            dockerfile: docker/media-worker.Dockerfile
+            image: easysignage-media-worker
     steps:
       - uses: actions/checkout@v4
 

@@ -49,8 +49,26 @@ services:
       RT_GATEWAY_URL: http://realtime-gateway:3020
       RT_INTERNAL_SECRET: ${RT_INTERNAL_SECRET:-dev-rt-secret}
       REDIS_URL: redis://redis:6379
+      STORAGE_ROOT: /app/uploads
     volumes:
       - ./config:/config:ro
+      - easysignage_uploads:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  media-worker:
+    build:
+      context: .
+      dockerfile: docker/media-worker.Dockerfile
+    environment:
+      DATABASE_URL: postgresql://easysignage:easysignage_dev@postgres:5432/easysignage
+      REDIS_URL: redis://redis:6379
+      STORAGE_ROOT: /app/uploads
+    volumes:
+      - easysignage_uploads:/app/uploads
     depends_on:
       postgres:
         condition: service_healthy
@@ -85,3 +103,4 @@ services:
 
 volumes:
   easysignage_pg:
+  easysignage_uploads:

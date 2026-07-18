@@ -18,7 +18,6 @@
 # Apps não usados nas imagens actuais
 apps/web-player
 apps/electron-player
-apps/media-worker
 
 # Testes e artefactos
 coverage
