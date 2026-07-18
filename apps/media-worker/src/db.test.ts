@@ -40,6 +40,8 @@ describe('updateAssetMetadata', () => {
       durationMs: 12345,
       videoCodec: 'h264',
       audioCodec: 'aac',
+      storageKey: 't1/a1_normalized.mp4',
+      mimeType: 'video/mp4',
     });
 
     expect(db.query).toHaveBeenCalledWith(expect.stringContaining('UPDATE assets'), [
@@ -50,16 +52,20 @@ describe('updateAssetMetadata', () => {
       12345,
       'h264',
       'aac',
+      't1/a1_normalized.mp4',
+      'video/mp4',
     ]);
   });
 
-  it('usa null para campos omitidos (COALESCE preserva thumbnail existente)', async () => {
+  it('usa null para campos omitidos (COALESCE preserva thumbnail/storage existentes)', async () => {
     const db = fakeDb();
 
     await updateAssetMetadata(db, 'a2', {});
 
     expect(db.query).toHaveBeenCalledWith(expect.any(String), [
       'a2',
+      null,
+      null,
       null,
       null,
       null,

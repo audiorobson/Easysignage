@@ -22,6 +22,8 @@ type AssetRow = {
   thumbnailKey?: string | null;
   fileSize: string;
   status: string;
+  /** `true` enquanto o media-worker ainda não confirmou thumbnail/metadata (PR 5.16). */
+  processing?: boolean;
   createdAt: string;
 };
 
@@ -76,6 +78,7 @@ export default function AssetsPage() {
     const q = kindFilter ? `?kind=${encodeURIComponent(kindFilter)}` : '';
     const data = await api<AssetRow[]>(`/assets${q}`);
     setItems(data);
+    return data;
   }, [kindFilter]);
 
   useEffect(() => {
@@ -96,6 +99,19 @@ export default function AssetsPage() {
       cancelled = true;
     };
   }, [router, load]);
+
+  // PR 5.16: enquanto houver asset a aguardar thumbnail/normalização pelo
+  // media-worker, sondar a lista periodicamente para refletir a conclusão
+  // sem exigir refresh manual da página.
+  useEffect(() => {
+    if (!items?.some((a) => a.processing)) return;
+    const timer = window.setInterval(() => {
+      load().catch(() => {
+        /** ignora erro de sondagem em background */
+      });
+    }, 4000);
+    return () => window.clearInterval(timer);
+  }, [items, load]);
 
   function openCreateUrlModal() {
     setUrlModalMode('create');
@@ -345,6 +361,22 @@ export default function AssetsPage() {
                   <td>{a.name}</td>
                   <td>
                     <code>{kindLabel(a.kind)}</code>
+                    {a.processing && (
+                      <span
+                        className="text-muted"
+                        title="O media-worker ainda está a gerar a miniatura e/ou a normalizar este ficheiro"
+                        style={{
+                          display: 'inline-block',
+                          marginLeft: 8,
+                          fontSize: '0.75rem',
+                          padding: '1px 8px',
+                          borderRadius: 999,
+                          border: '1px solid var(--color-border, #e2e8f0)',
+                        }}
+                      >
+                        A processar…
+                      </span>
+                    )}
                   </td>
                   <td>
                     {a.remoteUrl ? (

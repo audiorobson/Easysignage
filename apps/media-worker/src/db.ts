@@ -39,12 +39,16 @@ export interface AssetProcessingResult {
   durationMs?: number | null;
   videoCodec?: string | null;
   audioCodec?: string | null;
+  /** Definidos apenas quando o vídeo foi normalizado (PR 5.16) — novo ficheiro MP4. */
+  storageKey?: string | null;
+  mimeType?: string | null;
 }
 
 /**
- * `thumbnailKey` usa COALESCE: quando o worker não conseguiu gerar uma nova
- * miniatura (ex.: ffmpeg indisponível), preserva a miniatura síncrona já
- * gravada pela API no upload em vez de apagá-la.
+ * `thumbnailKey`/`storageKey`/`mimeType` usam COALESCE: quando o worker não
+ * gerou um novo valor (ex.: ffmpeg indisponível, ou vídeo já no formato
+ * recomendado), preserva o valor síncrono já gravado pela API no upload em
+ * vez de apagá-lo.
  */
 export async function updateAssetMetadata(
   db: QueryClient,
@@ -59,6 +63,8 @@ export async function updateAssetMetadata(
        duration_ms = $5,
        video_codec = $6,
        audio_codec = $7,
+       storage_key = COALESCE($8, storage_key),
+       mime_type = COALESCE($9, mime_type),
        processed_at = now()
      WHERE id = $1`,
     [
@@ -69,6 +75,8 @@ export async function updateAssetMetadata(
       result.durationMs ?? null,
       result.videoCodec ?? null,
       result.audioCodec ?? null,
+      result.storageKey ?? null,
+      result.mimeType ?? null,
     ]
   );
 }

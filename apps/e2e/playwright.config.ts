@@ -35,5 +35,12 @@ export default defineConfig({
         baseURL: process.env.CMS_URL ?? 'http://localhost:3000',
       },
     },
+    {
+      name: 'cms-assets',
+      testMatch: /assets-smoke\.spec\.ts/,
+      use: {
+        baseURL: process.env.CMS_URL ?? 'http://localhost:3000',
+      },
+    },
   ],
 });

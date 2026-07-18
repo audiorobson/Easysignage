@@ -53,6 +53,29 @@ const MAX_FILE_BYTES = Math.min(
   500 * 1024 * 1024
 );
 
+type AssetSelectResult = {
+  fileSize: bigint;
+  kind: string;
+  processedAt: Date | null;
+  [key: string]: unknown;
+};
+
+/**
+ * Serializa `fileSize` (BigInt) e deriva `processing`: `true` enquanto o
+ * `apps/media-worker` (fila `asset.uploaded`, PR 5.14+) ainda não confirmou
+ * o processamento de um asset de imagem/vídeo — usado pelo CMS para exibir
+ * um indicador de "a processar" em `/assets` até a miniatura/normalização
+ * assíncrona terminar. Assets de outros tipos (URL, RTSP, PDF…) nunca
+ * entram na fila e por isso nunca aparecem como "a processar".
+ */
+function presentAsset<T extends AssetSelectResult>(
+  asset: T
+): Omit<T, 'fileSize'> & { fileSize: string; processing: boolean } {
+  const processing =
+    (asset.kind === 'image' || asset.kind === 'video') && asset.processedAt === null;
+  return { ...asset, fileSize: asset.fileSize.toString(), processing };
+}
+
 @Injectable()
 export class AssetsService {
   constructor(
@@ -78,10 +101,7 @@ export class AssetsService {
       orderBy: { createdAt: 'desc' },
       select: ASSET_SELECT,
     });
-    return rows.map((r) => ({
-      ...r,
-      fileSize: r.fileSize.toString(),
-    }));
+    return rows.map((r) => presentAsset(r));
   }
 
   async create(tenantId: string, dto: CreateAssetDto) {
@@ -170,7 +190,7 @@ export class AssetsService {
       },
       select: ASSET_SELECT,
     });
-    return { ...asset, fileSize: asset.fileSize.toString() };
+    return presentAsset(asset);
   }
 
   private async createFromBase64(
@@ -271,7 +291,7 @@ export class AssetsService {
       });
     }
 
-    return { ...asset, fileSize: asset.fileSize.toString() };
+    return presentAsset(asset);
   }
 
   /** Largura/altura em pixels; falha silenciosa (ex.: SVG sem viewBox). */
@@ -400,7 +420,7 @@ export class AssetsService {
       },
       select: ASSET_SELECT,
     });
-    return { ...updated, fileSize: updated.fileSize.toString() };
+    return presentAsset(updated);
   }
 
   async remove(tenantId: string, assetId: string) {

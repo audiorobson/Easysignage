@@ -292,3 +292,45 @@ ambiente de testes (ver Fase 10, PR 10.4).
   deteção/decisão de update.
 - Sem UI no CMS para gerir `update_channel` por device nem para publicar releases
   — por agora é só API (`POST /releases`, `GET /releases`).
+
+## Teste manual — normalização de vídeo no media-worker (Fase 5.D, PR 5.16)
+
+O detetor de formato (`needsNormalization`) e o comando `ffmpeg` de
+recodificação têm cobertura unitária completa
+(`apps/media-worker/src/normalization.test.ts`); a miniatura real exibida em
+`/assets` (em vez do ícone de placeholder) tem cobertura Playwright
+(`apps/e2e/tests/assets-smoke.spec.ts`). Falta apenas validar manualmente a
+recodificação em si com um `ffmpeg` real instalado.
+
+### Passos
+
+1. Suba `postgres` + `redis` (`pnpm docker:compose` ou equivalente) e o
+   `apps/media-worker` com `ffmpeg` instalado no `PATH` (`ffmpeg -version`).
+2. Faça upload de um vídeo fora do formato recomendado — ex. um `.webm`
+   (VP9/Opus) ou um `.mov` com HEVC — pela biblioteca de assets no CMS.
+3. **Verificar no log do `media-worker`:** o job `asset.uploaded` é
+   consumido, o detetor identifica o formato como fora do padrão e o
+   `ffmpeg` é invocado com `-c:v libx264 -c:a aac -movflags +faststart`.
+4. **Verificar no banco:** `SELECT storage_key, mime_type, video_codec,
+   audio_codec, processed_at FROM assets WHERE id = '...'` deve mostrar
+   `mime_type = 'video/mp4'`, `video_codec = 'h264'`, `audio_codec = 'aac'`
+   (ou `NULL` se o vídeo original não tinha áudio) e `processed_at`
+   preenchido. O ficheiro original é removido do storage após a
+   recodificação bem-sucedida.
+5. **Verificar na UI:** em `/assets`, o badge "A processar…" (visível
+   enquanto `processed_at` é `NULL`) desaparece depois do worker concluir, e
+   a pré-visualização mostra a miniatura extraída do vídeo já normalizado.
+6. Repita o upload com um `.mp4` já em H.264/AAC — o log deve indicar que a
+   normalização foi ignorada (formato já recomendado) e apenas a miniatura é
+   (re)gerada.
+
+### Limitações conhecidas
+
+- Sem `ffmpeg` no `PATH` do `media-worker`, a normalização falha
+  silenciosamente e o asset mantém o ficheiro original — o pipeline síncrono
+  da API (upload) já cobre a miniatura na maioria dos casos, mas o vídeo
+  fica sem ser recodificado até haver `ffmpeg` disponível num reprocessamento
+  futuro.
+- Vídeos muito longos/grandes podem exceder o timeout de recodificação
+  configurado (5 min) — o worker regista a falha e preserva o ficheiro
+  original em vez de travar a fila.
