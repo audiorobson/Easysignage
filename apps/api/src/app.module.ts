@@ -19,11 +19,13 @@ import { CampaignsModule } from './campaigns/campaigns.module';
 import { AlertsModule } from './alerts/alerts.module';
 import { LicenseModule } from './license/license.module';
 import { ReleasesModule } from './releases/releases.module';
+import { QueueModule } from './queue/queue.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     PrismaModule,
+    QueueModule,
     LicenseModule,
     RealtimeModule,
     AuthModule,

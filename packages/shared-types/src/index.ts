@@ -145,6 +145,12 @@ export {
 } from './playback-log.js';
 
 export {
+  MEDIA_QUEUE_NAME,
+  ASSET_UPLOADED_JOB,
+  type AssetUploadedJobData,
+} from './media-queue.js';
+
+export {
   SOFTWARE_RELEASE_CHANNELS,
   type SoftwareReleaseChannel,
   type SoftwareReleaseSummary,

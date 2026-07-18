@@ -9,7 +9,10 @@
     "start": "node dist/index.js",
     "lint": "echo \"lint pending\""
   },
-  "dependencies": {},
+  "dependencies": {
+    "bullmq": "^5.80.8",
+    "ioredis": "^5.11.1"
+  },
   "devDependencies": {
     "@types/node": "^22.10.2",
     "tsx": "^4.19.2",

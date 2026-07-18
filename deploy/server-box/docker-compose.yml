@@ -24,6 +24,17 @@ services:
       retries: 10
     restart: unless-stopped
 
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - ./data/redis:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
   realtime-gateway:
     image: ${EASYSIGNAGE_RT_IMAGE:-easysignage-realtime-gateway:local}
     ports:
@@ -55,11 +66,14 @@ services:
       EASYSIGNAGE_LICENSE_FILE: /config/license.key
       LICENSE_PUBLIC_KEY_FILE: /config/license-public.pem
       STORAGE_ROOT: /app/uploads
+      REDIS_URL: redis://redis:6379
     volumes:
       - ./data/uploads:/app/uploads
       - ./config:/config:ro
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     restart: unless-stopped
 

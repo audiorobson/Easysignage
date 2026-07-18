@@ -25,6 +25,7 @@ import {
 } from '@easysignage/shared-types';
 import { PrismaService } from '../prisma/prisma.service';
 import { LicenseService } from '../license/license.service';
+import { MediaQueueService } from '../queue/media-queue.service';
 import { CreateAssetDto } from './dto/create-asset.dto';
 import { UpdateAssetDto } from './dto/update-asset.dto';
 
@@ -38,7 +39,8 @@ const MAX_FILE_BYTES = Math.min(
 export class AssetsService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly license: LicenseService
+    private readonly license: LicenseService,
+    private readonly mediaQueue: MediaQueueService
   ) {}
 
   private storageRoot(): string {
@@ -262,6 +264,17 @@ export class AssetsService {
         createdAt: true,
       },
     });
+
+    if (kind === 'image' || kind === 'video') {
+      // Best-effort: o worker assíncrono (PR 5.15+) reprocessa thumbnail/metadata;
+      // até lá (ou se o Redis estiver indisponível), o pipeline síncrono acima
+      // já cobre o caso comum.
+      void this.mediaQueue.publishAssetUploaded({
+        tenantId,
+        assetId: asset.id,
+        kind,
+      });
+    }
 
     return { ...asset, fileSize: asset.fileSize.toString() };
   }

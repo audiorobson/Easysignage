@@ -38,6 +38,7 @@ Monorepo **pnpm + Turbo** com API NestJS, CMS Next.js, web player (Vite/React) e
 - Node.js 22+
 - pnpm 9.15+
 - PostgreSQL 16 (local, Docker ou remoto)
+- Redis 7 (opcional em dev — fila de jobs de mídia; sem ele, a API só regista um aviso e usa o processamento síncrono existente)
 
 ### Instalação
 
@@ -75,7 +76,7 @@ pnpm exec prisma db seed
 pnpm dev          # API + CMS + web-player (Turbo)
 pnpm build        # Compilar todos os pacotes
 pnpm test         # Testes (API)
-pnpm docker:compose   # Stack Docker (Postgres + API + CMS)
+pnpm docker:compose   # Stack Docker (Postgres + Redis + API + CMS)
 ```
 
 | URL | Descrição |
