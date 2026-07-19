@@ -24,6 +24,12 @@ conduzir o piloto preencher esta matriz com resultados reais por device.
 
 ### Próximos passos recomendados antes de um piloto
 
+0. **Bloqueador confirmado em hardware real (jul/2026)**: `apps/web-player` (e o CMS) não
+   rodam em motores anteriores ao Chrome 61 (~2017) porque dependem de
+   `<script type="module">` nativo — ver "Notas da validação real" da seção webOS abaixo.
+   Antes de qualquer piloto, decidir explicitamente entre (a) restringir o piloto a
+   TVs/boxes com motor Chrome 61+/webOS 4.0+ equivalente, ou (b) investir em
+   `@vitejs/plugin-legacy` + validar se React 19 funciona no motor alvo.
 1. Obter ao menos um device físico por plataforma (ou emulador oficial onde aplicável:
    LG webOS TV Simulator, Tizen TV Emulator, Android TV emulator/Chromecast with Google TV
    real, Fire TV Stick de baixo custo) e atualizar cada seção desta matriz.
@@ -102,13 +108,34 @@ implementa `ares-novacom --getkey`), estão documentados em `apps/webos-player/R
   mostra o `apps/web-player` carregado (tela preta = idle esperado, sem conteúdo agendado
   para este device ainda não pareado no CMS) e o painel de debug on-screen confirmando o
   evento `webOSLaunch` recebido com o `playerUrl` correto, sem erros de console.
-- **Achado relevante para o roadmap (não é bug do player)**: a mesma TV real usa um motor
-  `Chrome/53.0.2785.34` (~2016). O CMS (Next.js 15/React 19) não conseguiu hidratar nesse
-  motor (ficou preso no HTML estático inicial, sem erro capturável via DevTools remoto) —
-  esperado, já que o CMS não é destinado a rodar no player. O `apps/web-player`
-  (Vite + React 19, sem SSR) carregou e renderizou normalmente na mesma TV. Se hardware
-  desta geração precisar ser suportado oficialmente, `apps/web-player` provavelmente vai
-  precisar de um alvo de build mais conservador (ver aviso em `apps/webos-player/README.md`).
+- **Achado crítico para o roadmap — `apps/web-player` também não roda nesta TV (motor
+  pré-2017)**: a mesma TV real usa um motor `Chrome/53.0.2785.34` (~2016). Primeiro
+  suspeitou-se que só o CMS (Next.js/React 19, SSR) falhava — mas uma investigação mais
+  funda revelou a causa raiz exata e ela também bloqueia o `apps/web-player`:
+  - `document.createElement('script').noModule` retorna `false` nesta TV → o motor **não
+    reconhece `<script type="module">`** (recurso só existe a partir do Chrome 61,
+    set/2017). Navegadores que não reconhecem `type="module"` simplesmente **ignoram o
+    script por completo**, sem disparar nenhum erro (`window.onerror` fica vazio,
+    `document.readyState` chega a `"complete"` normalmente).
+  - O servidor de desenvolvimento do Vite (`apps/web-player`) **sempre** serve o app via
+    ESM nativo (`<script type="module" src="/src/main.tsx">`) — isso é intrínseco à
+    arquitetura de dev do Vite, não há flag para desativar. Confirmado via CDP: o
+    `<div id="root">` fica permanentemente vazio, zero requisições de rede para
+    `src/main.tsx`/chunks, zero erros de console — o app React nunca chega a executar
+    uma linha de JS.
+  - Pareamento (`POST /public/devices/pair`) e atribuição de playlist foram validados
+    **diretamente pela API** (simulando o que o player faria) e funcionam corretamente —
+    o dispositivo fica `active` com a playlist publicada. O que falha é exclusivamente a
+    *renderização visual* nesta TV específica, não a lógica de pareamento/CMS.
+  - **Implicação**: qualquer TV/box com motor anterior ao Chrome 61 (~2017) não vai
+    conseguir rodar `apps/web-player` (nem o CMS) enquanto servido via Vite dev — e mesmo
+    um build de produção (`vite build`) usa `type="module"` por padrão. Suportar esta
+    classe de hardware oficialmente exigiria configurar
+    [`@vitejs/plugin-legacy`](https://github.com/vitejs/vite/tree/main/packages/plugin-legacy)
+    (bundle `nomodule` transpilado + polyfills) — **não avaliado ainda** se isso é
+    suficiente, já que React 19 em si também pode depender de APIs de runtime não
+    presentes em engines tão antigos (independente de sintaxe/módulos). Tratar como item
+    de risco residual explícito antes de qualquer piloto que inclua TVs desta geração.
 
 ## Tizen (Samsung) — `apps/tizen-player`
 
