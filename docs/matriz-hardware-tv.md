@@ -10,10 +10,10 @@
 
 | Plataforma | Fonte entregue | Testes automatizados | Build/empacotamento | Hardware físico validado |
 |---|---|---|---|---|
-| Android TV | ✅ | ✅ (JUnit) | ✅ local + CI | ❌ |
+| Android TV | ✅ | ✅ (JUnit) | ✅ local + CI | ✅ Emulador oficial (jul/2026) — ver seção dedicada |
 | webOS (LG) | ✅ | ✅ (`node --test`) | ✅ local + CI (`.ipk`) | ⚠️ Parcial (jul/2026) — ver seção dedicada |
 | Tizen (Samsung) | ✅ | ✅ (`node --test`) | ⚠️ condicional a secrets (`.wgt`) | ❌ |
-| Fire TV (Amazon) | ✅ | ✅ (JUnit, reaproveita Android TV) | ✅ local + CI | ❌ |
+| Fire TV (Amazon) | ✅ | ✅ (JUnit, reaproveita Android TV) | ✅ local + CI | ❌ (fix de cleartext herdado do Android TV, não testado em device Fire TV real) |
 
 **Conclusão da fase:** as quatro plataformas têm wrapper de kiosk + bridge JS
 implementados e testados unitariamente, com build/empacotamento automatizado (exceto
@@ -64,7 +64,37 @@ teste real). Atualize esta tabela sempre que:
 | `take_screenshot` | ⚠️ Limitação conhecida | `View.draw(Canvas)` não captura o `SurfaceView` do RTSP quando visível |
 | Auto-update nativo | ❌ Não implementado | Bridge expõe stub (`window.easysignage.updater`); lógica de download/instalação de APK é trabalho futuro |
 | Autostart no boot | 📝 Documentado, não testado | Ver `docs/manual-instalacao-mini-pc.md` (seção Electron); Android TV requer `RECEIVE_BOOT_COMPLETED` + `BroadcastReceiver` — ainda não implementado neste módulo |
-| Hardware físico testado | ❌ Nenhum ainda | Pendente: pelo menos um device físico (ex.: Chromecast with Google TV, NVIDIA Shield, TV box genérico com Android TV/AOSP) antes de piloto |
+| Hardware físico testado | ⚠️ Só emulador oficial (jul/2026) | Ver "Notas da validação real" abaixo. Ainda pendente: device físico (ex.: Chromecast with Google TV, NVIDIA Shield, TV box genérico) antes de piloto |
+
+### Notas da validação real (jul/2026) — emulador Android TV
+
+Validado num **emulador Android TV genuíno** (`system-images;android-34;android-tv;x86`,
+não um emulador de telefone/tablet genérico), criado via `avdmanager`/`emulator` do Android
+SDK Command-line Tools. Fluxo completo testado via `adb`: instalação do `app-debug.apk`,
+lançamento, pareamento **através da UI real** (toque + teclado virtual na tela `CÓDIGO`,
+não via API direta) e confirmação de reprodução de playlist (badge "Sincronizado" visível,
+item "dee — 3/3" em exibição). Screenshots capturados via `adb exec-out screencap` (nota:
+usar `adb shell screencap` + `adb pull`, não pipe direto no PowerShell — `>` corrompe
+binário por usar encoding UTF-16 por padrão).
+
+Dois bugs reais só apareceram neste teste em runtime (invisíveis a `assembleDebug`/testes
+unitários) e foram corrigidos:
+
+- **`net::ERR_CLEARTEXT_NOT_PERMITTED`**: a partir da API 28, o Android bloqueia por
+  padrão qualquer WebView carregar HTTP em texto plano. Como instalações self-hosted
+  (`deploy/server-box`) frequentemente rodam sem TLS na LAN, isso quebraria o kiosk em
+  qualquer deploy assim. Corrigido com `android:usesCleartextTraffic="true"` +
+  `res/xml/network_security_config.xml` no manifest — aplicado também ao
+  `apps/firetv-player` (mesma base, mesmo gap), ainda não validado em device Fire TV real.
+- **CORS da API**: `CORS_ORIGINS` no `.env` só continha `localhost`/`127.0.0.1`; o WebView
+  do emulador acede à API pelo IP de LAN do host. É configuração de ambiente (cada deploy
+  real já precisa configurar `CORS_ORIGINS` com o domínio do CMS/player), não um bug de
+  código do player — mas é fácil de esquecer e o erro (`Failed to fetch`, sem detalhe de
+  CORS na própria WebView) é difícil de diagnosticar sem inspecionar a rede.
+
+**Não testado ainda mesmo no emulador**: RTSP nativo (sem stream RTSP disponível no
+ambiente de teste), `reboot_os`/`take_screenshot`/autostart no boot, sessão de longa
+duração (>24h), controlo remoto físico (D-pad) — só toque e teclado virtual foram usados.
 
 ## webOS (LG) — `apps/webos-player`
 
@@ -151,7 +181,7 @@ implementa `ares-novacom --getkey`), estão documentados em `apps/webos-player/R
 
 | Item | Estado | Notas |
 |---|---|---|
-| Base | ✅ Reaproveita `apps/androidtv-player` | Mesmo bridge Kotlin/Media3 (`com.easysignage.firetv`); manifest ajustado por recomendação da Amazon (`android.software.leanback` `required="false"`, `faketouch` declarado) — Fire OS honra `LEANBACK_LAUNCHER` igual ao Android TV |
+| Base | ✅ Reaproveita `apps/androidtv-player` | Mesmo bridge Kotlin/Media3 (`com.easysignage.firetv`); manifest ajustado por recomendação da Amazon (`android.software.leanback` `required="false"`, `faketouch` declarado) — Fire OS honra `LEANBACK_LAUNCHER` igual ao Android TV; fix de cleartext HTTP (`network_security_config.xml`) do Android TV também aplicado aqui |
 | Build local | ✅ Validado | `gradlew testDebugUnitTest assembleDebug` — `BUILD SUCCESSFUL` |
 | Build smoke (CI) | ✅ Automatizado | `.github/workflows/firetv.yml` |
 | Hardware físico testado | ❌ Nenhum | Pendente Fire TV Stick/Cube real — Amazon Appstore tem processo de certificação próprio (Test Criteria, classificação de device support) fora do escopo deste PR; instalação direta (side-load/ADB) é suficiente para piloto |

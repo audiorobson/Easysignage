@@ -52,6 +52,23 @@ apontar para uma instância real:
 
 ou edite `gradle.properties` antes de gerar o build final de produção.
 
+## Validação em emulador Android TV real (jul/2026)
+
+Testado num emulador Android TV genuíno (`system-images;android-34;android-tv;x86`, não um
+emulador de telefone/tablet) via `avdmanager`/`emulator` do Android SDK — build instalado,
+lançado, pareado (touch + teclado virtual na tela `CÓDIGO`) e reprodução de playlist
+confirmada (badge "Sincronizado"). Dois bugs reais só apareceram neste teste em runtime (não
+detectáveis por `assembleDebug`/testes unitários) e foram corrigidos:
+
+- **`net::ERR_CLEARTEXT_NOT_PERMITTED`** — a partir da API 28 o Android bloqueia por padrão
+  qualquer WebView carregar HTTP puro. Como instalações self-hosted (`deploy/server-box`)
+  frequentemente rodam sem TLS na LAN, adicionámos `android:usesCleartextTraffic="true"` +
+  `res/xml/network_security_config.xml` (`cleartextTrafficPermitted="true"`) ao manifest.
+  Quem fizer deploy com HTTPS não é afetado.
+- CORS da API (`CORS_ORIGINS` no `.env`) só continha `localhost`/`127.0.0.1` — o WebView do
+  emulador acede à API pelo IP de LAN do host, que precisa estar na whitelist (isto é
+  configuração de ambiente, não um bug de código do player).
+
 ## Limitações conhecidas (ver `docs/matriz-hardware-tv.md`)
 
 - `reboot_os` requer a app provisionada como *device owner* via MDM — sem esse
