@@ -11,7 +11,7 @@
 | Plataforma | Fonte entregue | Testes automatizados | Build/empacotamento | Hardware físico validado |
 |---|---|---|---|---|
 | Android TV | ✅ | ✅ (JUnit) | ✅ local + CI | ❌ |
-| webOS (LG) | ✅ | ✅ (`node --test`) | ✅ local + CI (`.ipk`) | ❌ |
+| webOS (LG) | ✅ | ✅ (`node --test`) | ✅ local + CI (`.ipk`) | ⚠️ Parcial (jul/2026) — ver seção dedicada |
 | Tizen (Samsung) | ✅ | ✅ (`node --test`) | ⚠️ condicional a secrets (`.wgt`) | ❌ |
 | Fire TV (Amazon) | ✅ | ✅ (JUnit, reaproveita Android TV) | ✅ local + CI | ❌ |
 
@@ -66,9 +66,49 @@ teste real). Atualize esta tabela sempre que:
 |---|---|---|
 | Empacotamento (`ares-package`) | ✅ Validado localmente | `npm run package` gera `.ipk` real via `@webosose/ares-cli` (npm, sem SDK completo instalado); `.github/workflows/webos.yml` repete o smoke em CI |
 | Testes unitários do bridge | ✅ Validado | `node --test` sobre `command-dispatcher.js` (roteamento puro, sem DOM/webOS) |
-| App nativa (kiosk) | 📝 Fonte entregue | `index.html` + bridge JS carregando o web-player em `<iframe>` |
-| Bridge JS↔webOS | 📝 Implementado com fallback gracioso | Comandos remotos (restart/reboot) usam `webOS.service.request` (luna-service) quando `webOSTV.js` está presente; sem SDK nativo de RTSP equivalente ao ExoPlayer — depende do decoder de vídeo do próprio navegador webOS |
-| Hardware físico / simulador testado | ❌ Nenhum | Pendente TV LG real ou emulador oficial (LG webOS TV Simulator) — `.ipk` nunca foi instalado/lançado num runtime webOS real |
+| App nativa (kiosk) | ✅ Validado em TV real (jul/2026) | `index.html` + bridge JS carregando o web-player em `<iframe>`; instalado e lançado com sucesso numa LG TV real (webOS) — ver detalhes abaixo |
+| Bridge JS↔webOS | 📝 Implementado com fallback gracioso | Comandos remotos (restart/reboot) usam `webOS.service.request` (luna-service) quando `webOSTV.js` está presente; sem SDK nativo de RTSP equivalente ao ExoPlayer — depende do decoder de vídeo do próprio navegador webOS. Ainda não exercitado em device real (só a shell kiosk + parâmetro de launch foram validados) |
+| Parâmetro de launch (`playerUrl`) | ✅ Corrigido e validado em TV real (jul/2026) — 2 ciclos | `js/webos-launch.js` reescrito a partir do padrão oficial `webOS-TV-app-samples` da LG (`window.onload` → `webOSLaunch`/`webOSRelaunch`); confirmado visualmente (screenshot via CDP `Page.captureScreenshot`) que o `<iframe>` carrega e renderiza a URL correta, incluindo em relançamentos com URL diferente (app já em execução) |
+| Hardware físico / simulador testado | ⚠️ Parcial — 1 TV LG real (jul/2026) | Instalação (`ares-install`), lançamento (`ares-launch`) e renderização do `apps/web-player` real confirmados visualmente numa TV LG real via rede local. **Não testado ainda**: RTSP, `reboot_os`, `take_screenshot`, autostart no boot, sessão de longa duração. Ver "Notas da validação real" abaixo |
+
+### Notas da validação real (jul/2026)
+
+Primeira instalação em hardware físico desta fase — encontrados e corrigidos problemas
+reais em duas rodadas (2 bugs de compatibilidade no `@webosose/ares-cli` do npm, 2 bugs de
+lógica no `apps/webos-player` em si). Detalhes completos, incluindo o procedimento de
+pareamento manual (`prisoner` + chave via HTTP do Key Server, já que o CLI do npm não
+implementa `ares-novacom --getkey`), estão documentados em `apps/webos-player/README.md`.
+
+- **Pareamento SSH**: o pacote `@webosose/ares-cli` do npm não busca a chave SSH do Key
+  Server automaticamente (funcionalidade `webospro`-only, `NOT_IMPLEMENTED` no código) —
+  foi necessário buscar a chave manualmente via `GET http://<IP>:9991/webos_rsa` e
+  registá-la manualmente no `novacom-devices.json`.
+- **Bug `isDate`**: `ssh2-streams` (dependência transitiva) usa `util.isDate`, removido em
+  Node.js recente → `ares-install` falhava com `TypeError: isDate is not a function`.
+  Corrigido localmente (patch em `node_modules`, não versionado).
+- **Bug de permissão**: `ares-install` tenta `rm -rf /media/developer/temp` antes de
+  instalar; no `prisoner` sandboxed desta TV, o diretório pai não é gravável por esse
+  usuário → `Permission denied`. Corrigido removendo o `rm -rf` (mantendo só `mkdir -p`).
+- **Bug 1 no `apps/webos-player`**: `index.html` lia `?playerUrl=` da querystring, que o
+  webOS nunca preenche para apps web — corrigido para usar o evento `webOSLaunch`.
+- **Bug 2 no `apps/webos-player`** (encontrado na 2ª rodada, depois de relançar um app já
+  em execução): a `Promise` que resolvia o `playerUrl` só disparava uma vez — um
+  `webOSRelaunch` subsequente (app reativado em background, **sem reload de página**, é o
+  comportamento documentado do webOS) com um `playerUrl` diferente era ignorado. Corrigido
+  reescrevendo `js/webos-launch.js` a partir do padrão oficial `webOS-TV-app-samples` da
+  LG: listeners registados em `window.onload`, atualizando o `<iframe>` a cada evento
+  (`webOSLaunch` OU `webOSRelaunch`), não só na primeira resolução.
+- **Confirmado visualmente**: screenshot capturada via CDP (`Page.captureScreenshot`)
+  mostra o `apps/web-player` carregado (tela preta = idle esperado, sem conteúdo agendado
+  para este device ainda não pareado no CMS) e o painel de debug on-screen confirmando o
+  evento `webOSLaunch` recebido com o `playerUrl` correto, sem erros de console.
+- **Achado relevante para o roadmap (não é bug do player)**: a mesma TV real usa um motor
+  `Chrome/53.0.2785.34` (~2016). O CMS (Next.js 15/React 19) não conseguiu hidratar nesse
+  motor (ficou preso no HTML estático inicial, sem erro capturável via DevTools remoto) —
+  esperado, já que o CMS não é destinado a rodar no player. O `apps/web-player`
+  (Vite + React 19, sem SSR) carregou e renderizou normalmente na mesma TV. Se hardware
+  desta geração precisar ser suportado oficialmente, `apps/web-player` provavelmente vai
+  precisar de um alvo de build mais conservador (ver aviso em `apps/webos-player/README.md`).
 
 ## Tizen (Samsung) — `apps/tizen-player`
 

@@ -19,29 +19,45 @@
       height: 100%;
       display: block;
     }
+    #es-debug {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 9999;
+      max-height: 45%;
+      overflow: auto;
+      background: rgba(0, 0, 0, 0.85);
+      color: #4ade80;
+      font: 13px/1.5 monospace;
+      padding: 8px 12px;
+      white-space: pre-wrap;
+    }
+    #es-debug.es-debug--visible {
+      display: block;
+    }
   </style>
   <!--
     webOSTV.js é distribuído pelo SDK oficial (não redistribuível via npm) — copie o
     ficheiro do SDK instalado (`.../lib/webostv/webOSTV.js`) para esta pasta antes de
-    empacotar para produção. Sem o ficheiro, o bridge degrada graciosamente (ver README).
+    empacotar para produção. Sem o ficheiro, o bridge/launch degradam graciosamente (ver
+    README) e ficam limitados aos fallbacks de querystring.
   -->
-  <script src="webOSTV.js" onerror="console.warn('webOSTV.js ausente — funcionalidades luna-service ficam indisponíveis nesta sessão.')"></script>
+  <script src="webOSTV.js" onerror="console.warn('webOSTV.js ausente — funcionalidades luna-service/webOSDev ficam indisponíveis nesta sessão.')"></script>
   <script src="js/command-dispatcher.js"></script>
   <script src="js/webos-bridge.js"></script>
+  <script src="js/webos-launch.js"></script>
 </head>
 <body>
   <!--
     Kiosk: reaproveita o apps/web-player existente via iframe em vez de reimplementar o
-    motor de playback — mesma estratégia do Electron/Android TV. Configure a URL real via
-    query string `?playerUrl=` ou edite o valor por defeito abaixo antes de empacotar.
+    motor de playback — mesma estratégia do Electron/Android TV. A URL real é resolvida
+    em `js/webos-launch.js` a partir do parâmetro de lançamento `playerUrl`
+    (`ares-launch <id> -p "playerUrl=..."`), seguindo o padrão oficial de
+    webOSLaunch/webOSRelaunch documentado pela LG — ver README.
   -->
+  <div id="es-debug"></div>
   <iframe id="player-frame" title="EasySignage Player" allow="autoplay; fullscreen"></iframe>
-  <script>
-    (function () {
-      var params = new URLSearchParams(window.location.search);
-      var playerUrl = params.get('playerUrl') || 'https://player.easysignage.example.com';
-      document.getElementById('player-frame').src = playerUrl;
-    })();
-  </script>
 </body>
 </html>

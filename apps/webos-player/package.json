@@ -8,6 +8,6 @@
     "package": "ares-package . -o dist"
   },
   "devDependencies": {
-    "@webosose/ares-cli": "^3.1.0"
+    "@webosose/ares-cli": "^2.4.0"
   }
 }
