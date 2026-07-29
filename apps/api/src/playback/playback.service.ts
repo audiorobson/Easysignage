@@ -34,8 +34,8 @@ export class PlaybackService {
     tenantId: string,
     deviceId: string,
     events: PlaybackEventInput[]
-  ): Promise<{ accepted: number }> {
-    if (!events.length) return { accepted: 0 };
+  ): Promise<{ accepted: number; duplicates: number }> {
+    if (!events.length) return { accepted: 0, duplicates: 0 };
 
     const assetIds = [...new Set(events.map((e) => e.assetId).filter(Boolean))] as string[];
     const playlistIds = [...new Set(events.map((e) => e.playlistId).filter(Boolean))] as string[];
@@ -60,6 +60,7 @@ export class PlaybackService {
     const rows: Prisma.PlaybackLogCreateManyInput[] = events.map((e) => ({
       tenantId,
       deviceId,
+      clientEventId: e.clientEventId?.trim() || null,
       itemType: e.itemType,
       assetId: e.assetId ?? null,
       playlistId: e.playlistId ?? null,
@@ -70,8 +71,14 @@ export class PlaybackService {
       metaJson: (e.meta as Prisma.InputJsonValue | undefined) ?? undefined,
     }));
 
-    await this.prisma.playbackLog.createMany({ data: rows });
-    return { accepted: rows.length };
+    const result = await this.prisma.playbackLog.createMany({
+      data: rows,
+      skipDuplicates: true,
+    });
+    return {
+      accepted: result.count,
+      duplicates: rows.length - result.count,
+    };
   }
 
   private buildWhere(

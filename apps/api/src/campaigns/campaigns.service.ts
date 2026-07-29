@@ -16,6 +16,34 @@ import { CampaignEngineService } from './campaign-engine.service';
 import { CreateCampaignDto } from './dto/create-campaign.dto';
 import { UpdateCampaignDto } from './dto/update-campaign.dto';
 import { LicenseService } from '../license/license.service';
+import { DevicesService } from '../devices/devices.service';
+
+export type CampaignContentPayload = {
+  playlistId: string | null;
+  layoutId: string | null;
+  videoWallId: string | null;
+};
+
+function resolveContentPayload(dto: {
+  playlistId?: string | null;
+  layoutId?: string | null;
+  videoWallId?: string | null;
+}): CampaignContentPayload {
+  const hasPlaylist = dto.playlistId != null && dto.playlistId !== '';
+  const hasLayout = dto.layoutId != null && dto.layoutId !== '';
+  const hasWall = dto.videoWallId != null && dto.videoWallId !== '';
+  const modes = [hasPlaylist, hasLayout, hasWall].filter(Boolean).length;
+  if (modes !== 1) {
+    throw new BadRequestException(
+      'Informe exatamente um de: playlistId, layoutId ou videoWallId'
+    );
+  }
+  return {
+    playlistId: hasPlaylist ? dto.playlistId! : null,
+    layoutId: hasLayout ? dto.layoutId! : null,
+    videoWallId: hasWall ? dto.videoWallId! : null,
+  };
+}
 
 function assertScope(
   scope: string,
@@ -73,20 +101,39 @@ export class CampaignsService {
     private readonly prisma: PrismaService,
     private readonly campaignEngine: CampaignEngineService,
     private readonly license: LicenseService,
+    private readonly devices: DevicesService,
     @Inject(forwardRef(() => ScheduleEngineService))
     private readonly scheduleEngine: ScheduleEngineService
   ) {}
+
+  private campaignInclude() {
+    return {
+      playlist: { select: { id: true, name: true } },
+      layout: {
+        select: {
+          id: true,
+          name: true,
+          template: { select: { slug: true, name: true } },
+        },
+      },
+      videoWall: { select: { id: true, name: true } },
+      device: { select: { id: true, name: true } },
+      group: { select: { id: true, name: true } },
+      site: { select: { id: true, name: true } },
+    };
+  }
+
+  private async assertContentLicensed(content: CampaignContentPayload) {
+    if (content.videoWallId) {
+      await this.license.assertFeature('video_walls');
+    }
+  }
 
   async list(tenantId: string) {
     const rows = await this.prisma.campaign.findMany({
       where: { tenantId },
       orderBy: [{ status: 'asc' }, { priority: 'desc' }, { updatedAt: 'desc' }],
-      include: {
-        playlist: { select: { id: true, name: true } },
-        device: { select: { id: true, name: true } },
-        group: { select: { id: true, name: true } },
-        site: { select: { id: true, name: true } },
-      },
+      include: this.campaignInclude(),
     });
     return rows.map((r) => this.toRow(r));
   }
@@ -94,12 +141,7 @@ export class CampaignsService {
   async getById(tenantId: string, id: string) {
     const r = await this.prisma.campaign.findFirst({
       where: { id, tenantId },
-      include: {
-        playlist: { select: { id: true, name: true } },
-        device: { select: { id: true, name: true } },
-        group: { select: { id: true, name: true } },
-        site: { select: { id: true, name: true } },
-      },
+      include: this.campaignInclude(),
     });
     if (!r) throw new NotFoundException('Campanha não encontrada');
     return this.toRow(r);
@@ -114,7 +156,15 @@ export class CampaignsService {
     if (startAt && endAt && startAt >= endAt) {
       throw new BadRequestException('startAt deve ser anterior a endAt');
     }
-    await this.ensurePlaylist(tenantId, dto.playlistId);
+    const content = resolveContentPayload(dto);
+    await this.assertContentLicensed(content);
+    await this.ensureContentRefs(
+      tenantId,
+      content,
+      dto.scope,
+      dto.deviceId,
+      dto.groupId
+    );
     await this.ensureScopeRefs(tenantId, dto.scope, dto.deviceId, dto.groupId, dto.siteId);
 
     const row = await this.prisma.campaign.create({
@@ -122,7 +172,9 @@ export class CampaignsService {
         tenantId,
         name: dto.name.trim(),
         description: dto.description?.trim() || null,
-        playlistId: dto.playlistId,
+        playlistId: content.playlistId,
+        layoutId: content.layoutId,
+        videoWallId: content.videoWallId,
         priority: dto.priority ?? 10,
         status: 'draft',
         scope: dto.scope,
@@ -136,12 +188,7 @@ export class CampaignsService {
         endMin: dto.endMin ?? null,
         createdById: userId,
       },
-      include: {
-        playlist: { select: { id: true, name: true } },
-        device: { select: { id: true, name: true } },
-        group: { select: { id: true, name: true } },
-        site: { select: { id: true, name: true } },
-      },
+      include: this.campaignInclude(),
     });
     return this.toRow(row);
   }
@@ -167,8 +214,6 @@ export class CampaignsService {
       dto.startMin !== undefined ? dto.startMin : existing.startMin;
     const endMin = dto.endMin !== undefined ? dto.endMin : existing.endMin;
     assertTimeWindow(dayOfWeek, startMin, endMin);
-
-    if (dto.playlistId) await this.ensurePlaylist(tenantId, dto.playlistId);
     await this.ensureScopeRefs(tenantId, scope, deviceId, groupId, siteId);
 
     const startAt = parseOptionalDate(dto.startAt);
@@ -177,6 +222,32 @@ export class CampaignsService {
     const nextEnd = endAt !== undefined ? endAt : existing.endAt;
     if (nextStart && nextEnd && nextStart >= nextEnd) {
       throw new BadRequestException('startAt deve ser anterior a endAt');
+    }
+
+    const contentProvided =
+      dto.playlistId !== undefined ||
+      dto.layoutId !== undefined ||
+      dto.videoWallId !== undefined;
+    let content: CampaignContentPayload | undefined;
+    if (contentProvided) {
+      content = resolveContentPayload({
+        playlistId:
+          dto.playlistId !== undefined ? dto.playlistId : existing.playlistId,
+        layoutId:
+          dto.layoutId !== undefined ? dto.layoutId : existing.layoutId,
+        videoWallId:
+          dto.videoWallId !== undefined
+            ? dto.videoWallId
+            : existing.videoWallId,
+      });
+      await this.assertContentLicensed(content);
+      await this.ensureContentRefs(
+        tenantId,
+        content,
+        scope,
+        deviceId,
+        groupId
+      );
     }
 
     if (dto.status && !CAMPAIGN_STATUSES.includes(dto.status as never)) {
@@ -190,7 +261,13 @@ export class CampaignsService {
         ...(dto.description !== undefined
           ? { description: dto.description?.trim() || null }
           : {}),
-        ...(dto.playlistId != null ? { playlistId: dto.playlistId } : {}),
+        ...(content
+          ? {
+              playlistId: content.playlistId,
+              layoutId: content.layoutId,
+              videoWallId: content.videoWallId,
+            }
+          : {}),
         ...(dto.priority != null ? { priority: dto.priority } : {}),
         ...(dto.status != null ? { status: dto.status } : {}),
         scope,
@@ -203,12 +280,7 @@ export class CampaignsService {
         ...(dto.startMin !== undefined ? { startMin: dto.startMin } : {}),
         ...(dto.endMin !== undefined ? { endMin: dto.endMin } : {}),
       },
-      include: {
-        playlist: { select: { id: true, name: true } },
-        device: { select: { id: true, name: true } },
-        group: { select: { id: true, name: true } },
-        site: { select: { id: true, name: true } },
-      },
+      include: this.campaignInclude(),
     });
 
     await this.reapplyScope(
@@ -238,12 +310,7 @@ export class CampaignsService {
     const row = await this.prisma.campaign.update({
       where: { id },
       data: { status },
-      include: {
-        playlist: { select: { id: true, name: true } },
-        device: { select: { id: true, name: true } },
-        group: { select: { id: true, name: true } },
-        site: { select: { id: true, name: true } },
-      },
+      include: this.campaignInclude(),
     });
 
     await this.reapplyScope(
@@ -306,6 +373,59 @@ export class CampaignsService {
     }
   }
 
+  private async ensureContentRefs(
+    tenantId: string,
+    content: CampaignContentPayload,
+    scope: string,
+    deviceId?: string | null,
+    groupId?: string | null
+  ) {
+    if (content.playlistId) {
+      await this.ensurePlaylist(tenantId, content.playlistId);
+      return;
+    }
+
+    if (content.layoutId) {
+      const layout = await this.prisma.deviceLayout.findFirst({
+        where: { id: content.layoutId, tenantId },
+        select: { deviceId: true },
+      });
+      if (!layout) throw new BadRequestException('Layout inválido');
+      if (scope === 'device' && deviceId && layout.deviceId !== deviceId) {
+        throw new BadRequestException(
+          'Layout não pertence ao device alvo da campanha'
+        );
+      }
+      try {
+        await this.devices.buildLayoutCurrentItem(tenantId, content.layoutId);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : 'Layout sem conteúdo';
+        throw new BadRequestException(msg);
+      }
+      return;
+    }
+
+    if (content.videoWallId) {
+      const wall = await this.prisma.videoWall.findFirst({
+        where: { id: content.videoWallId, tenantId },
+      });
+      if (!wall) throw new BadRequestException('Video wall inválida');
+      if (!wall.playlistId) {
+        throw new BadRequestException('Video wall sem playlist definida');
+      }
+      if (scope === 'device' && deviceId) {
+        const tile = await this.prisma.videoWallTile.findFirst({
+          where: { wallId: content.videoWallId, deviceId },
+        });
+        if (!tile) {
+          throw new BadRequestException(
+            'Device não é tile desta video wall'
+          );
+        }
+      }
+    }
+  }
+
   private async ensurePlaylist(tenantId: string, playlistId: string) {
     const pl = await this.prisma.playlist.findFirst({
       where: { id: playlistId, tenantId },
@@ -345,7 +465,9 @@ export class CampaignsService {
       id: string;
       name: string;
       description: string | null;
-      playlistId: string;
+      playlistId: string | null;
+      layoutId: string | null;
+      videoWallId: string | null;
       priority: number;
       status: string;
       scope: string;
@@ -359,7 +481,13 @@ export class CampaignsService {
       endMin: number | null;
       createdAt: Date;
       updatedAt: Date;
-      playlist: { id: string; name: string };
+      playlist: { id: string; name: string } | null;
+      layout: {
+        id: string;
+        name: string | null;
+        template: { slug: string; name: string };
+      } | null;
+      videoWall: { id: string; name: string } | null;
       device: { id: string; name: string } | null;
       group: { id: string; name: string } | null;
       site: { id: string; name: string } | null;
@@ -370,12 +498,30 @@ export class CampaignsService {
     if (r.scope === 'group' && r.group) targetLabel = r.group.name;
     if (r.scope === 'site' && r.site) targetLabel = r.site.name;
 
+    let contentType: 'playlist' | 'layout' | 'video_wall' = 'playlist';
+    let contentLabel = r.playlist?.name ?? '—';
+    if (r.layoutId && r.layout) {
+      contentType = 'layout';
+      contentLabel =
+        r.layout.name?.trim() ||
+        `${r.layout.template.name} (${r.layout.template.slug})`;
+    } else if (r.videoWallId && r.videoWall) {
+      contentType = 'video_wall';
+      contentLabel = r.videoWall.name;
+    }
+
     return {
       id: r.id,
       name: r.name,
       description: r.description,
       playlistId: r.playlistId,
+      layoutId: r.layoutId,
+      videoWallId: r.videoWallId,
+      contentType,
+      contentLabel,
       playlist: r.playlist,
+      layout: r.layout,
+      videoWall: r.videoWall,
       priority: r.priority,
       status: r.status,
       statusLabel: campaignStatusLabelPt(r.status),

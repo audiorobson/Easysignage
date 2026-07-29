@@ -20,13 +20,14 @@ describe('PlaybackService.ingestBatch', () => {
 
     const result = await service.ingestBatch('tenant-1', 'device-1', []);
 
-    expect(result).toEqual({ accepted: 0 });
+    expect(result).toEqual({ accepted: 0, duplicates: 0 });
     expect(prisma.playbackLog.createMany).not.toHaveBeenCalled();
   });
 
   it('grava todos os eventos do lote com tenantId/deviceId injetados', async () => {
     const prisma = buildPrismaMock();
     prisma.asset.count.mockResolvedValue(1);
+    prisma.playbackLog.createMany.mockResolvedValue({ count: 2 });
     const service = new PlaybackService(prisma as unknown as PrismaService);
 
     const result = await service.ingestBatch('tenant-1', 'device-1', [
@@ -40,7 +41,10 @@ describe('PlaybackService.ingestBatch', () => {
       },
     ]);
 
-    expect(result).toEqual({ accepted: 2 });
+    expect(result).toEqual({ accepted: 2, duplicates: 0 });
+    expect(prisma.playbackLog.createMany).toHaveBeenCalledWith(
+      expect.objectContaining({ skipDuplicates: true })
+    );
     expect(prisma.playbackLog.createMany).toHaveBeenCalledTimes(1);
     const data = prisma.playbackLog.createMany.mock.calls[0][0].data;
     expect(data).toHaveLength(2);

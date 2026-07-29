@@ -29,6 +29,14 @@ export class UpdateCampaignDto {
   playlistId?: string;
 
   @IsOptional()
+  @IsUUID()
+  layoutId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  videoWallId?: string;
+
+  @IsOptional()
   @IsInt()
   @Min(-100)
   @Max(1000)

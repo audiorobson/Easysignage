@@ -6,6 +6,15 @@ import Link from 'next/link';
 import { ArrowLeft, ShieldCheck } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { EmptyState } from '@/components/ui/EmptyState';
+import {
+  DataTable,
+  DataTableBody,
+  DataTableCard,
+  DataTableCell,
+  DataTableHead,
+  DataTableHeaderCell,
+  DataTableRow,
+} from '@/components/ui/DataTable';
 import { api, getToken } from '@/lib/api';
 import { formatDateTimePtBr } from '@/lib/format-date';
 
@@ -181,41 +190,41 @@ export default function AuditLogPage() {
       )}
 
       {rows && rows.length > 0 && (
-        <div className="surface-table-card">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Quando</th>
-                <th>Utilizador</th>
-                <th>Ação</th>
-                <th>Área</th>
-                <th>Item</th>
-                <th>Resultado</th>
-                <th>IP</th>
-              </tr>
-            </thead>
-            <tbody>
+        <DataTableCard ariaLabel="Registos de auditoria">
+          <DataTable caption="Auditoria">
+            <DataTableHead>
+              <DataTableRow>
+                <DataTableHeaderCell>Quando</DataTableHeaderCell>
+                <DataTableHeaderCell>Utilizador</DataTableHeaderCell>
+                <DataTableHeaderCell>Ação</DataTableHeaderCell>
+                <DataTableHeaderCell>Área</DataTableHeaderCell>
+                <DataTableHeaderCell>Item</DataTableHeaderCell>
+                <DataTableHeaderCell>Resultado</DataTableHeaderCell>
+                <DataTableHeaderCell>IP</DataTableHeaderCell>
+              </DataTableRow>
+            </DataTableHead>
+            <DataTableBody>
               {rows.map((r) => (
-                <tr key={r.id}>
-                  <td className="cell-sub">{formatDateTimePtBr(r.createdAt)}</td>
-                  <td>{r.actorEmail ?? '—'}</td>
-                  <td>
+                <DataTableRow key={r.id}>
+                  <DataTableCell className="cell-sub">{formatDateTimePtBr(r.createdAt)}</DataTableCell>
+                  <DataTableCell>{r.actorEmail ?? '—'}</DataTableCell>
+                  <DataTableCell>
                     <span className="badge badge--neutral">{methodLabelPt(r.method)}</span>
-                  </td>
-                  <td>{r.entityType}</td>
-                  <td className="cell-sub">{r.entityId ?? '—'}</td>
-                  <td>
+                  </DataTableCell>
+                  <DataTableCell>{r.entityType}</DataTableCell>
+                  <DataTableCell className="cell-sub">{r.entityId ?? '—'}</DataTableCell>
+                  <DataTableCell>
                     <span className={`badge ${r.success ? 'badge--success' : 'badge--danger'}`}>
                       <ShieldCheck size={13} style={{ verticalAlign: -2, marginRight: 4 }} aria-hidden />
                       {r.statusCode}
                     </span>
-                  </td>
-                  <td className="cell-sub">{r.ip ?? '—'}</td>
-                </tr>
+                  </DataTableCell>
+                  <DataTableCell className="cell-sub">{r.ip ?? '—'}</DataTableCell>
+                </DataTableRow>
               ))}
-            </tbody>
-          </table>
-        </div>
+            </DataTableBody>
+          </DataTable>
+        </DataTableCard>
       )}
 
       {rows && rows.length > 0 && (

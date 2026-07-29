@@ -4,10 +4,14 @@ import { tierHasFeature } from '@easysignage/license-core';
 import { CAMPAIGN_CONTENT_SOURCE } from '@easysignage/shared-types';
 import { getLocalScheduleContext } from '../schedules/schedule-engine.service';
 import { LicenseService } from '../license/license.service';
+import { DevicesService } from '../devices/devices.service';
+import { VideoWallsService } from '../video-walls/video-walls.service';
 
 export type ActiveCampaignRow = {
   id: string;
-  playlistId: string;
+  playlistId: string | null;
+  layoutId: string | null;
+  videoWallId: string | null;
   priority: number;
 };
 
@@ -15,7 +19,9 @@ export type ActiveCampaignRow = {
 export class CampaignEngineService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly license: LicenseService
+    private readonly license: LicenseService,
+    private readonly devices: DevicesService,
+    private readonly videoWalls: VideoWallsService
   ) {}
 
   private timeZone(): string {
@@ -84,6 +90,8 @@ export class CampaignEngineService {
       select: {
         id: true,
         playlistId: true,
+        layoutId: true,
+        videoWallId: true,
         priority: true,
         startAt: true,
         endAt: true,
@@ -100,18 +108,61 @@ export class CampaignEngineService {
       ) {
         continue;
       }
-      return { id: c.id, playlistId: c.playlistId, priority: c.priority };
+      return {
+        id: c.id,
+        playlistId: c.playlistId,
+        layoutId: c.layoutId,
+        videoWallId: c.videoWallId,
+        priority: c.priority,
+      };
     }
     return null;
   }
 
-  buildCampaignItem(campaign: ActiveCampaignRow): Record<string, unknown> {
-    return {
-      type: 'playlist',
-      playlistId: campaign.playlistId,
-      source: CAMPAIGN_CONTENT_SOURCE,
-      campaignId: campaign.id,
-    };
+  async buildCampaignItem(
+    tenantId: string,
+    deviceId: string,
+    campaign: ActiveCampaignRow
+  ): Promise<Record<string, unknown> | null> {
+    const base = { source: CAMPAIGN_CONTENT_SOURCE, campaignId: campaign.id };
+
+    if (campaign.playlistId) {
+      return {
+        type: 'playlist',
+        playlistId: campaign.playlistId,
+        ...base,
+      };
+    }
+
+    if (campaign.layoutId) {
+      const layoutDeviceId = await this.prisma.deviceLayout.findFirst({
+        where: { id: campaign.layoutId, tenantId },
+        select: { deviceId: true },
+      });
+      if (layoutDeviceId?.deviceId !== deviceId) return null;
+      const layout = await this.devices.buildLayoutCurrentItem(
+        tenantId,
+        campaign.layoutId
+      );
+      return { ...layout, ...base };
+    }
+
+    if (campaign.videoWallId) {
+      const tier = await this.license.getCurrentTier();
+      if (!tierHasFeature(tier, 'video_walls')) return null;
+      const tile = await this.prisma.videoWallTile.findFirst({
+        where: { wallId: campaign.videoWallId, deviceId },
+      });
+      if (!tile) return null;
+      const wallItem = await this.videoWalls.buildTileCurrentItem(
+        tenantId,
+        campaign.videoWallId,
+        deviceId
+      );
+      return { ...wallItem, ...base };
+    }
+
+    return null;
   }
 
   async resolveDeviceIdsForScope(

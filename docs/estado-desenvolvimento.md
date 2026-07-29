@@ -27,14 +27,14 @@ O próprio roadmap, em **§19** (início da secção), aponta para **este fichei
 | Fase UI | Estado (jul/2026) |
 |---------|---------------------|
 | UI-0, UI-1 | **Feitos** (tokens, shell, navegação). |
-| UI-2 | **Iniciado** — `StatusBadge`, `ConnectionBadge`, `PublicationSyncBadge`, `EmptyState`, `Modal`, `PageHeader` + classes `.badge` em `globals.css`. Falta extrair Table e fechar biblioteca. |
+| UI-2 | **Concluído (jul/2026)** — `StatusBadge`, `ConnectionBadge`, `EmptyState`, `Modal`, `PageHeader`, **`DataTable`** (+ `DataTableCard`) adoptado nas listagens CMS. |
+| UI-6 | **Iniciado (jul/2026)** — skip link, `prefers-reduced-motion`/`prefers-contrast`, tabelas com `caption`/`aria-label`, branding tenant via CSS vars; falta auditoria WCAG formal e microinterações avançadas. |
 | UI-3 | **Avançado** — devices/sites/login; badges de conexão e sincronização de publicação nos devices. |
 | UI-4 | **Avançado** — assets, playlists, agendamento (grelha + lista + layout/wall), publicação no device, editor de zonas. |
 | UI-5 | **Avançado** — `/monitoring` com pré-visualização e tema NOC; `/video-walls` com saúde de sync; **`/alerts`** operacional. |
 | UI-4b | **Feito** — aba Ecrã no device (viewport, galeria de templates, fit por zona). |
 | UI-4c | **Feito** — editor visual em `/devices/:id/layout` (`LayoutZoneEditor`, snap/guias). |
 | UI-5b | **Feito** — módulo video walls (`/video-walls`, wizard, painel drift/sync live). |
-| UI-6 | **Não iniciado** |
 
 ---
 

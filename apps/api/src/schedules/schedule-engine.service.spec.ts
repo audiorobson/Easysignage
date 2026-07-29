@@ -42,12 +42,12 @@ describe('ScheduleEngineService.applyForDevice', () => {
     } as unknown as LicenseService;
     const campaignEngine = {
       findActiveCampaign: jest.fn().mockResolvedValue(overrides.campaign ?? null),
-      buildCampaignItem: jest.fn((c: { id: string; playlistId: string }) => ({
+      buildCampaignItem: jest.fn().mockResolvedValue({
         type: 'playlist',
-        playlistId: c.playlistId,
+        playlistId: 'pl-promo',
         source: 'campaign',
-        campaignId: c.id,
-      })),
+        campaignId: 'camp-1',
+      }),
     } as unknown as CampaignEngineService;
     const engine = new ScheduleEngineService(
       prisma as unknown as PrismaService,

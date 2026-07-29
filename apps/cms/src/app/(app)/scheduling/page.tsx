@@ -11,6 +11,15 @@ import {
   Trash2,
 } from 'lucide-react';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import {
+  DataTable,
+  DataTableBody,
+  DataTableCard,
+  DataTableCell,
+  DataTableHead,
+  DataTableHeaderCell,
+  DataTableRow,
+} from '@/components/ui/DataTable';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { api, getToken } from '@/lib/api';
 import { formatDateTimePtBr } from '@/lib/format-date';
@@ -287,33 +296,35 @@ export default function SchedulingPage() {
         )}
 
         {view === 'lista' && rules && (
-          <div className="surface-table-card">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Nome</th>
-                  <th>Conteúdo</th>
-                  <th>Alvo</th>
-                  <th>Dia</th>
-                  <th>Horário</th>
-                  <th>Prio</th>
-                  <th>Estado</th>
-                  <th>Atualizado</th>
-                  <th style={{ width: 1 }}>Ações</th>
-                </tr>
-              </thead>
-              <tbody>
+          <DataTableCard ariaLabel="Lista de agendamentos">
+            <DataTable caption="Regras de agendamento">
+              <DataTableHead>
+                <DataTableRow>
+                  <DataTableHeaderCell>Nome</DataTableHeaderCell>
+                  <DataTableHeaderCell>Conteúdo</DataTableHeaderCell>
+                  <DataTableHeaderCell>Alvo</DataTableHeaderCell>
+                  <DataTableHeaderCell>Dia</DataTableHeaderCell>
+                  <DataTableHeaderCell>Horário</DataTableHeaderCell>
+                  <DataTableHeaderCell>Prio</DataTableHeaderCell>
+                  <DataTableHeaderCell>Estado</DataTableHeaderCell>
+                  <DataTableHeaderCell>Atualizado</DataTableHeaderCell>
+                  <DataTableHeaderCell style={{ width: 1 }}>
+                    <span className="sr-only">Ações</span>
+                  </DataTableHeaderCell>
+                </DataTableRow>
+              </DataTableHead>
+              <DataTableBody>
                 {rules.length === 0 && (
-                  <tr>
-                    <td colSpan={9} className="text-muted">
+                  <DataTableRow>
+                    <DataTableCell colSpan={9} className="text-muted">
                       Sem regras. Crie uma para associar playlists, layouts ou video walls.
-                    </td>
-                  </tr>
+                    </DataTableCell>
+                  </DataTableRow>
                 )}
                 {rules.map((r) => (
-                  <tr key={r.id}>
-                    <td>{r.name || '—'}</td>
-                    <td>
+                  <DataTableRow key={r.id}>
+                    <DataTableCell>{r.name || '—'}</DataTableCell>
+                    <DataTableCell>
                       <span className="badge badge--neutral" style={{ marginRight: 6 }}>
                         {r.contentType === 'playlist'
                           ? 'Playlist'
@@ -326,18 +337,18 @@ export default function SchedulingPage() {
                       ) : (
                         r.contentLabel
                       )}
-                    </td>
-                    <td>{r.targetLabel}</td>
-                    <td>{isoDayLabel(r.dayOfWeek)}</td>
-                    <td>
+                    </DataTableCell>
+                    <DataTableCell>{r.targetLabel}</DataTableCell>
+                    <DataTableCell>{isoDayLabel(r.dayOfWeek)}</DataTableCell>
+                    <DataTableCell>
                       {r.startMin === 0 && r.endMin === 1440
                         ? 'Dia inteiro'
                         : `${formatMinutes(r.startMin)} – ${formatMinutes(r.endMin)}`}
-                    </td>
-                    <td>{r.priority}</td>
-                    <td>{r.enabled ? 'Ativo' : 'Inativo'}</td>
-                    <td>{formatDateTimePtBr(r.updatedAt)}</td>
-                    <td>
+                    </DataTableCell>
+                    <DataTableCell>{r.priority}</DataTableCell>
+                    <DataTableCell>{r.enabled ? 'Ativo' : 'Inativo'}</DataTableCell>
+                    <DataTableCell>{formatDateTimePtBr(r.updatedAt)}</DataTableCell>
+                    <DataTableCell>
                       <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                         <button
                           type="button"
@@ -357,12 +368,12 @@ export default function SchedulingPage() {
                           {deletingId === r.id ? '…' : <Trash2 size={17} strokeWidth={1.9} aria-hidden />}
                         </button>
                       </div>
-                    </td>
-                  </tr>
+                    </DataTableCell>
+                  </DataTableRow>
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </DataTableBody>
+            </DataTable>
+          </DataTableCard>
         )}
       </section>
 

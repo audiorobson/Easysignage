@@ -217,7 +217,14 @@ export class ScheduleEngineService {
     const nowDate = new Date();
 
     if (campaign) {
-      const scheduledItem = this.campaignEngine.buildCampaignItem(campaign);
+      const scheduledItem = await this.campaignEngine.buildCampaignItem(
+        tenantId,
+        deviceId,
+        campaign
+      );
+      if (!scheduledItem) {
+        return { applied: false, activeCampaignId: null };
+      }
       const itemJson = scheduledItem as Prisma.InputJsonValue;
       const alreadyActive =
         state?.activeCampaignId === campaign.id &&

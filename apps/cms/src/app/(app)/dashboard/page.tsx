@@ -30,6 +30,7 @@ import {
   type UptimeHistoryPoint,
 } from '@/lib/dashboard-charts';
 import type { BadgeTone } from '@/lib/device-labels';
+import { PublicationDeliveryPanel } from '@/components/PublicationDeliveryPanel';
 
 const UPTIME_HISTORY_DAYS = 24;
 
@@ -123,6 +124,10 @@ export default function DashboardPage() {
 
       {error && <p className="text-danger">{error}</p>}
       {loading && <p className="text-muted">A carregar métricas…</p>}
+
+      <div style={{ marginBottom: 'var(--space-5)' }}>
+        <PublicationDeliveryPanel compact pollMs={60_000} />
+      </div>
 
       <div className="dash-kpis">
         {dash.kpis.map((k) => {

@@ -7,6 +7,7 @@ import { Prisma } from '../generated/prisma-client';
 import { PrismaService } from '../prisma/prisma.service';
 import { WolService } from './wol.service';
 import { TelemetryBatchDto } from './dto/telemetry-batch.dto';
+import { computeExpectedContentRevision } from '../device-api/content-revision';
 
 const MAX_EVENTS_PER_BATCH = 100;
 const DEFAULT_EVENT_LIMIT = 80;
@@ -469,5 +470,95 @@ export class TelemetryService {
       orderBy: { createdAt: 'desc' },
       take: Math.min(limit, 200),
     });
+  }
+
+  /** Métricas agregadas de entrega de publicação (versão + revisão de conteúdo). */
+  async publicationDeliverySummary(tenantId: string) {
+    const devices = await this.prisma.device.findMany({
+      where: { tenantId },
+      orderBy: { name: 'asc' },
+      select: {
+        id: true,
+        name: true,
+        lastSeenAt: true,
+        state: {
+          select: {
+            lastSyncAt: true,
+            currentPublicationId: true,
+            currentItemJson: true,
+            appliedPublicationVersion: true,
+            appliedContentRevision: true,
+            appliedAt: true,
+            currentPublication: { select: { id: true, version: true } },
+          },
+        },
+      },
+    });
+
+    type DeliveryStatus = 'synced' | 'pending' | 'no_publication';
+    const rows: {
+      deviceId: string;
+      deviceName: string;
+      status: DeliveryStatus;
+      expectedPublicationVersion: number | null;
+      appliedPublicationVersion: number | null;
+      expectedContentRevision: string | null;
+      appliedContentRevision: string | null;
+      appliedAt: string | null;
+      lastSeenAt: string | null;
+    }[] = [];
+
+    const counts = { synced: 0, pending: 0, no_publication: 0 };
+
+    for (const d of devices) {
+      const state = d.state;
+      const expectedVersion = state?.currentPublication?.version ?? null;
+      const appliedVersion = state?.appliedPublicationVersion ?? null;
+      const hasPublication = state?.currentPublicationId != null;
+      const expectedRevision = state
+        ? await computeExpectedContentRevision(this.prisma, tenantId, {
+            lastSyncAt: state.lastSyncAt,
+            currentPublicationId: state.currentPublicationId,
+            currentItemJson: state.currentItemJson,
+          })
+        : null;
+      const appliedRevision = state?.appliedContentRevision?.trim() || null;
+
+      let status: DeliveryStatus = 'no_publication';
+      if (hasPublication || state?.currentItemJson != null) {
+        const versionOk =
+          expectedVersion == null
+            ? appliedVersion == null
+            : appliedVersion === expectedVersion;
+        const revisionOk =
+          appliedRevision != null && appliedRevision === expectedRevision;
+        status = versionOk && revisionOk ? 'synced' : 'pending';
+      }
+
+      counts[status]++;
+      rows.push({
+        deviceId: d.id,
+        deviceName: d.name,
+        status,
+        expectedPublicationVersion: expectedVersion,
+        appliedPublicationVersion: appliedVersion,
+        expectedContentRevision: expectedRevision,
+        appliedContentRevision: appliedRevision,
+        appliedAt: state?.appliedAt?.toISOString() ?? null,
+        lastSeenAt: d.lastSeenAt?.toISOString() ?? null,
+      });
+    }
+
+    return {
+      total: devices.length,
+      synced: counts.synced,
+      pending: counts.pending,
+      noPublication: counts.no_publication,
+      syncedPct:
+        devices.length > 0
+          ? Math.round((counts.synced / devices.length) * 1000) / 10
+          : 0,
+      devices: rows,
+    };
   }
 }

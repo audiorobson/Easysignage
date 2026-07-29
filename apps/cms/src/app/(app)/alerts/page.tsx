@@ -5,6 +5,15 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Check, RefreshCw, TriangleAlert } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
+import {
+  DataTable,
+  DataTableBody,
+  DataTableCard,
+  DataTableCell,
+  DataTableHead,
+  DataTableHeaderCell,
+  DataTableRow,
+} from '@/components/ui/DataTable';
 import { api, getToken } from '@/lib/api';
 import { formatDateTimePtBr } from '@/lib/format-date';
 import {
@@ -199,51 +208,53 @@ export default function AlertsPage() {
       )}
 
       {items && items.length > 0 && (
-        <div className="surface-table-card">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Severidade</th>
-                <th>Alerta</th>
-                <th>Device</th>
-                <th>Tipo</th>
-                <th>Estado</th>
-                <th>Última vez</th>
-                <th style={{ width: 1 }}>Ações</th>
-              </tr>
-            </thead>
-            <tbody>
+        <DataTableCard ariaLabel="Lista de alertas">
+          <DataTable caption="Alertas">
+            <DataTableHead>
+              <DataTableRow>
+                <DataTableHeaderCell>Severidade</DataTableHeaderCell>
+                <DataTableHeaderCell>Alerta</DataTableHeaderCell>
+                <DataTableHeaderCell>Device</DataTableHeaderCell>
+                <DataTableHeaderCell>Tipo</DataTableHeaderCell>
+                <DataTableHeaderCell>Estado</DataTableHeaderCell>
+                <DataTableHeaderCell>Última vez</DataTableHeaderCell>
+                <DataTableHeaderCell style={{ width: 1 }}>
+                  <span className="sr-only">Ações</span>
+                </DataTableHeaderCell>
+              </DataTableRow>
+            </DataTableHead>
+            <DataTableBody>
               {items.map((a) => (
-                <tr key={a.id}>
-                  <td>
+                <DataTableRow key={a.id}>
+                  <DataTableCell>
                     <span className={`badge ${severityClass(a.severity)}`}>
                       {alertSeverityLabelPt(a.severity)}
                     </span>
-                  </td>
-                  <td>
+                  </DataTableCell>
+                  <DataTableCell>
                     <strong>{a.title}</strong>
                     {a.message && (
                       <p className="text-muted" style={{ margin: '4px 0 0', fontSize: 12 }}>
                         {a.message}
                       </p>
                     )}
-                  </td>
-                  <td>
+                  </DataTableCell>
+                  <DataTableCell>
                     <Link href={`/devices/${a.deviceId}`}>{a.deviceName}</Link>
                     <span className="text-muted" style={{ fontSize: 12, display: 'block' }}>
                       {a.siteName}
                     </span>
-                  </td>
-                  <td>{alertTypeLabelPt(a.alertType)}</td>
-                  <td>
+                  </DataTableCell>
+                  <DataTableCell>{alertTypeLabelPt(a.alertType)}</DataTableCell>
+                  <DataTableCell>
                     <span className={`badge ${statusClass(a.status)}`}>
                       {alertStatusLabelPt(a.status)}
                     </span>
-                  </td>
-                  <td className="text-muted" style={{ fontSize: 13 }}>
+                  </DataTableCell>
+                  <DataTableCell className="text-muted" style={{ fontSize: 13 }}>
                     {formatDateTimePtBr(a.lastSeenAt)}
-                  </td>
-                  <td>
+                  </DataTableCell>
+                  <DataTableCell>
                     {a.status === 'open' && (
                       <button
                         type="button"
@@ -256,12 +267,12 @@ export default function AlertsPage() {
                         {busyId === a.id ? '…' : 'Ack'}
                       </button>
                     )}
-                  </td>
-                </tr>
+                  </DataTableCell>
+                </DataTableRow>
               ))}
-            </tbody>
-          </table>
-        </div>
+            </DataTableBody>
+          </DataTable>
+        </DataTableCard>
       )}
     </>
   );

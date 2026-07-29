@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
+import { SkipLink } from '@/components/ui/SkipLink';
 import { api } from '@/lib/api';
 import { applyBrandingCssVars, type TenantBranding } from '@/lib/branding';
 import {
@@ -102,6 +103,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="app-shell">
+      <SkipLink />
       <aside className="app-sidebar">
         <div className="app-sidebar__brand">
           {branding?.brandLogoUrl ? (
@@ -203,7 +205,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </button>
         </header>
 
-        <div className="app-content">{children}</div>
+        <div className="app-content" id="main-content" tabIndex={-1}>
+          {children}
+        </div>
       </div>
     </div>
   );

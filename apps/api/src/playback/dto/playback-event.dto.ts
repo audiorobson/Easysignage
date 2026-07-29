@@ -17,6 +17,11 @@ import {
 import { PLAYBACK_EVENT_TYPES, PLAYBACK_ITEM_TYPES } from '@easysignage/shared-types';
 
 export class PlaybackEventItemDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  clientEventId?: string;
+
   @IsIn(PLAYBACK_ITEM_TYPES)
   itemType!: (typeof PLAYBACK_ITEM_TYPES)[number];
 

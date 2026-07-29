@@ -16,6 +16,8 @@ export function isPlaybackItemType(v: unknown): v is PlaybackItemType {
 
 /** Um evento de exibição gerado pelo player (antes de chegar ao servidor). */
 export interface PlaybackEventInput {
+  /** UUID gerado pelo player — evita duplicar o mesmo evento em replays de lote. */
+  clientEventId?: string | null;
   itemType: PlaybackItemType;
   assetId?: string | null;
   playlistId?: string | null;

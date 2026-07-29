@@ -42,6 +42,13 @@ export class MonitoringController {
     return this.telemetry.overviewForTenant(user.tenantId);
   }
 
+  /** Métricas de entrega de publicação por device (versão + revisão de conteúdo). */
+  @Get('publication-delivery')
+  @RequirePermissions(P.MONITORING_READ)
+  publicationDelivery(@CurrentUser() user: JwtUser) {
+    return this.telemetry.publicationDeliverySummary(user.tenantId);
+  }
+
   /** Histórico de disponibilidade da rede (PR 5.17) — alimenta o gráfico do dashboard. */
   @Get('uptime-history')
   @RequirePermissions(P.MONITORING_READ)
