@@ -2,6 +2,7 @@ import { BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { SsoService } from './sso.service';
+import { SsoStateStore, type PendingSsoState } from './sso-state.store';
 import { FakeOidcProvider } from './testing/fake-oidc-provider';
 
 const TENANT = {
@@ -28,9 +29,25 @@ function buildUser(overrides: Record<string, unknown> = {}) {
     name: 'Ana',
     email: 'ana@acme.com',
     status: 'active',
+    totpEnabled: false,
     userRoles: [{ role: { permissionsJson: { all: true } } }],
     ...overrides,
   };
+}
+
+function buildSsoStateStore() {
+  const memory = new Map<string, PendingSsoState>();
+  return {
+    save: jest.fn(async (state: string, value: PendingSsoState) => {
+      memory.set(state, value);
+    }),
+    consume: jest.fn(async (state: string) => {
+      const value = memory.get(state) ?? null;
+      memory.delete(state);
+      return value;
+    }),
+    pruneExpired: jest.fn(),
+  } as unknown as SsoStateStore;
 }
 
 describe('SsoService (integração com IdP OIDC mock)', () => {
@@ -66,8 +83,9 @@ describe('SsoService (integração com IdP OIDC mock)', () => {
       },
     };
     const jwt = new JwtService({ secret: 'test-jwt-secret' });
-    const service = new SsoService(prisma as any, jwt, buildConfig());
-    return { service, prisma, jwt, tenant };
+    const ssoState = buildSsoStateStore();
+    const service = new SsoService(prisma as any, jwt, buildConfig(), ssoState);
+    return { service, prisma, jwt, tenant, ssoState };
   }
 
   it('completa o Authorization Code Flow ponta-a-ponta e emite uma sessão válida', async () => {
@@ -85,6 +103,9 @@ describe('SsoService (integração com IdP OIDC mock)', () => {
     const session = await service.handleCallback({ code, state });
 
     expect(session.tenant).toEqual({ id: 'tenant-1', name: 'Acme', slug: 'acme' });
+    expect('accessToken' in session).toBe(true);
+    if (!('accessToken' in session)) return;
+
     expect(session.user).toEqual({ id: 'user-1', name: 'Ana', email: 'ana@acme.com' });
 
     const decoded = await jwt.verifyAsync(session.accessToken);

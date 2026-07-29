@@ -1,0 +1,55 @@
+name: Android TV Player
+
+# PR 7.1 — smoke build isolado do apps/androidtv-player (módulo Gradle, fora do
+# pnpm/Turbo do resto do monorepo). Só corre quando o módulo muda, para não
+# atrasar o CI principal em PRs que não tocam em Android.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/androidtv-player/**'
+      - '.github/workflows/androidtv.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'apps/androidtv-player/**'
+      - '.github/workflows/androidtv.yml'
+
+concurrency:
+  group: androidtv-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/androidtv-player
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x ./gradlew
+
+      - name: Unit tests do bridge (CommandDispatcher)
+        run: ./gradlew testDebugUnitTest --no-daemon
+
+      - name: Smoke build (assembleDebug)
+        # Build-only: garante que o módulo compila e empacota; não substitui
+        # validação em hardware real (ver docs/matriz-hardware-tv.md).
+        run: ./gradlew assembleDebug --no-daemon
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: androidtv-player-debug-apk
+          path: apps/androidtv-player/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 14

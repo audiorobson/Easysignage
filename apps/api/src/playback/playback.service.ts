@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { Prisma } from '../generated/prisma-client';
 import { PrismaService } from '../prisma/prisma.service';
 import type {
@@ -34,12 +34,33 @@ export class PlaybackService {
     tenantId: string,
     deviceId: string,
     events: PlaybackEventInput[]
-  ): Promise<{ accepted: number }> {
-    if (!events.length) return { accepted: 0 };
+  ): Promise<{ accepted: number; duplicates: number }> {
+    if (!events.length) return { accepted: 0, duplicates: 0 };
+
+    const assetIds = [...new Set(events.map((e) => e.assetId).filter(Boolean))] as string[];
+    const playlistIds = [...new Set(events.map((e) => e.playlistId).filter(Boolean))] as string[];
+
+    if (assetIds.length) {
+      const found = await this.prisma.asset.count({
+        where: { tenantId, id: { in: assetIds } },
+      });
+      if (found !== assetIds.length) {
+        throw new BadRequestException('Um ou mais assets do lote não pertencem a este tenant');
+      }
+    }
+    if (playlistIds.length) {
+      const found = await this.prisma.playlist.count({
+        where: { tenantId, id: { in: playlistIds } },
+      });
+      if (found !== playlistIds.length) {
+        throw new BadRequestException('Uma ou mais playlists do lote não pertencem a este tenant');
+      }
+    }
 
     const rows: Prisma.PlaybackLogCreateManyInput[] = events.map((e) => ({
       tenantId,
       deviceId,
+      clientEventId: e.clientEventId?.trim() || null,
       itemType: e.itemType,
       assetId: e.assetId ?? null,
       playlistId: e.playlistId ?? null,
@@ -50,8 +71,14 @@ export class PlaybackService {
       metaJson: (e.meta as Prisma.InputJsonValue | undefined) ?? undefined,
     }));
 
-    await this.prisma.playbackLog.createMany({ data: rows });
-    return { accepted: rows.length };
+    const result = await this.prisma.playbackLog.createMany({
+      data: rows,
+      skipDuplicates: true,
+    });
+    return {
+      accepted: result.count,
+      duplicates: rows.length - result.count,
+    };
   }
 
   private buildWhere(

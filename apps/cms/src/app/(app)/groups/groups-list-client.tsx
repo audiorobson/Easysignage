@@ -4,6 +4,15 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Plus } from 'lucide-react';
+import {
+  DataTable,
+  DataTableBody,
+  DataTableCard,
+  DataTableCell,
+  DataTableHead,
+  DataTableHeaderCell,
+  DataTableRow,
+} from '@/components/ui/DataTable';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { api, getToken } from '@/lib/api';
 import { formatDateTimePtBr } from '@/lib/format-date';
@@ -62,19 +71,19 @@ export function GroupsListClient() {
           <p className="text-muted">Nenhum grupo. Crie um e adicione dispositivos cadastrados.</p>
         )}
         {items && items.length > 0 && (
-          <div className="surface-table-card">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Nome</th>
-                  <th>Dispositivos</th>
-                  <th>Atualizado</th>
-                </tr>
-              </thead>
-              <tbody>
+          <DataTableCard ariaLabel="Lista de grupos">
+            <DataTable caption="Grupos de dispositivos">
+              <DataTableHead>
+                <DataTableRow>
+                  <DataTableHeaderCell>Nome</DataTableHeaderCell>
+                  <DataTableHeaderCell>Dispositivos</DataTableHeaderCell>
+                  <DataTableHeaderCell>Atualizado</DataTableHeaderCell>
+                </DataTableRow>
+              </DataTableHead>
+              <DataTableBody>
                 {items.map((g) => (
-                  <tr key={g.id}>
-                    <td>
+                  <DataTableRow key={g.id}>
+                    <DataTableCell>
                       <Link href={`/groups/${g.id}`}>{g.name}</Link>
                       {g.description ? (
                         <div
@@ -86,14 +95,14 @@ export function GroupsListClient() {
                             : g.description}
                         </div>
                       ) : null}
-                    </td>
-                    <td>{g.deviceCount}</td>
-                    <td>{formatDateTimePtBr(g.updatedAt)}</td>
-                  </tr>
+                    </DataTableCell>
+                    <DataTableCell>{g.deviceCount}</DataTableCell>
+                    <DataTableCell>{formatDateTimePtBr(g.updatedAt)}</DataTableCell>
+                  </DataTableRow>
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </DataTableBody>
+            </DataTable>
+          </DataTableCard>
         )}
       </section>
     </>

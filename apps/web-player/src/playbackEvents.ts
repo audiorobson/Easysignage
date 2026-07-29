@@ -131,9 +131,8 @@ export async function flushPlaybackQueue(
       .slice(0, FLUSH_BATCH_SIZE);
 
     const events: PlaybackEventInput[] = batch.map(({ id, enqueuedAt, ...rest }) => {
-      void id;
       void enqueuedAt;
-      return rest;
+      return { ...rest, clientEventId: id };
     });
 
     const res = await fetch(`${apiUrl}/device/playback-events`, {

@@ -260,10 +260,34 @@ export class LicenseService implements OnModuleInit {
 
   async getStatus(): Promise<LicenseStatus> {
     if (this.cachedStatus) {
+      if (
+        this.cachedStatus.expiresAt &&
+        new Date(this.cachedStatus.expiresAt).getTime() <= Date.now()
+      ) {
+        this.logger.warn('Licença expirada em cache — a revalidar');
+        return this.refreshFromEnvironment();
+      }
       const usedPlayers = await this.countActivePlayers();
       return { ...this.cachedStatus, usedPlayers };
     }
     return this.refreshFromEnvironment();
+  }
+
+  /** Limite efectivo de devices (provisionados + activos) alinhado à licença. */
+  async assertCanRegisterAnotherDevice(tenantId: string): Promise<void> {
+    const status = await this.getStatus();
+    const pending = await this.prisma.device.count({
+      where: { tenantId, status: 'provisioned' },
+    });
+    if (status.usedPlayers + pending >= status.maxPlayers) {
+      throw new ForbiddenException({
+        code: 'LICENSE_PLAYER_LIMIT',
+        message: `Limite de players atingido (${status.usedPlayers + pending}/${status.maxPlayers}) — plano ${tierLabelPt(status.tier)}`,
+        tier: status.tier,
+        maxPlayers: status.maxPlayers,
+        usedPlayers: status.usedPlayers + pending,
+      });
+    }
   }
 
   async applyLicenseKey(licenseKey: string): Promise<LicenseStatus> {

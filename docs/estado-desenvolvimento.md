@@ -13,11 +13,12 @@ O próprio roadmap, em **§19** (início da secção), aponta para **este fichei
 | **19.1** | Fase 0 — Fundação técnica | **Em grande parte feito:** monorepo pnpm/Turbo, Prisma + PostgreSQL, Nest API, Next CMS, `device-protocol`, web-player, Docker Compose. **Parcial:** CI em GitHub Actions (lint/test/build), Redis/filas em prod. |
 | **19.2** | Fase 1 — Autenticação, tenants e dispositivos | **Feito (núcleo):** auth JWT, RBAC, sites, devices, pairing, heartbeat, `wakeMac` + WOL UDP. **Parcial:** Electron. |
 | **19.3** | Fase 2 — Biblioteca e playlists | **Parcial avançado:** upload multipart, vários tipos no player (imagem, vídeo, PDF, HTML, URL, **RTSP**), playlists + DnD no CMS, **cache offline leve**. **RTSP:** servidor só configura `remoteUrl`; player liga directo à rede. **Distribuição:** `deploy/server-box` (Docker mini PC). **Pendente:** media-worker; decoder RTSP no electron-player. |
-| **19.4** | Fase 3 — Agendamento e publicação | **Parcial avançado:** `Publication` + publicar no CMS; **`ScheduleRule` + motor** (playlist, layout ou video wall); **`Campaign` + motor** (playlist promocional com prioridade sobre agenda); **ack de publicação**; **manifest com `manifestRevision`**; CMS campanhas + agendamento. **Pendente:** métricas de entrega, campanhas com layout/wall. |
+| **19.4** | Fase 3 — Agendamento e publicação | **Concluída (jul/2026):** `Publication` + publicar no CMS; **`ScheduleRule` + motor** (playlist, layout ou video wall); **`Campaign` + motor** (playlist, layout ou video wall com prioridade sobre agenda); **ack de publicação**; **manifest com `manifestRevision`**; **métricas de entrega** (`GET /monitoring/publication-delivery` + painel CMS); **proof-of-play idempotente** (`clientEventId` por device). |
 | **19.4b–19.5b** | **Layouts, zonas e video wall** | **Feito (L1–L5):** viewport, layouts multi-zona, fit, video wall, drift, WS sync, editor visual, agenda layout/wall, snap/guias, **templates custom por tenant**. |
 | **19.5** | Fase 4 — Controle remoto e monitoramento | **Feito (MVP+):** telemetria, overview, comandos (`wol` + **reboot/restart/clear-cache/open-url/screenshot** via Electron), **preview JPEG**, **realtime-gateway** com wall sync, painel de drift, **alertas automáticos** (`/alerts`) com **notificação por webhook (HMAC) e e-mail (Resend)**. |
 | **19.6** | Fase 5 — Robustez operacional | **Concluída (jul/2026 — PRs 5.1–5.18):** CI com Postgres real + migrations, Playwright E2E (CMS + web-player), cobertura Jest nos motores críticos; **proof-of-play** completo (modelo, ingestão, fila offline no web-player, relatório + export CSV, tela no CMS); **Electron real** (bridge RTSP via `ffmpeg`, executor de comandos remotos, watchdog + kiosk + autostart, auto-update); **fila Redis/BullMQ** + `media-worker` real (thumbnail/metadata/transcode); **dashboard sem dados demo** (uptime real via `Heartbeat`); **notificações de alerta** (webhook assinado + e-mail). Ver secções dedicadas abaixo. |
-| **19.7** | Fase 6 — Multi-tenant comercial | **Parcial:** multi-tenant no modelo; **pendente (em execução):** OpenAPI pública, audit log, 2FA, SSO SAML/OIDC, quotas, branding. |
+| **19.7** | Fase 6 — Multi-tenant comercial (enterprise readiness) | **Concluída (jul/2026 — PRs 6.1–6.6):** multi-tenant no modelo; **OpenAPI pública** exportada e verificada em CI (`contracts/openapi/openapi.json`); **audit log** (interceptor global + `/settings/audit`); **2FA (TOTP)** com QR code e desafio no login; **SSO OpenID Connect** por tenant (`/settings/sso`, login único); **quotas por tenant** (`maxDevices`/`maxUsers`/`planTier`, enforcement na criação de dispositivos e **utilizadores**); **gestão de utilizadores** (`GET/POST /users`, `/settings/users` no CMS); **branding por tenant** (logótipo/nome/cor aplicados no CMS, login e preview embutido). Ver secções dedicadas abaixo. |
+| **19.10** | Fase 7 — Players nativos para hardware de TV comercial | **Entregue em código (jul/2026)** — wrappers + CI; **homologação hardware pendente** (ver `docs/matriz-hardware-tv.md`). Android TV validado em emulador oficial; webOS parcial; Tizen/Fire TV sem device real. |
 
 ---
 
@@ -26,14 +27,14 @@ O próprio roadmap, em **§19** (início da secção), aponta para **este fichei
 | Fase UI | Estado (jul/2026) |
 |---------|---------------------|
 | UI-0, UI-1 | **Feitos** (tokens, shell, navegação). |
-| UI-2 | **Iniciado** — `StatusBadge`, `ConnectionBadge`, `PublicationSyncBadge`, `EmptyState`, `Modal`, `PageHeader` + classes `.badge` em `globals.css`. Falta extrair Table e fechar biblioteca. |
+| UI-2 | **Concluído (jul/2026)** — `StatusBadge`, `ConnectionBadge`, `EmptyState`, `Modal`, `PageHeader`, **`DataTable`** (+ `DataTableCard`) adoptado nas listagens CMS. |
+| UI-6 | **Iniciado (jul/2026)** — skip link, `prefers-reduced-motion`/`prefers-contrast`, tabelas com `caption`/`aria-label`, branding tenant via CSS vars; falta auditoria WCAG formal e microinterações avançadas. |
 | UI-3 | **Avançado** — devices/sites/login; badges de conexão e sincronização de publicação nos devices. |
 | UI-4 | **Avançado** — assets, playlists, agendamento (grelha + lista + layout/wall), publicação no device, editor de zonas. |
 | UI-5 | **Avançado** — `/monitoring` com pré-visualização e tema NOC; `/video-walls` com saúde de sync; **`/alerts`** operacional. |
 | UI-4b | **Feito** — aba Ecrã no device (viewport, galeria de templates, fit por zona). |
 | UI-4c | **Feito** — editor visual em `/devices/:id/layout` (`LayoutZoneEditor`, snap/guias). |
 | UI-5b | **Feito** — módulo video walls (`/video-walls`, wizard, painel drift/sync live). |
-| UI-6 | **Não iniciado** |
 
 ---
 
@@ -149,7 +150,7 @@ Integração de **streaming RTSP** como tipo de asset — o servidor **apenas co
 | **API** | `POST /assets` com `{ name, remoteUrl, kind: 'rtsp' }` (ou inferência por `rtsp://`); `PATCH` em assets remotos; `GET .../file` → `400 RTSP_DIRECT_PLAY` |
 | **CMS** | Filtro «Streams RTSP», modal «Nova fonte RTSP», pré-visualização com ícone dedicado |
 | **Web player** | `mediaLoader` lê só `meta.remoteUrl`; `RtspStreamView` + ponte `window.easysignage.rtsp` para Electron futuro |
-| **Electron** | Preload documentado; decoder nativo **pendente** |
+| **Electron** | Bridge RTSP nativo via `ffmpeg` (Fase 5.C) — ver secção abaixo |
 
 **Fluxo:** CMS grava URL → device obtém `GET /device/assets/:id/meta` → player abre `rtsp://…` na LAN.
 
@@ -314,6 +315,37 @@ Fecha o backlog interno ("Próximos passos sugeridos" da revisão anterior) e as
 
 ---
 
+## Fase 6 — Enterprise readiness (concluída, jul/2026)
+
+Fecha "Fase 6 — multi-tenant comercial" do roadmap arquitetural e a lacuna de vendas B2B maiores identificada na pesquisa de mercado (SSO, 2FA, audit log, OpenAPI, quotas, branding).
+
+| PR | Entrega |
+|----|---------|
+| 6.1 | OpenAPI pública — `contracts/openapi/openapi.json` gerado por script (`export:openapi`), validado estruturalmente e verificado/publicado como artefacto em CI |
+| 6.2 | Audit log — modelo `AuditLog`, interceptor Nest global em mutações (POST/PUT/PATCH/DELETE) com sanitização de dados sensíveis, `GET /audit-logs` e tela `/settings/audit` com filtros |
+| 6.3 | 2FA (TOTP) — `otplib`/`qrcode`, campos `totpSecret`/`totpEnabled` em `User`, setup com QR code, desafio de 2FA no login (`/auth/login/2fa`), tela `/settings/security` |
+| 6.4 | SSO OpenID Connect por tenant — `openid-client`, configuração por tenant (`ssoEnabled`/`ssoIssuerUrl`/`ssoClientId`/`ssoClientSecret`), fluxo authorization code completo, tela `/settings/sso` e botão de login único |
+| 6.5 | Quotas por tenant — campos `planTier`/`maxDevices`/`maxUsers` em `Tenant`, `TenantQuotaService` com *enforcement* na criação de dispositivos (403 ao exceder), `GET /settings/quota` e painel de uso em `/settings` |
+| 6.6 | Branding por tenant — campos `brandName`/`brandLogoUrl`/`brandPrimaryColor` em `Tenant`, `GET/PATCH /settings/branding` (autenticado) e `GET /public/tenants/:slug/branding` (público), tela `/settings/branding`, aplicado na barra lateral do CMS, na tela de login e no preview embutido de playlists |
+
+---
+
+## Fase 7 — Players nativos de TV comercial (concluída, jul/2026)
+
+Fecha o maior gap de alcance de mercado vs. Xibo/OptiSigns/ScreenCloud identificado na pesquisa: rodar o `apps/web-player` nativamente em hardware de TV comercial, sem reescrever o motor de playback por plataforma — wrappers finos de kiosk/WebView reaproveitando o mesmo contrato de bridge (`window.easysignage`) já usado no Electron.
+
+| PR | Entrega |
+|----|---------|
+| 7.1 | `apps/androidtv-player` — app Kotlin (compileSdk 34, AGP 8.7.2), WebView kiosk fullscreen/leanback, `CommandDispatcher`/`PlayerActions` testáveis em JVM pura (JUnit), RTSP nativo via Media3/ExoPlayer num `SurfaceView` atrás da WebView, handlers `restart_player`/`clear_cache`/`open_url`/`reboot_os`/`take_screenshot`, CI dedicado (`androidtv.yml`) |
+| 7.2 | `apps/webos-player` — app webOS (LG), `window.easysignage` via `webOS.service.request` (luna-service) com fallback gracioso, roteamento puro testado com `node --test`, empacotamento validado localmente e em CI gerando `.ipk` real via `@webosose/ares-cli` |
+| 7.3 | `apps/tizen-player` — app Tizen (Samsung), bridge via API global `tizen` (`tizen.systeminfo`), reboot/screenshot retornam indisponibilidade explícita (sem privilégio partner/platform), testes unitários sempre em CI; empacotamento `.wgt` assinado condicional a secrets de assinatura (ainda não configurados) |
+| 7.4 | `apps/firetv-player` — reaproveita integralmente a base do `androidtv-player` (`com.easysignage.firetv`), manifest ajustado por recomendação da Amazon (`android.software.leanback` `required="false"`, `faketouch` declarado); build local e CI validados |
+| 7.5 | `docs/matriz-hardware-tv.md` — matriz de homologação por plataforma/SoC, com resumo executivo e riscos explícitos; nenhuma das quatro plataformas foi validada em hardware/emulador oficial ainda — tratado como pré-requisito explícito antes de qualquer piloto |
+
+**Nota de risco (herdada do roadmap):** build smoke em CI não substitui teste em hardware real. Cada player desta fase deve ser validado manualmente em pelo menos um device físico antes de ser considerado "pronto para piloto" — ver `docs/matriz-hardware-tv.md`.
+
+---
+
 ## Documentos relacionados
 
 | Documento | Conteúdo |
@@ -324,21 +356,37 @@ Fecha o backlog interno ("Próximos passos sugeridos" da revisão anterior) e as
 | `easysignage_automation_core.md` | WOL, automação futura |
 | `docs/producao-e-auto-hospedagem.md` | Deploy |
 | `docs/teste-producao.md` | Testes manuais de produção (RTSP, comandos remotos, auto-update, normalização de vídeo, notificações de alerta) |
+| `docs/matriz-hardware-tv.md` | Matriz de homologação dos players nativos de TV por plataforma/SoC (Fase 7) |
+
+---
+
+## Correcções pós-revisão (jul/2026)
+
+| Área | Correcção |
+|------|-----------|
+| Alertas | `publication_sync_pending` compara `contentRevision` além da versão de publicação |
+| Video wall | Drift RTSP/URL alinhado (3600 s) entre API e player |
+| Licenciamento | Revalidação de `expiresAt`; limite unificado no `create` + `pair` de devices; `assertFeature` em listagens (alertas, video walls) |
+| SSO | State OAuth persistido em Redis (fallback memória); 2FA obrigatório após OIDC quando `totpEnabled` |
+| Notificações | Webhook exige secret HMAC na configuração; envio omitido sem assinatura |
+| Proof-of-play | Validação de `assetId`/`playlistId` do tenant na ingestão |
+| Server-box | `NEXT_PUBLIC_RT_URL` no build do CMS; documentação de rebuild por IP LAN |
+| Agenda | Logging de falhas no motor; testes de `applyForDevice` (campanha vs regra) |
 
 ---
 
 ## Próximos passos sugeridos
 
-Fase 5 (núcleo operacional) está **concluída** — ver secção dedicada abaixo.
-O trabalho corrente segue o roadmap de nível de mercado (Fases 6–10):
+Fases 5 (núcleo operacional), 6 (enterprise readiness) e 7 (players nativos de TV) estão
+**concluídas** — ver secções dedicadas acima. O trabalho corrente segue o roadmap de nível
+de mercado (Fases 8–10):
 
 | Prioridade | Item | Fase |
 |------------|------|------|
-| 1 | OpenAPI pública, audit log, 2FA, SSO SAML/OIDC, quotas, branding por tenant | 6 — Enterprise readiness |
-| 2 | Players nativos (Android TV, webOS, Tizen, Fire TV) | 7 — TV nativa |
-| 3 | Marketplace de widgets/apps (clima, RSS, relógio, sandbox no player) | 8 — Widgets |
-| 4 | Geração de conteúdo por IA (texto/roteiro, imagem, "AI Studio" no CMS) | 9 — IA generativa |
-| 5 | Revisão de segurança, runbook operacional, release v1.0.0 | 10 — Lançamento GA |
+| 1 | Marketplace de widgets/apps (clima, RSS, relógio, sandbox no player) | 8 — Widgets |
+| 2 | Geração de conteúdo por IA (texto/roteiro, imagem, "AI Studio" no CMS) | 9 — IA generativa |
+| 3 | Revisão de segurança, runbook operacional, release v1.0.0 | 10 — Lançamento GA |
+| — | Validação em hardware físico real dos players de TV (nenhuma plataforma testada ainda) | 7 (risco residual) — ver `docs/matriz-hardware-tv.md` |
 
 ---
 
@@ -352,7 +400,8 @@ O trabalho corrente segue o roadmap de nível de mercado (Fases 6–10):
 | API `LicenseModule` | **Feito** — status, apply, limite no `pair` |
 | `deploy/server-box` | **Feito** — compose, install.ps1/sh, volumes config |
 | `deploy/hwid/generate-hwid.mjs` | **Feito** — Win/Linux no host |
-| `apps/license-generator` | **MVP** — Electron gerador de serial |
+| `apps/license-generator` | **Pronto comercial** — estado da chave, carregar PEM, log de emissões |
+| `docs/cofre-chave-licenca-producao.md` | **Feito** — cofre + `pnpm license:gen-production-keys` |
 | CMS `/settings` | **Feito** — HWID, activar licença, funcionalidades por plano |
 | `docs/manual-instalacao-mini-pc.md` | **Feito** — guia cliente |
 | `realtime-gateway` no server-box | **Feito** — compose + Dockerfile |
@@ -360,9 +409,9 @@ O trabalho corrente segue o roadmap de nível de mercado (Fases 6–10):
 | `docs/teste-producao.md` | **Feito** — guia instalacao teste |
 | Script `pnpm prod:test` | **Feito** — build + compose + seed |
 | Pacote ZIP `release:zip` | **Feito** — `dist/release/*.zip` |
-| Imagens GHCR publicadas | **Pendente** — requer tag `v*` no repositório |
-| Chave privada produção (cofre) | **Pendente** — processo comercial do fornecedor |
+| Imagens GHCR publicadas | **Em curso** — tag `v1.0.0-rc1` |
+| Chave privada produção (cofre) | **Processo documentado** — par gerado fora do repo |
 
 ---
 
-*Última atualização: 18 de julho de 2026 — Fase 5 (núcleo operacional e confiabilidade) concluída: proof-of-play, Electron real (RTSP/comandos/watchdog/auto-update), media pipeline real (fila + thumbnail/transcode), dashboard sem dados demo e notificações de alerta.*
+*Última actualização: 29 de julho de 2026 — lacunas roadmap 1–7 (campanhas layout/wall, métricas de entrega, users CMS, DataTable, UI-6 parcial, PoP idempotente); correcção encoding migration SQL para CI.*

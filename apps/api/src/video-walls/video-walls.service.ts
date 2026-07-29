@@ -28,6 +28,7 @@ const SYNC_LEAD_MS = 3000;
 const ONLINE_MS = 5 * 60 * 1000;
 
 function defaultSlideMs(kind: string): number {
+  if (kind === 'rtsp' || kind === 'url') return 3_600_000;
   if (kind === 'video' || kind === 'audio') return 30_000;
   if (kind === 'pdf' || kind === 'html') return 20_000;
   return 10_000;
@@ -46,6 +47,7 @@ export class VideoWallsService {
   }
 
   async list(tenantId: string) {
+    await this.assertWallFeature();
     const rows = await this.prisma.videoWall.findMany({
       where: { tenantId },
       orderBy: { createdAt: 'desc' },
@@ -58,6 +60,7 @@ export class VideoWallsService {
   }
 
   async getById(tenantId: string, id: string) {
+    await this.assertWallFeature();
     const wall = await this.prisma.videoWall.findFirst({
       where: { id, tenantId },
       include: {

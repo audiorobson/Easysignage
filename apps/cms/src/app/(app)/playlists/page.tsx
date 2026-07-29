@@ -5,6 +5,15 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Eye, Pencil, Plus, Trash2 } from 'lucide-react';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import {
+  DataTable,
+  DataTableBody,
+  DataTableCard,
+  DataTableCell,
+  DataTableHead,
+  DataTableHeaderCell,
+  DataTableRow,
+} from '@/components/ui/DataTable';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { api, getToken } from '@/lib/api';
 import { playlistStatus } from '@/lib/device-labels';
@@ -99,75 +108,77 @@ export default function PlaylistsPage() {
           <p className="text-muted">Nenhuma playlist. Crie uma para agrupar assets em sequência.</p>
         )}
         {items && items.length > 0 && (
-          <div className="surface-table-card">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Nome</th>
-                <th>Estado</th>
-                <th>Itens</th>
-                <th>Atualizado</th>
-                <th style={{ width: 1, whiteSpace: 'nowrap' }}>Ações</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((p) => (
-                <tr key={p.id}>
-                  <td>
-                    <Link href={`/playlists/${p.id}`}>{p.name}</Link>
-                  </td>
-                  <td>{playlistStatus(p.status)}</td>
-                  <td>{p.itemCount}</td>
-                  <td>{formatDateTimePtBr(p.updatedAt)}</td>
-                  <td>
-                    <div
-                      style={{
-                        display: 'flex',
-                        flexWrap: 'wrap',
-                        gap: '0.35rem',
-                        alignItems: 'center',
-                      }}
-                    >
-                      <button
-                        type="button"
-                        className="btn btn--ghost"
-                        title="Modo teste — pré-visualizar"
-                        onClick={() => setPreviewId(p.id)}
+          <DataTableCard ariaLabel="Lista de playlists">
+            <DataTable caption="Playlists">
+              <DataTableHead>
+                <DataTableRow>
+                  <DataTableHeaderCell>Nome</DataTableHeaderCell>
+                  <DataTableHeaderCell>Estado</DataTableHeaderCell>
+                  <DataTableHeaderCell>Itens</DataTableHeaderCell>
+                  <DataTableHeaderCell>Atualizado</DataTableHeaderCell>
+                  <DataTableHeaderCell style={{ width: 1, whiteSpace: 'nowrap' }}>
+                    <span className="sr-only">Ações</span>
+                  </DataTableHeaderCell>
+                </DataTableRow>
+              </DataTableHead>
+              <DataTableBody>
+                {items.map((p) => (
+                  <DataTableRow key={p.id}>
+                    <DataTableCell>
+                      <Link href={`/playlists/${p.id}`}>{p.name}</Link>
+                    </DataTableCell>
+                    <DataTableCell>{playlistStatus(p.status)}</DataTableCell>
+                    <DataTableCell>{p.itemCount}</DataTableCell>
+                    <DataTableCell>{formatDateTimePtBr(p.updatedAt)}</DataTableCell>
+                    <DataTableCell>
+                      <div
+                        style={{
+                          display: 'flex',
+                          flexWrap: 'wrap',
+                          gap: '0.35rem',
+                          alignItems: 'center',
+                        }}
                       >
-                        <Eye size={17} strokeWidth={1.9} aria-hidden />
-                        <span className="sr-only">Pré-visualizar</span>
-                      </button>
-                      <Link
-                        href={`/playlists/${p.id}`}
-                        className="btn btn--ghost"
-                        title="Editar playlist"
-                      >
-                        <Pencil size={17} strokeWidth={1.9} aria-hidden />
-                        <span className="sr-only">Editar</span>
-                      </Link>
-                      <button
-                        type="button"
-                        className="btn btn--ghost"
-                        title="Eliminar playlist"
-                        disabled={deletingId === p.id}
-                        onClick={() =>
-                          setConfirmDelete({ id: p.id, name: p.name })
-                        }
-                      >
-                        {deletingId === p.id ? (
-                          '…'
-                        ) : (
-                          <Trash2 size={17} strokeWidth={1.9} aria-hidden />
-                        )}
-                        <span className="sr-only">Eliminar</span>
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          </div>
+                        <button
+                          type="button"
+                          className="btn btn--ghost"
+                          title="Modo teste — pré-visualizar"
+                          onClick={() => setPreviewId(p.id)}
+                        >
+                          <Eye size={17} strokeWidth={1.9} aria-hidden />
+                          <span className="sr-only">Pré-visualizar</span>
+                        </button>
+                        <Link
+                          href={`/playlists/${p.id}`}
+                          className="btn btn--ghost"
+                          title="Editar playlist"
+                        >
+                          <Pencil size={17} strokeWidth={1.9} aria-hidden />
+                          <span className="sr-only">Editar</span>
+                        </Link>
+                        <button
+                          type="button"
+                          className="btn btn--ghost"
+                          title="Eliminar playlist"
+                          disabled={deletingId === p.id}
+                          onClick={() =>
+                            setConfirmDelete({ id: p.id, name: p.name })
+                          }
+                        >
+                          {deletingId === p.id ? (
+                            '…'
+                          ) : (
+                            <Trash2 size={17} strokeWidth={1.9} aria-hidden />
+                          )}
+                          <span className="sr-only">Eliminar</span>
+                        </button>
+                      </div>
+                    </DataTableCell>
+                  </DataTableRow>
+                ))}
+              </DataTableBody>
+            </DataTable>
+          </DataTableCard>
         )}
       </section>
 

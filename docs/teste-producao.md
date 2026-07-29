@@ -117,10 +117,10 @@ Usa `deploy/keys/staging-private.pem` (não commitada).
 
 ## Passagem para produção comercial
 
-1. Gerar par Ed25519 **comercial** (fora do repo).
+1. Gerar par Ed25519 **comercial**: `pnpm license:gen-production-keys` (ver `docs/cofre-chave-licenca-producao.md`).
 2. Substituir `config/license-public.pem` no mini PC.
-3. Publicar imagens com tag `v*` (workflow `release.yml` → GHCR).
-4. Distribuir ZIP + manual; **nunca** incluir chave privada staging/comercial no pacote cliente.
+3. Imagens GHCR via tag `v1.0.0-rc1` (workflow `release.yml`).
+4. Distribuir ZIP + manual; **nunca** incluir chave privada no pacote cliente.
 
 ---
 
@@ -470,3 +470,82 @@ domínio externo, fora do controlo do CMS/API em CI).
 - **Cache de discovery de 10 minutos** — alterar a configuração de SSO de um
   tenant pode demorar até 10 minutos para ter efeito, devido ao cache do
   documento de *discovery* do provedor.
+
+## Teste manual — Quotas por tenant (Fase 6, PR 6.5)
+
+O *enforcement* (bloqueio ao exceder a quota) e a leitura de uso têm cobertura
+unitária completa (`apps/api/src/tenant-quota/tenant-quota.service.spec.ts` e
+`apps/api/src/devices/devices.service.spec.ts`, este último validando que a
+criação de `Device` é interrompida antes de chegar ao Prisma quando a quota
+está esgotada). Os campos `planTier`/`maxDevices`/`maxUsers` em `Tenant` são
+geridos apenas pelo fornecedor (sem UI de auto-serviço) — por isso não há E2E
+Playwright: seria necessário criar 25+ dispositivos ou alterar a quota
+directamente na base de dados só para exercitar a UI, sem ganho real sobre o
+teste unitário do bloqueio.
+
+### Passos
+
+1. Verifique a quota actual do tenant em `/settings` no CMS (secção "Quotas do
+   plano") ou via `GET /settings/quota` (Bearer JWT) — devolve
+   `{ planTier, devices: { used, max }, users: { used, max } }`.
+2. Para testar o bloqueio manualmente, reduza `max_devices` do tenant para um
+   valor já atingido (ex. `UPDATE tenants SET max_devices = 1 WHERE slug =
+   'demo';` directamente na base de dados de um ambiente de teste) e tente
+   criar um novo dispositivo em `/devices/new` no CMS — deve receber
+   `403 Forbidden` com `code: "TENANT_DEVICE_QUOTA_EXCEEDED"` e uma mensagem
+   clara.
+3. Reponha o valor original de `max_devices` e confirme que a criação volta a
+   funcionar normalmente.
+
+### Limitações conhecidas
+
+- **Sem enforcement de utilizadores** — `assertCanCreateUser` já existe no
+  `TenantQuotaService`, mas ainda não há nenhum endpoint de criação de
+  utilizadores na aplicação (utilizadores são geridos via seed); o método
+  fica pronto para ser chamado assim que esse módulo existir.
+- **Sem auto-serviço de upgrade** — o `planTier`/`maxDevices`/`maxUsers` só
+  podem ser alterados directamente na base de dados pelo fornecedor; não há
+  fluxo de checkout/upgrade de plano nesta versão.
+
+## Teste manual — Branding por tenant (Fase 6, PR 6.6)
+
+O fluxo tem um E2E Playwright completo (`apps/e2e/tests/branding-smoke.spec.ts`):
+guarda nome/cor em `/settings/branding`, confirma a persistência após reload,
+confirma que o nome aparece na barra lateral do CMS e, por fim, abre o modal
+de pré-visualização de uma playlist (`/embed/preview/[playlistId]`) e valida
+que a marca de água com o nome e a cor customizados aparece dentro do iframe.
+
+### Passos (validação manual complementar)
+
+1. Em `/settings/branding`, defina um nome, uma URL de logótipo (https,
+   PNG/SVG com fundo transparente) e uma cor primária. Guarde.
+2. Confirme visualmente: a barra lateral do CMS deve mostrar o logótipo/nome
+   customizados; botões primários (`.btn--primary`, `.btn--brand`) devem usar
+   a nova cor.
+3. Faça logout. Na tela de login, escreva o slug do tenant no campo
+   "Tenant (slug)" — após ~400ms (debounce), o logótipo/nome customizados
+   devem aparecer no cartão de login (via `GET /public/tenants/:slug/branding`,
+   sem autenticação).
+4. Abra uma playlist em `/playlists`, clique no ícone de pré-visualização
+   ("Modo teste") — o preview embutido deve mostrar uma marca de água no
+   canto superior direito com o logótipo/nome e um contorno na cor
+   customizada.
+5. Repare em `/settings/branding` e clique em "Repor para EasySignage" →
+   "Guardar branding" para confirmar que os campos voltam a `null` e a
+   aparência por defeito volta em todos os pontos acima.
+
+### Limitações conhecidas
+
+- **Sem validação de URL/cor no servidor** — os campos `brandLogoUrl` e
+  `brandPrimaryColor` são guardados como texto livre (para permitir limpar
+  com uma string vazia); um valor mal formado simplesmente não é aplicado no
+  browser (`<img>` não carrega; `applyBrandingCssVars` ignora cores que não
+  sejam hex de 6 dígitos) — não há mensagem de erro dedicada para isso hoje.
+- **Sem branding por sub-recurso** — o preview embutido usado em
+  `apps/cms/src/app/embed` é a área de pré-visualização interna do editor de
+  playlists (autenticada via `postMessage` com o token do CMS), não uma
+  página pública de partilha; um embed público para clientes finais fica
+  fora do âmbito desta PR.
+- **Sem upload de logótipo** — o campo aceita apenas uma URL já hospedada
+  (ex.: outro serviço de storage); não há upload directo de ficheiro para a
+  biblioteca de assets nesta versão.

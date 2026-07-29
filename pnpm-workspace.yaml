@@ -1,3 +1,10 @@
 packages:
   - "apps/*"
   - "packages/*"
+  # Módulos de players nativos de TV (Fase 7) têm toolchains próprias (Gradle, ares-cli,
+  # Tizen Studio) e não fazem parte do build/test pnpm+Turbo do monorepo — cada um tem seu
+  # próprio workflow de CI dedicado (.github/workflows/androidtv.yml, webos.yml, etc.).
+  - "!apps/androidtv-player"
+  - "!apps/webos-player"
+  - "!apps/tizen-player"
+  - "!apps/firetv-player"

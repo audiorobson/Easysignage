@@ -67,9 +67,16 @@ type Props = {
   accessToken: string;
 };
 
+type EmbedBranding = {
+  brandName?: string | null;
+  brandLogoUrl?: string | null;
+  brandPrimaryColor?: string | null;
+};
+
 export function PlaylistEmbedPlayer({ playlistId, accessToken }: Props) {
   const [manifest, setManifest] = useState<PlaylistManifest | null>(null);
   const [hint, setHint] = useState<string | null>('A carregar playlist…');
+  const [branding, setBranding] = useState<EmbedBranding | null>(null);
   const [slideIndex, setSlideIndex] = useState(0);
   const [mediaKind, setMediaKind] = useState<MediaKind | null>(null);
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
@@ -98,6 +105,24 @@ export function PlaylistEmbedPlayer({ playlistId, accessToken }: Props) {
     }),
     [accessToken]
   );
+
+  /** Branding do tenant (PR 6.6) — aplicado como acento visual no preview embutido. */
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetchApi(`${API_BASE}/settings/branding`, { headers: authHeaders });
+        if (cancelled || !res.ok) return;
+        const data = (await res.json()) as EmbedBranding;
+        setBranding(data);
+      } catch {
+        /** Branding é decorativo — falha silenciosamente e mantém a aparência por defeito. */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [authHeaders]);
 
   useEffect(() => {
     let cancelled = false;
@@ -482,6 +507,7 @@ export function PlaylistEmbedPlayer({ playlistId, accessToken }: Props) {
             zIndex: 10,
             padding: '0.5rem 1rem',
             background: 'linear-gradient(transparent, rgba(0,0,0,0.65))',
+            borderTop: branding?.brandPrimaryColor ? `2px solid ${branding.brandPrimaryColor}` : undefined,
             fontSize: '0.8125rem',
             color: '#e2e8f0',
             textAlign: 'center',
@@ -489,6 +515,49 @@ export function PlaylistEmbedPlayer({ playlistId, accessToken }: Props) {
           }}
         >
           {hint}
+        </div>
+      )}
+
+      {(branding?.brandLogoUrl || branding?.brandName) && (
+        <div
+          data-testid="embed-brand-watermark"
+          style={{
+            position: 'fixed',
+            top: 12,
+            right: 12,
+            zIndex: 20,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            padding: '0.35rem 0.6rem',
+            borderRadius: 8,
+            background: 'rgba(2, 6, 23, 0.72)',
+            border: branding?.brandPrimaryColor
+              ? `1px solid ${branding.brandPrimaryColor}`
+              : '1px solid rgba(148,163,184,0.35)',
+            pointerEvents: 'none',
+          }}
+        >
+          {branding?.brandLogoUrl && (
+            <img
+              src={branding.brandLogoUrl}
+              alt=""
+              data-testid="embed-brand-logo"
+              style={{ height: 18, width: 'auto', objectFit: 'contain' }}
+            />
+          )}
+          {branding?.brandName && (
+            <span
+              data-testid="embed-brand-name"
+              style={{
+                fontSize: '0.75rem',
+                fontWeight: 600,
+                color: branding?.brandPrimaryColor || '#e2e8f0',
+              }}
+            >
+              {branding.brandName}
+            </span>
+          )}
         </div>
       )}
     </div>

@@ -12,6 +12,15 @@ import {
 } from '@easysignage/shared-types';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { EmptyState } from '@/components/ui/EmptyState';
+import {
+  DataTable,
+  DataTableBody,
+  DataTableCard,
+  DataTableCell,
+  DataTableHead,
+  DataTableHeaderCell,
+  DataTableRow,
+} from '@/components/ui/DataTable';
 import { API_BASE, api, fetchApi, getToken } from '@/lib/api';
 import { formatDateTimePtBr } from '@/lib/format-date';
 
@@ -187,26 +196,26 @@ export default function ReportsPage() {
       )}
 
       {rows && rows.length > 0 && (
-        <div className="surface-table-card">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Dispositivo</th>
-                <th>Tipo</th>
-                <th>Conteúdo</th>
-                <th>Evento</th>
-                <th>Início</th>
-                <th>Duração</th>
-                <th>Erro</th>
-              </tr>
-            </thead>
-            <tbody>
+        <DataTableCard ariaLabel="Registos de reprodução">
+          <DataTable caption="Proof-of-play">
+            <DataTableHead>
+              <DataTableRow>
+                <DataTableHeaderCell>Dispositivo</DataTableHeaderCell>
+                <DataTableHeaderCell>Tipo</DataTableHeaderCell>
+                <DataTableHeaderCell>Conteúdo</DataTableHeaderCell>
+                <DataTableHeaderCell>Evento</DataTableHeaderCell>
+                <DataTableHeaderCell>Início</DataTableHeaderCell>
+                <DataTableHeaderCell>Duração</DataTableHeaderCell>
+                <DataTableHeaderCell>Erro</DataTableHeaderCell>
+              </DataTableRow>
+            </DataTableHead>
+            <DataTableBody>
               {rows.map((r) => (
-                <tr key={r.id}>
-                  <td>{r.deviceName}</td>
-                  <td>{playbackItemTypeLabelPt(r.itemType)}</td>
-                  <td>{r.assetName ?? r.playlistName ?? '—'}</td>
-                  <td>
+                <DataTableRow key={r.id}>
+                  <DataTableCell>{r.deviceName}</DataTableCell>
+                  <DataTableCell>{playbackItemTypeLabelPt(r.itemType)}</DataTableCell>
+                  <DataTableCell>{r.assetName ?? r.playlistName ?? '—'}</DataTableCell>
+                  <DataTableCell>
                     <span
                       className={`badge ${
                         r.eventType === 'error'
@@ -219,17 +228,17 @@ export default function ReportsPage() {
                       <FileBarChart size={13} style={{ verticalAlign: -2, marginRight: 4 }} aria-hidden />
                       {playbackEventTypeLabelPt(r.eventType)}
                     </span>
-                  </td>
-                  <td className="cell-sub">{formatDateTimePtBr(r.startedAt)}</td>
-                  <td className="cell-sub">
+                  </DataTableCell>
+                  <DataTableCell className="cell-sub">{formatDateTimePtBr(r.startedAt)}</DataTableCell>
+                  <DataTableCell className="cell-sub">
                     {r.durationMs != null ? `${(r.durationMs / 1000).toFixed(1)}s` : '—'}
-                  </td>
-                  <td className="cell-sub">{r.errorMessage ?? '—'}</td>
-                </tr>
+                  </DataTableCell>
+                  <DataTableCell className="cell-sub">{r.errorMessage ?? '—'}</DataTableCell>
+                </DataTableRow>
               ))}
-            </tbody>
-          </table>
-        </div>
+            </DataTableBody>
+          </DataTable>
+        </DataTableCard>
       )}
 
       {rows && rows.length > 0 && (

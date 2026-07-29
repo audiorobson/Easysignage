@@ -13,6 +13,15 @@ import { CampaignModal } from './CampaignModal';
 import type { CampaignRow } from './types';
 import { LicenseFeatureBanner } from '@/components/LicenseFeatureBanner';
 import { useLicenseStatus } from '@/lib/use-license-status';
+import {
+  DataTable,
+  DataTableBody,
+  DataTableCard,
+  DataTableCell,
+  DataTableHead,
+  DataTableHeaderCell,
+  DataTableRow,
+} from '@/components/ui/DataTable';
 
 type Opt = { id: string; name: string };
 
@@ -38,6 +47,7 @@ export default function CampaignsPage() {
   const [devices, setDevices] = useState<Opt[]>([]);
   const [groups, setGroups] = useState<Opt[]>([]);
   const [sites, setSites] = useState<Opt[]>([]);
+  const [videoWalls, setVideoWalls] = useState<Opt[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<'create' | 'edit'>('create');
@@ -60,12 +70,13 @@ export default function CampaignsPage() {
     (async () => {
       try {
         setError(null);
-        const [c, p, d, g, s] = await Promise.all([
+        const [c, p, d, g, s, w] = await Promise.all([
           api<CampaignRow[]>('/campaigns'),
           api<Opt[]>('/playlists'),
           api<Opt[]>('/devices').catch(() => []),
           api<Opt[]>('/groups').catch(() => []),
           api<Opt[]>('/sites').catch(() => []),
+          api<Opt[]>('/video-walls').catch(() => []),
         ]);
         if (cancelled) return;
         setItems(c);
@@ -73,6 +84,7 @@ export default function CampaignsPage() {
         setDevices(d);
         setGroups(g);
         setSites(s);
+        setVideoWalls(w);
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : 'Erro');
       }
@@ -138,7 +150,7 @@ export default function CampaignsPage() {
     <>
       <PageHeader
         title="Campanhas"
-        lead="Promoções com playlist e prioridade sobre a agenda recorrente — por site, grupo ou device."
+        lead="Promoções com playlist, layout ou video wall — prioridade sobre a agenda recorrente."
         actions={
           <>
             <button
@@ -181,40 +193,53 @@ export default function CampaignsPage() {
       )}
 
       {items && items.length > 0 && (
-        <div className="surface-table-card">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Nome</th>
-                <th>Playlist</th>
-                <th>Alvo</th>
-                <th>Período</th>
-                <th>Prio</th>
-                <th>Estado</th>
-                <th style={{ width: 1 }}>Ações</th>
-              </tr>
-            </thead>
-            <tbody>
+        <DataTableCard ariaLabel="Lista de campanhas">
+          <DataTable caption="Campanhas">
+            <DataTableHead>
+              <DataTableRow>
+                <DataTableHeaderCell>Nome</DataTableHeaderCell>
+                <DataTableHeaderCell>Conteúdo</DataTableHeaderCell>
+                <DataTableHeaderCell>Alvo</DataTableHeaderCell>
+                <DataTableHeaderCell>Período</DataTableHeaderCell>
+                <DataTableHeaderCell>Prio</DataTableHeaderCell>
+                <DataTableHeaderCell>Estado</DataTableHeaderCell>
+                <DataTableHeaderCell>
+                  <span className="sr-only">Ações</span>
+                </DataTableHeaderCell>
+              </DataTableRow>
+            </DataTableHead>
+            <DataTableBody>
               {items.map((c) => (
-                <tr key={c.id}>
-                  <td>{c.name}</td>
-                  <td>
-                    <Link href={`/playlists/${c.playlistId}`}>{c.playlist.name}</Link>
-                  </td>
-                  <td>
+                <DataTableRow key={c.id}>
+                  <DataTableCell>{c.name}</DataTableCell>
+                  <DataTableCell>
+                    <span className="badge badge--neutral" style={{ marginRight: 6 }}>
+                      {c.contentType === 'playlist'
+                        ? 'Playlist'
+                        : c.contentType === 'layout'
+                          ? 'Layout'
+                          : 'Video wall'}
+                    </span>
+                    {c.contentType === 'playlist' && c.playlistId ? (
+                      <Link href={`/playlists/${c.playlistId}`}>{c.contentLabel}</Link>
+                    ) : (
+                      c.contentLabel
+                    )}
+                  </DataTableCell>
+                  <DataTableCell>
                     <span className="badge badge--neutral" style={{ marginRight: 6 }}>
                       {c.scopeLabel}
                     </span>
                     {c.targetLabel}
-                  </td>
-                  <td className="text-muted" style={{ fontSize: 13 }}>
+                  </DataTableCell>
+                  <DataTableCell className="text-muted" style={{ fontSize: 13 }}>
                     {periodLabel(c)}
-                  </td>
-                  <td>{c.priority}</td>
-                  <td>
+                  </DataTableCell>
+                  <DataTableCell>{c.priority}</DataTableCell>
+                  <DataTableCell>
                     <span className={`badge ${statusTone(c.status)}`}>{c.statusLabel}</span>
-                  </td>
-                  <td>
+                  </DataTableCell>
+                  <DataTableCell>
                     <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                       {c.status !== 'active' && c.status !== 'ended' && (
                         <button
@@ -260,12 +285,12 @@ export default function CampaignsPage() {
                         <Trash2 size={16} aria-hidden />
                       </button>
                     </div>
-                  </td>
-                </tr>
+                  </DataTableCell>
+                </DataTableRow>
               ))}
-            </tbody>
-          </table>
-        </div>
+            </DataTableBody>
+          </DataTable>
+        </DataTableCard>
       )}
 
       <CampaignModal
@@ -276,6 +301,7 @@ export default function CampaignsPage() {
         devices={devices}
         groups={groups}
         sites={sites}
+        videoWalls={videoWalls}
         onClose={() => setModalOpen(false)}
         onSaved={() => void load()}
       />

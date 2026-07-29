@@ -6,6 +6,10 @@ import { AlertNotificationsService } from '../notifications/alert-notifications.
 function buildPrismaMock() {
   return {
     device: { findFirst: jest.fn(), findMany: jest.fn() },
+    playlist: {
+      findFirst: jest.fn().mockResolvedValue({ updatedAt: new Date('2026-07-01T12:00:00.000Z') }),
+      findMany: jest.fn().mockResolvedValue([]),
+    },
     alert: {
       findUnique: jest.fn(),
       create: jest.fn().mockResolvedValue({ id: 'created-alert-id' }),
@@ -19,7 +23,10 @@ function buildPrismaMock() {
 }
 
 function buildLicenseMock(tier: 'TRIAL' | 'LITE' | 'STD' | 'ELITE' = 'ELITE') {
-  return { getCurrentTier: jest.fn().mockResolvedValue(tier) } as unknown as LicenseService;
+  return {
+    getCurrentTier: jest.fn().mockResolvedValue(tier),
+    assertFeature: jest.fn().mockResolvedValue(undefined),
+  } as unknown as LicenseService;
 }
 
 const DEVICE_ROW_BASE = {
@@ -32,6 +39,8 @@ const DEVICE_ROW_BASE = {
     appliedContentRevision: null,
     appliedAt: null,
     lastSyncAt: null,
+    currentPublicationId: null,
+    currentItemJson: null,
     currentPublication: null,
   },
 };
@@ -102,6 +111,34 @@ describe('AlertsService.evaluateDevice', () => {
       expect.arrayContaining(['device_offline', 'device_offline_long'])
     );
     expect(prisma.alert.create).not.toHaveBeenCalled();
+  });
+
+  it('abre publication_sync_pending quando contentRevision difere (mesma versão de publicação)', async () => {
+    const prisma = buildPrismaMock();
+    prisma.device.findFirst.mockResolvedValue({
+      ...DEVICE_ROW_BASE,
+      lastSeenAt: new Date(),
+      state: {
+        ...DEVICE_ROW_BASE.state,
+        appliedPublicationVersion: 2,
+        appliedContentRevision: 'revision-antiga',
+        appliedAt: new Date(Date.now() - 20 * 60 * 1000),
+        lastSyncAt: new Date('2026-07-01T12:00:00.000Z'),
+        currentPublicationId: 'pub-1',
+        currentItemJson: { type: 'playlist', playlistId: 'pl-1' },
+        currentPublication: { version: 2 },
+      },
+    });
+    prisma.alert.findUnique.mockResolvedValue(null);
+    const service = new AlertsService(prisma as unknown as PrismaService, buildLicenseMock('STD'));
+
+    await service.evaluateDevice('tenant-1', 'device-1');
+
+    expect(prisma.alert.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ alertType: 'publication_sync_pending' }),
+      })
+    );
   });
 
   it('abre alerta playback_fault quando a telemetria reporta erro', async () => {

@@ -1,7 +1,9 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
+import { TenantQuotaService } from '../tenant-quota/tenant-quota.service';
 import { UpdateAlertNotificationsDto } from './dto/update-alert-notifications.dto';
+import { UpdateBrandingDto } from './dto/update-branding.dto';
 import { UpdateSsoConfigDto } from './dto/update-sso-config.dto';
 
 const ALERT_NOTIFICATIONS_SELECT = {
@@ -17,6 +19,12 @@ const SSO_CONFIG_SELECT = {
   ssoClientSecret: true,
 } as const;
 
+const BRANDING_SELECT = {
+  brandName: true,
+  brandLogoUrl: true,
+  brandPrimaryColor: true,
+} as const;
+
 /** Mascara o segredo do webhook na resposta — nunca devolve o valor em claro após a gravação inicial. */
 function maskSecret(secret: string | null): string | null {
   if (!secret) return null;
@@ -27,8 +35,14 @@ function maskSecret(secret: string | null): string | null {
 export class SettingsService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly config: ConfigService
+    private readonly config: ConfigService,
+    private readonly quota: TenantQuotaService
   ) {}
+
+  /** Uso atual de quotas do plano do tenant (PR 6.5) — apenas leitura; o plano é gerido pelo fornecedor. */
+  getQuotaUsage(tenantId: string) {
+    return this.quota.getUsage(tenantId);
+  }
 
   /** URL de callback a registar na app OIDC do provedor de identidade. */
   get ssoRedirectUri(): string {
@@ -54,6 +68,12 @@ export class SettingsService {
   }
 
   async updateAlertNotifications(tenantId: string, dto: UpdateAlertNotificationsDto) {
+    const current = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: ALERT_NOTIFICATIONS_SELECT,
+    });
+    if (!current) throw new NotFoundException('Tenant não encontrado');
+
     const data: Record<string, string | null> = {};
     if ('alertWebhookUrl' in dto) {
       data.alertWebhookUrl = dto.alertWebhookUrl?.trim() || null;
@@ -63,6 +83,18 @@ export class SettingsService {
     }
     if ('alertNotifyEmails' in dto) {
       data.alertNotifyEmails = dto.alertNotifyEmails?.trim() || null;
+    }
+
+    const nextUrl =
+      'alertWebhookUrl' in dto ? data.alertWebhookUrl ?? null : current.alertWebhookUrl;
+    const nextSecret =
+      'alertWebhookSecret' in dto
+        ? data.alertWebhookSecret ?? null
+        : current.alertWebhookSecret;
+    if (nextUrl && !nextSecret) {
+      throw new BadRequestException(
+        'Webhook de alertas requer alertWebhookSecret para assinatura HMAC'
+      );
     }
 
     const tenant = await this.prisma.tenant.update({
@@ -119,6 +151,34 @@ export class SettingsService {
     });
 
     return this.presentSsoConfig(updated);
+  }
+
+  async getBranding(tenantId: string) {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: BRANDING_SELECT,
+    });
+    if (!tenant) throw new NotFoundException('Tenant não encontrado');
+    return tenant;
+  }
+
+  async updateBranding(tenantId: string, dto: UpdateBrandingDto) {
+    const data: Record<string, string | null> = {};
+    if ('brandName' in dto) {
+      data.brandName = dto.brandName?.trim() || null;
+    }
+    if ('brandLogoUrl' in dto) {
+      data.brandLogoUrl = dto.brandLogoUrl?.trim() || null;
+    }
+    if ('brandPrimaryColor' in dto) {
+      data.brandPrimaryColor = dto.brandPrimaryColor?.trim() || null;
+    }
+
+    return this.prisma.tenant.update({
+      where: { id: tenantId },
+      data,
+      select: BRANDING_SELECT,
+    });
   }
 
   private presentSsoConfig(tenant: {

@@ -1,0 +1,21 @@
+-- Campanhas: suporte a layout e video wall (espelha schedule_rules)
+ALTER TABLE "campaigns" ALTER COLUMN "playlist_id" DROP NOT NULL;
+
+ALTER TABLE "campaigns" ADD COLUMN "layout_id" UUID;
+ALTER TABLE "campaigns" ADD COLUMN "video_wall_id" UUID;
+
+ALTER TABLE "campaigns" ADD CONSTRAINT "campaigns_layout_id_fkey"
+  FOREIGN KEY ("layout_id") REFERENCES "device_layouts"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE "campaigns" ADD CONSTRAINT "campaigns_video_wall_id_fkey"
+  FOREIGN KEY ("video_wall_id") REFERENCES "video_walls"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+CREATE INDEX "campaigns_layout_id_idx" ON "campaigns"("layout_id");
+CREATE INDEX "campaigns_video_wall_id_idx" ON "campaigns"("video_wall_id");
+
+-- Proof-of-play: idempotency key por device (replay nao duplica registos)
+ALTER TABLE "playback_logs" ADD COLUMN "client_event_id" VARCHAR(64);
+
+CREATE UNIQUE INDEX "playback_logs_device_client_event_id"
+  ON "playback_logs"("device_id", "client_event_id")
+  WHERE "client_event_id" IS NOT NULL;

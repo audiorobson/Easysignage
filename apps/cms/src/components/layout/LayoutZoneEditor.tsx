@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
   CONTENT_FIT_MODES,
   contentFitLabelPt,
@@ -85,6 +85,15 @@ export function LayoutZoneEditor({
   const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null);
   const [showGrid, setShowGrid] = useState(true);
   const [showGuides, setShowGuides] = useState(true);
+  const canvasWrapRef = useRef<HTMLDivElement>(null);
+  const dragRef = useRef<{
+    zoneId: string;
+    pointerId: number;
+    startClientX: number;
+    startClientY: number;
+    originFrame: LayoutZoneFrame;
+  } | null>(null);
+  const movedDuringDragRef = useRef(false);
 
   const zonesWithFrames = useMemo(() => {
     if (!selectedTemplate) return [];
@@ -121,6 +130,38 @@ export function LayoutZoneEditor({
     () => new Map(playlists.map((p) => [p.id, p.name])),
     [playlists]
   );
+
+  function handleCanvasPointerMove(e: React.PointerEvent) {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== e.pointerId) return;
+    const wrap = canvasWrapRef.current;
+    if (!wrap) return;
+    const rect = wrap.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return;
+    const dxPct = ((e.clientX - drag.startClientX) / rect.width) * 100;
+    const dyPct = ((e.clientY - drag.startClientY) / rect.height) * 100;
+    if (Math.abs(dxPct) > 0.5 || Math.abs(dyPct) > 0.5) {
+      movedDuringDragRef.current = true;
+    }
+    const guides = collectGuideLines(zonesWithFrames, drag.zoneId);
+    onZoneFrameChange(
+      drag.zoneId,
+      snapFrame(
+        clampFrame({
+          ...drag.originFrame,
+          x: drag.originFrame.x + dxPct,
+          y: drag.originFrame.y + dyPct,
+        }),
+        guides
+      )
+    );
+  }
+
+  function handleCanvasPointerUp(e: React.PointerEvent) {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== e.pointerId) return;
+    dragRef.current = null;
+  }
 
   return (
     <div className="layout-editor">
@@ -191,8 +232,12 @@ export function LayoutZoneEditor({
               </div>
             </div>
             <div
+              ref={canvasWrapRef}
               className="layout-editor__canvas-wrap"
               style={{ aspectRatio: String(aspect) }}
+              onPointerMove={handleCanvasPointerMove}
+              onPointerUp={handleCanvasPointerUp}
+              onPointerCancel={handleCanvasPointerUp}
             >
               <div className={`layout-editor__canvas${showGrid ? ' has-grid' : ''}`}>
                 {showGuides &&
@@ -228,9 +273,27 @@ export function LayoutZoneEditor({
                       style={{
                         ...layoutZoneStyle(z.frame),
                         ['--zone-color' as string]: color,
+                        cursor: 'move',
                       }}
-                      onClick={() => setSelectedZoneId(z.zoneId)}
-                      title={`${z.label} — ${z.frame.w}%×${z.frame.h}%`}
+                      onPointerDown={(e) => {
+                        if (e.button !== 0) return;
+                        e.preventDefault();
+                        movedDuringDragRef.current = false;
+                        setSelectedZoneId(z.zoneId);
+                        dragRef.current = {
+                          zoneId: z.zoneId,
+                          pointerId: e.pointerId,
+                          startClientX: e.clientX,
+                          startClientY: e.clientY,
+                          originFrame: { ...z.frame },
+                        };
+                        e.currentTarget.setPointerCapture(e.pointerId);
+                      }}
+                      onClick={() => {
+                        if (movedDuringDragRef.current) return;
+                        setSelectedZoneId(z.zoneId);
+                      }}
+                      title={`${z.label} — arraste para mover · ${z.frame.w}%×${z.frame.h}%`}
                     >
                       <span className="layout-editor__zone-label">{z.label}</span>
                       <span className="layout-editor__zone-meta">
@@ -296,7 +359,8 @@ export function LayoutZoneEditor({
                 <fieldset className="layout-editor__frame-fieldset">
                   <legend>Geometria (%)</legend>
                   <p className="text-muted" style={{ fontSize: 12, margin: '0 0 8px' }}>
-                    Snap automático a {LAYOUT_GRID_STEP}% e bordas de outras zonas.
+                    Arraste a zona no canvas ou edite os valores. Snap automático a {LAYOUT_GRID_STEP}%
+                    e bordas de outras zonas.
                   </p>
                   <div className="layout-editor__frame-grid">
                     {(['x', 'y', 'w', 'h'] as const).map((key) => (

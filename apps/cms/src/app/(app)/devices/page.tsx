@@ -8,6 +8,15 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { StatusPill, ConnectionPill } from '@/components/ui/StatusPill';
 import { EmptyState } from '@/components/ui/EmptyState';
+import {
+  DataTable,
+  DataTableBody,
+  DataTableCard,
+  DataTableCell,
+  DataTableHead,
+  DataTableHeaderCell,
+  DataTableRow,
+} from '@/components/ui/DataTable';
 import { platformLabel, deviceState } from '@/lib/device-labels';
 import { api, getToken } from '@/lib/api';
 import { formatDateTimePtBr } from '@/lib/format-date';
@@ -229,25 +238,27 @@ export default function DevicesPage() {
       )}
 
       {items && items.length > 0 && (
-        <div className="surface-table-card">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Dispositivo</th>
-                <th>Site</th>
-                <th>Plataforma</th>
-                <th>Estado</th>
-                <th>Conexão</th>
-                <th>Último heartbeat</th>
-                <th style={{ textAlign: 'right' }}>Ações</th>
-              </tr>
-            </thead>
-            <tbody>
+        <DataTableCard ariaLabel="Lista de dispositivos">
+          <DataTable caption="Dispositivos">
+            <DataTableHead>
+              <DataTableRow>
+                <DataTableHeaderCell>Dispositivo</DataTableHeaderCell>
+                <DataTableHeaderCell>Site</DataTableHeaderCell>
+                <DataTableHeaderCell>Plataforma</DataTableHeaderCell>
+                <DataTableHeaderCell>Estado</DataTableHeaderCell>
+                <DataTableHeaderCell>Conexão</DataTableHeaderCell>
+                <DataTableHeaderCell>Último heartbeat</DataTableHeaderCell>
+                <DataTableHeaderCell style={{ textAlign: 'right' }}>
+                  <span className="sr-only">Ações</span>
+                </DataTableHeaderCell>
+              </DataTableRow>
+            </DataTableHead>
+            <DataTableBody>
               {items.map((d) => {
                 const st = deviceState(d.status);
                 return (
-                  <tr key={d.id}>
-                    <td>
+                  <DataTableRow key={d.id}>
+                    <DataTableCell>
                       <div
                         style={{
                           display: 'flex',
@@ -263,21 +274,21 @@ export default function DevicesPage() {
                           <div className="cell-sub">{d.id.slice(0, 8)}</div>
                         </div>
                       </div>
-                    </td>
-                    <td>{d.siteName ?? d.siteId}</td>
-                    <td>{platformLabel(d.platform)}</td>
-                    <td>
+                    </DataTableCell>
+                    <DataTableCell>{d.siteName ?? d.siteId}</DataTableCell>
+                    <DataTableCell>{platformLabel(d.platform)}</DataTableCell>
+                    <DataTableCell>
                       <StatusPill label={st.label} tone={st.tone} />
-                    </td>
-                    <td>
+                    </DataTableCell>
+                    <DataTableCell>
                       <ConnectionPill
                         state={isOnline(d.lastSeenAt) ? 'on' : 'off'}
                       />
-                    </td>
-                    <td className="cell-sub">
+                    </DataTableCell>
+                    <DataTableCell className="cell-sub">
                       {formatDateTimePtBr(d.lastSeenAt)}
-                    </td>
-                    <td>
+                    </DataTableCell>
+                    <DataTableCell>
                       <div
                         style={{
                           display: 'flex',
@@ -305,13 +316,13 @@ export default function DevicesPage() {
                           <Trash2 aria-hidden />
                         </button>
                       </div>
-                    </td>
-                  </tr>
+                    </DataTableCell>
+                  </DataTableRow>
                 );
               })}
-            </tbody>
-          </table>
-        </div>
+            </DataTableBody>
+          </DataTable>
+        </DataTableCard>
       )}
 
       {items && items.length > 0 && (

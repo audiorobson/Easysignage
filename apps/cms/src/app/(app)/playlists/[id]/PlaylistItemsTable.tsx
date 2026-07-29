@@ -19,6 +19,15 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { useCallback, useEffect, useState } from 'react';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import {
+  DataTable,
+  DataTableBody,
+  DataTableCard,
+  DataTableCell,
+  DataTableHead,
+  DataTableHeaderCell,
+  DataTableRow,
+} from '@/components/ui/DataTable';
 import { api } from '@/lib/api';
 
 type ItemRow = {
@@ -57,7 +66,7 @@ function SortableRow({
 
   return (
     <tr ref={setNodeRef} style={style}>
-      <td
+      <DataTableCell
         {...attributes}
         {...listeners}
         title="Arrastar para reordenar"
@@ -70,15 +79,15 @@ function SortableRow({
         }}
       >
         ⠿
-      </td>
-      <td>{index + 1}</td>
-      <td>
+      </DataTableCell>
+      <DataTableCell>{index + 1}</DataTableCell>
+      <DataTableCell>
         <code style={{ fontSize: 12 }}>{item.asset.name}</code>
         <span className="text-muted" style={{ marginLeft: 8 }}>
           {item.asset.mimeType}
         </span>
-      </td>
-      <td>
+      </DataTableCell>
+      <DataTableCell>
         <input
           type="number"
           min={1}
@@ -90,8 +99,8 @@ function SortableRow({
           key={`${item.id}-${item.durationSec}`}
           onBlur={(e) => onUpdateDuration(item.id, e.target.value)}
         />
-      </td>
-      <td style={{ whiteSpace: 'nowrap' }}>
+      </DataTableCell>
+      <DataTableCell style={{ whiteSpace: 'nowrap' }}>
         <button
           type="button"
           className="btn btn--ghost"
@@ -99,7 +108,7 @@ function SortableRow({
         >
           Remover
         </button>
-      </td>
+      </DataTableCell>
     </tr>
   );
 }
@@ -219,34 +228,40 @@ export function PlaylistItemsTable({
         collisionDetection={closestCenter}
         onDragEnd={(e) => void handleDragEnd(e)}
       >
-        <div className="surface-table-card" style={{ marginBottom: 'var(--space-6)' }}>
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th style={{ width: 40 }} aria-label="Ordenar" />
-              <th>#</th>
-              <th>Asset</th>
-              <th>Duração (s)</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody>
-            <SortableContext
-              items={items.map((i) => i.id)}
-              strategy={verticalListSortingStrategy}
-            >
-              {items.map((it, idx) => (
-                <SortableRow
-                  key={it.id}
-                  item={it}
-                  index={idx}
-                  onUpdateDuration={updateItemDuration}
-                  onRemove={setConfirmRemoveId}
-                />
-              ))}
-            </SortableContext>
-          </tbody>
-        </table>
+        <div style={{ marginBottom: 'var(--space-6)' }}>
+          <DataTableCard ariaLabel="Itens da playlist">
+            <DataTable caption="Itens da playlist">
+            <DataTableHead>
+              <DataTableRow>
+                <DataTableHeaderCell style={{ width: 40 }}>
+                  <span className="sr-only">Ordenar</span>
+                </DataTableHeaderCell>
+                <DataTableHeaderCell>#</DataTableHeaderCell>
+                <DataTableHeaderCell>Asset</DataTableHeaderCell>
+                <DataTableHeaderCell>Duração (s)</DataTableHeaderCell>
+                <DataTableHeaderCell>
+                  <span className="sr-only">Ações</span>
+                </DataTableHeaderCell>
+              </DataTableRow>
+            </DataTableHead>
+            <DataTableBody>
+              <SortableContext
+                items={items.map((i) => i.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                {items.map((it, idx) => (
+                  <SortableRow
+                    key={it.id}
+                    item={it}
+                    index={idx}
+                    onUpdateDuration={updateItemDuration}
+                    onRemove={setConfirmRemoveId}
+                  />
+                ))}
+              </SortableContext>
+            </DataTableBody>
+          </DataTable>
+          </DataTableCard>
         </div>
       </DndContext>
 

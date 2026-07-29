@@ -23,8 +23,17 @@ export class CreateCampaignDto {
   @MaxLength(500)
   description?: string;
 
+  @IsOptional()
   @IsUUID()
-  playlistId!: string;
+  playlistId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  layoutId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  videoWallId?: string;
 
   @IsOptional()
   @IsInt()

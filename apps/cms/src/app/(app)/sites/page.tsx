@@ -6,6 +6,15 @@ import { useRouter } from 'next/navigation';
 import { Image, Plus } from 'lucide-react';
 import { AssetPreview } from '@/components/AssetPreview';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import {
+  DataTable,
+  DataTableBody,
+  DataTableCard,
+  DataTableCell,
+  DataTableHead,
+  DataTableHeaderCell,
+  DataTableRow,
+} from '@/components/ui/DataTable';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { api, getToken } from '@/lib/api';
 import { formatDateTimePtBr } from '@/lib/format-date';
@@ -78,23 +87,25 @@ export default function SitesPage() {
           <p className="text-muted">Nenhum espaço. Crie o primeiro para associar dispositivos.</p>
         )}
         {items && items.length > 0 && (
-          <div className="surface-table-card">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th style={{ width: 64 }}>Capa</th>
-                  <th>Nome</th>
-                  <th>Código</th>
-                  <th>Fuso</th>
-                  <th>Dispositivos</th>
-                  <th>Atualizado</th>
-                  <th style={{ width: 180, textAlign: 'right' }}>Ações</th>
-                </tr>
-              </thead>
-              <tbody>
+          <DataTableCard ariaLabel="Lista de sites">
+            <DataTable caption="Sites">
+              <DataTableHead>
+                <DataTableRow>
+                  <DataTableHeaderCell style={{ width: 64 }}>Capa</DataTableHeaderCell>
+                  <DataTableHeaderCell>Nome</DataTableHeaderCell>
+                  <DataTableHeaderCell>Código</DataTableHeaderCell>
+                  <DataTableHeaderCell>Fuso</DataTableHeaderCell>
+                  <DataTableHeaderCell>Dispositivos</DataTableHeaderCell>
+                  <DataTableHeaderCell>Atualizado</DataTableHeaderCell>
+                  <DataTableHeaderCell style={{ width: 180, textAlign: 'right' }}>
+                    <span className="sr-only">Ações</span>
+                  </DataTableHeaderCell>
+                </DataTableRow>
+              </DataTableHead>
+              <DataTableBody>
                 {items.map((s) => (
-                  <tr key={s.id}>
-                    <td>
+                  <DataTableRow key={s.id}>
+                    <DataTableCell>
                       {s.coverAsset ? (
                         <AssetPreview
                           asset={{
@@ -122,15 +133,15 @@ export default function SitesPage() {
                           <Image size={18} strokeWidth={1.9} aria-hidden />
                         </span>
                       )}
-                    </td>
-                    <td>
+                    </DataTableCell>
+                    <DataTableCell>
                       <strong>{s.name}</strong>
-                    </td>
-                    <td>{s.code ?? '—'}</td>
-                    <td>
+                    </DataTableCell>
+                    <DataTableCell>{s.code ?? '—'}</DataTableCell>
+                    <DataTableCell>
                       <code style={{ fontSize: 'var(--text-xs)' }}>{s.timezone}</code>
-                    </td>
-                    <td>
+                    </DataTableCell>
+                    <DataTableCell>
                       {s.devices.length === 0 ? (
                         <span className="text-muted">Nenhum</span>
                       ) : (
@@ -150,9 +161,9 @@ export default function SitesPage() {
                           ))}
                         </ul>
                       )}
-                    </td>
-                    <td>{formatDateTimePtBr(s.updatedAt)}</td>
-                    <td style={{ textAlign: 'right' }}>
+                    </DataTableCell>
+                    <DataTableCell>{formatDateTimePtBr(s.updatedAt)}</DataTableCell>
+                    <DataTableCell style={{ textAlign: 'right' }}>
                       <Link
                         href={`/sites/${s.id}`}
                         className="btn btn--ghost"
@@ -168,12 +179,12 @@ export default function SitesPage() {
                       >
                         Eliminar
                       </button>
-                    </td>
-                  </tr>
+                    </DataTableCell>
+                  </DataTableRow>
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </DataTableBody>
+            </DataTable>
+          </DataTableCard>
         )}
       </section>
 

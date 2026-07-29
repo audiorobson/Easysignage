@@ -98,12 +98,16 @@ export class AlertNotificationsService {
   ): Promise<void> {
     const target = url?.trim();
     if (!target) return;
+    if (!secret?.trim()) {
+      this.logger.warn(`Webhook de alertas configurado sem secret — envio omitido (${target})`);
+      return;
+    }
     try {
       const body = JSON.stringify({ event: `alert.${payload.status}`, data: payload });
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (secret?.trim()) {
-        headers['X-EasySignage-Signature'] = signWebhookBody(secret.trim(), body);
-      }
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'X-EasySignage-Signature': signWebhookBody(secret.trim(), body),
+      };
       const res = await fetch(target, {
         method: 'POST',
         headers,

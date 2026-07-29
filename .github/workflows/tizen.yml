@@ -1,0 +1,65 @@
+name: Tizen Player
+
+# PR 7.3 — smoke test isolado do apps/tizen-player (não faz parte do workspace pnpm; ver
+# pnpm-workspace.yaml). Só corre quando o módulo muda.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/tizen-player/**'
+      - '.github/workflows/tizen.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'apps/tizen-player/**'
+      - '.github/workflows/tizen.yml'
+
+concurrency:
+  group: tizen-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit-tests:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/tizen-player
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Unit tests do bridge (command-dispatcher)
+        run: npm test
+
+  package-smoke:
+    runs-on: ubuntu-latest
+    needs: unit-tests
+    # O Tizen Studio CLI exige um certificado de autor para assinar o pacote (.wgt); sem os
+    # secrets abaixo configurados no repositório, este job é pulado — os testes unitários
+    # acima já validam a lógica do bridge independentemente da toolchain nativa do Tizen.
+    # Ver docs/matriz-hardware-tv.md.
+    if: ${{ vars.TIZEN_BUILD_ENABLED == 'true' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache Tizen Studio installer
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/tizen-studio_*.bin
+          key: tizen-studio-installer
+
+      - name: Build Tizen app (.wgt)
+        id: tizen-build
+        uses: sourcetoad/tizen-build-action@v1.0.0
+        with:
+          project-dir: ${{ github.workspace }}/apps/tizen-player
+          author-key: ${{ secrets.TIZEN_AUTHOR_KEY }}
+          author-password: ${{ secrets.TIZEN_AUTHOR_KEY_PW }}
+
+      - name: Upload .wgt
+        uses: actions/upload-artifact@v4
+        with:
+          name: tizen-player-wgt
+          path: ${{ steps.tizen-build.outputs.package-artifact }}
+          retention-days: 14

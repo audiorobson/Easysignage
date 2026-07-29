@@ -4,6 +4,15 @@ import { type FormEvent, useCallback, useEffect, useId, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Link2, Pencil, Radio, Trash2, Upload } from 'lucide-react';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import {
+  DataTable,
+  DataTableBody,
+  DataTableCard,
+  DataTableCell,
+  DataTableHead,
+  DataTableHeaderCell,
+  DataTableRow,
+} from '@/components/ui/DataTable';
 import { Modal } from '@/components/ui/Modal';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { CMS_ACCEPT_UPLOAD, kindLabelPt } from '@easysignage/shared-types';
@@ -330,23 +339,25 @@ export default function AssetsPage() {
           <p className="text-muted">Nenhum asset neste filtro.</p>
         )}
         {items && items.length > 0 && (
-          <div className="surface-table-card">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th style={{ width: 56 }}>Pré-visualização</th>
-                <th>Nome</th>
-                <th>Tipo</th>
-                <th>Origem</th>
-                <th>Tamanho</th>
-                <th>Criado</th>
-                <th style={{ width: '140px', textAlign: 'right' }}>Ações</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((a) => (
-                <tr key={a.id}>
-                  <td>
+          <DataTableCard ariaLabel="Lista de assets">
+            <DataTable caption="Biblioteca de assets">
+              <DataTableHead>
+                <DataTableRow>
+                  <DataTableHeaderCell style={{ width: 56 }}>Pré-visualização</DataTableHeaderCell>
+                  <DataTableHeaderCell>Nome</DataTableHeaderCell>
+                  <DataTableHeaderCell>Tipo</DataTableHeaderCell>
+                  <DataTableHeaderCell>Origem</DataTableHeaderCell>
+                  <DataTableHeaderCell>Tamanho</DataTableHeaderCell>
+                  <DataTableHeaderCell>Criado</DataTableHeaderCell>
+                  <DataTableHeaderCell style={{ width: '140px', textAlign: 'right' }}>
+                    <span className="sr-only">Ações</span>
+                  </DataTableHeaderCell>
+                </DataTableRow>
+              </DataTableHead>
+              <DataTableBody>
+                {items.map((a) => (
+                  <DataTableRow key={a.id}>
+                    <DataTableCell>
                     <AssetPreview
                       asset={{
                         id: a.id,
@@ -357,9 +368,9 @@ export default function AssetsPage() {
                         fileSize: a.fileSize,
                       }}
                     />
-                  </td>
-                  <td>{a.name}</td>
-                  <td>
+                    </DataTableCell>
+                    <DataTableCell>{a.name}</DataTableCell>
+                    <DataTableCell>
                     <code>{kindLabel(a.kind)}</code>
                     {a.processing && (
                       <span
@@ -377,8 +388,8 @@ export default function AssetsPage() {
                         A processar…
                       </span>
                     )}
-                  </td>
-                  <td>
+                    </DataTableCell>
+                    <DataTableCell>
                     {a.remoteUrl ? (
                       a.kind === 'rtsp' ? (
                         <code title={a.remoteUrl}>
@@ -400,10 +411,10 @@ export default function AssetsPage() {
                     ) : (
                       <code>{a.mimeType}</code>
                     )}
-                  </td>
-                  <td>{a.kind === 'url' || a.kind === 'rtsp' ? '—' : formatSize(a.fileSize)}</td>
-                  <td>{formatDateTimePtBr(a.createdAt)}</td>
-                  <td style={{ textAlign: 'right' }}>
+                    </DataTableCell>
+                    <DataTableCell>{a.kind === 'url' || a.kind === 'rtsp' ? '—' : formatSize(a.fileSize)}</DataTableCell>
+                    <DataTableCell>{formatDateTimePtBr(a.createdAt)}</DataTableCell>
+                    <DataTableCell style={{ textAlign: 'right' }}>
                     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6 }}>
                       <button
                         type="button"
@@ -425,12 +436,12 @@ export default function AssetsPage() {
                         <Trash2 aria-hidden />
                       </button>
                     </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          </div>
+                    </DataTableCell>
+                  </DataTableRow>
+                ))}
+              </DataTableBody>
+            </DataTable>
+          </DataTableCard>
         )}
       </section>
 

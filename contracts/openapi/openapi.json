@@ -2374,6 +2374,25 @@
         ]
       }
     },
+    "/monitoring/publication-delivery": {
+      "get": {
+        "operationId": "MonitoringController_publicationDelivery",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "monitoring"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
     "/monitoring/uptime-history": {
       "get": {
         "operationId": "MonitoringController_uptimeHistory",
@@ -2756,6 +2775,29 @@
         },
         "responses": {
           "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "public"
+        ]
+      }
+    },
+    "/public/tenants/{slug}/branding": {
+      "get": {
+        "operationId": "PublicController_getTenantBranding",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
             "description": ""
           }
         },
@@ -3205,6 +3247,71 @@
         ]
       }
     },
+    "/settings/quota": {
+      "get": {
+        "operationId": "SettingsController_getQuotaUsage",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "settings"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/settings/branding": {
+      "get": {
+        "operationId": "SettingsController_getBranding",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "settings"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      },
+      "patch": {
+        "operationId": "SettingsController_updateBranding",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateBrandingDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "settings"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
     "/audit-logs": {
       "get": {
         "operationId": "AuditLogController_list",
@@ -3277,6 +3384,71 @@
         },
         "tags": [
           "sso"
+        ]
+      }
+    },
+    "/users/roles": {
+      "get": {
+        "operationId": "UsersController_listRoles",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "users"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/users": {
+      "get": {
+        "operationId": "UsersController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "users"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      },
+      "post": {
+        "operationId": "UsersController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateUserDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "users"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
         ]
       }
     }
@@ -3497,6 +3669,14 @@
         "properties": {}
       },
       "UpdateSsoConfigDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdateBrandingDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreateUserDto": {
         "type": "object",
         "properties": {}
       }

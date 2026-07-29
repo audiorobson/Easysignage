@@ -153,12 +153,29 @@ describe('AlertNotificationsService.notify', () => {
     fetchSpy.mockRestore();
   });
 
-  it('não lança quando o webhook falha (best-effort)', async () => {
+  it('omite webhook quando URL está configurada mas falta secret', async () => {
     const prisma = buildPrismaMock();
     prisma.tenant.findUnique.mockResolvedValue({
       name: 'Loja Centro',
       alertWebhookUrl: 'https://hooks.example.com/alerts',
       alertWebhookSecret: null,
+      alertNotifyEmails: null,
+    });
+    const emailSender = buildEmailSenderMock();
+    const fetchSpy = jest.spyOn(global, 'fetch');
+    const service = new AlertNotificationsService(prisma as unknown as PrismaService, emailSender);
+
+    await expect(service.notify(buildPayload())).resolves.toBeUndefined();
+    expect(fetchSpy).not.toHaveBeenCalled();
+    fetchSpy.mockRestore();
+  });
+
+  it('não lança quando o webhook falha (best-effort)', async () => {
+    const prisma = buildPrismaMock();
+    prisma.tenant.findUnique.mockResolvedValue({
+      name: 'Loja Centro',
+      alertWebhookUrl: 'https://hooks.example.com/alerts',
+      alertWebhookSecret: 'segredo',
       alertNotifyEmails: null,
     });
     const emailSender = buildEmailSenderMock();

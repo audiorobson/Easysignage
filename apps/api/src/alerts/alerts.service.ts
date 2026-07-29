@@ -3,6 +3,7 @@ import { tierHasFeature } from '@easysignage/license-core';
 import { PrismaService } from '../prisma/prisma.service';
 import { LicenseService } from '../license/license.service';
 import { AlertNotificationsService } from '../notifications/alert-notifications.service';
+import { computeExpectedContentRevision } from '../device-api/content-revision';
 
 const MONITORING_ONLINE_MS = 5 * 60 * 1000;
 const MONITORING_OFFLINE_LONG_MS = 24 * 60 * 60 * 1000;
@@ -39,6 +40,7 @@ export class AlertsService {
   ) {}
 
   async list(tenantId: string, status?: string) {
+    await this.license.assertFeature('alerts');
     const rows = await this.prisma.alert.findMany({
       where: {
         tenantId,
@@ -57,6 +59,7 @@ export class AlertsService {
   }
 
   async summary(tenantId: string) {
+    await this.license.assertFeature('alerts');
     const [open, ack, critical] = await Promise.all([
       this.prisma.alert.count({ where: { tenantId, status: 'open' } }),
       this.prisma.alert.count({ where: { tenantId, status: 'acknowledged' } }),
@@ -68,6 +71,7 @@ export class AlertsService {
   }
 
   async acknowledge(tenantId: string, userId: string, alertId: string) {
+    await this.license.assertFeature('alerts');
     const row = await this.prisma.alert.findFirst({
       where: { id: alertId, tenantId },
     });
@@ -131,6 +135,8 @@ export class AlertsService {
             appliedContentRevision: true,
             appliedAt: true,
             lastSyncAt: true,
+            currentPublicationId: true,
+            currentItemJson: true,
             currentPublication: { select: { version: true } },
           },
         },
@@ -183,21 +189,42 @@ export class AlertsService {
 
     const pubVer = device.state?.currentPublication?.version ?? null;
     const appliedVer = device.state?.appliedPublicationVersion ?? null;
+    const appliedRevision = device.state?.appliedContentRevision?.trim() || null;
     const appliedAt = device.state?.appliedAt?.getTime() ?? 0;
+    const expectedRevision = await computeExpectedContentRevision(
+      this.prisma,
+      tenantId,
+      device.state
+        ? {
+            lastSyncAt: device.state.lastSyncAt,
+            currentPublicationId: device.state.currentPublicationId,
+            currentItemJson: device.state.currentItemJson,
+          }
+        : null
+    );
+    const hasAssignedContent =
+      device.state?.currentPublicationId != null || device.state?.currentItemJson != null;
+    const revisionMismatch =
+      hasAssignedContent &&
+      (appliedRevision == null || appliedRevision !== expectedRevision);
+    const versionMismatch = pubVer != null && (appliedVer == null || appliedVer !== pubVer);
     const syncStale =
-      pubVer != null &&
-      (appliedVer == null || appliedVer !== pubVer) &&
+      (versionMismatch || revisionMismatch) &&
       (appliedAt === 0 || now - appliedAt > PUBLICATION_SYNC_STALE_MS) &&
       age <= MONITORING_ONLINE_MS;
 
     if (syncStale) {
+      const detail =
+        revisionMismatch && !versionMismatch
+          ? `Revisão de conteúdo (${expectedRevision.slice(0, 8)}…) ainda não confirmada pelo player.`
+          : `Versão publicada ${pubVer} ainda não confirmada pelo player.`;
       await this.upsertOpen({
         tenantId,
         deviceId,
         alertType: 'publication_sync_pending',
         severity: 'info',
         title: `${device.name} — publicação não confirmada`,
-        message: `Versão publicada ${pubVer} ainda não confirmada pelo player.`,
+        message: detail,
       });
     } else {
       await this.resolve(tenantId, deviceId, 'publication_sync_pending');

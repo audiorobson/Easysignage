@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useState } from 'react';
 import { Modal } from '@/components/ui/Modal';
 import { api } from '@/lib/api';
 import { ISO_DAY_OPTIONS, formatMinutes } from '../scheduling/schedule-utils';
-import type { CampaignRow } from './types';
+import type { CampaignContentType, CampaignRow, DeviceLayoutOption } from './types';
 
 type Opt = { id: string; name: string };
 
@@ -16,6 +16,7 @@ type Props = {
   devices: Opt[];
   groups: Opt[];
   sites: Opt[];
+  videoWalls: Opt[];
   onClose: () => void;
   onSaved: () => void;
 };
@@ -26,6 +27,12 @@ const SCOPES = [
   { value: 'site', label: 'Site' },
   { value: 'all', label: 'Todos os devices' },
 ] as const;
+
+const CONTENT_OPTIONS: { value: CampaignContentType; label: string }[] = [
+  { value: 'playlist', label: 'Playlist' },
+  { value: 'layout', label: 'Layout multi-zona' },
+  { value: 'video_wall', label: 'Video wall' },
+];
 
 function toDatetimeLocal(iso: string | null): string {
   if (!iso) return '';
@@ -47,12 +54,17 @@ export function CampaignModal({
   devices,
   groups,
   sites,
+  videoWalls,
   onClose,
   onSaved,
 }: Props) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [contentType, setContentType] = useState<CampaignContentType>('playlist');
   const [playlistId, setPlaylistId] = useState('');
+  const [layoutId, setLayoutId] = useState('');
+  const [videoWallId, setVideoWallId] = useState('');
+  const [deviceLayout, setDeviceLayout] = useState<DeviceLayoutOption | null>(null);
   const [priority, setPriority] = useState(10);
   const [scope, setScope] = useState<CampaignRow['scope']>('site');
   const [deviceId, setDeviceId] = useState('');
@@ -73,7 +85,10 @@ export function CampaignModal({
     if (mode === 'edit' && editing) {
       setName(editing.name);
       setDescription(editing.description ?? '');
-      setPlaylistId(editing.playlistId);
+      setContentType(editing.contentType);
+      setPlaylistId(editing.playlistId ?? '');
+      setLayoutId(editing.layoutId ?? '');
+      setVideoWallId(editing.videoWallId ?? '');
       setPriority(editing.priority);
       setScope(editing.scope);
       setDeviceId(editing.deviceId ?? '');
@@ -91,7 +106,10 @@ export function CampaignModal({
     } else {
       setName('');
       setDescription('');
+      setContentType('playlist');
       setPlaylistId(playlists[0]?.id ?? '');
+      setLayoutId('');
+      setVideoWallId(videoWalls[0]?.id ?? '');
       setPriority(10);
       setScope('site');
       setDeviceId(devices[0]?.id ?? '');
@@ -104,7 +122,40 @@ export function CampaignModal({
       setStartT('09:00');
       setEndT('18:00');
     }
-  }, [open, mode, editing, playlists, devices, groups, sites]);
+  }, [open, mode, editing, playlists, devices, groups, sites, videoWalls]);
+
+  useEffect(() => {
+    if (!open || contentType !== 'layout' || scope !== 'device' || !deviceId) {
+      setDeviceLayout(null);
+      if (contentType === 'layout' && scope !== 'device') setLayoutId('');
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const layout = await api<DeviceLayoutOption | null>(
+          `/devices/${deviceId}/layout`
+        );
+        if (cancelled) return;
+        setDeviceLayout(layout);
+        setLayoutId(layout?.id ?? '');
+      } catch {
+        if (!cancelled) {
+          setDeviceLayout(null);
+          setLayoutId('');
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, contentType, scope, deviceId]);
+
+  useEffect(() => {
+    if (contentType === 'layout' && scope !== 'device') {
+      setLayoutId('');
+    }
+  }, [contentType, scope]);
 
   function parseTimeToMin(t: string): number | null {
     const m = /^(\d{1,2}):(\d{2})$/.exec(t.trim());
@@ -117,8 +168,26 @@ export function CampaignModal({
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
-    if (!name.trim() || !playlistId) {
-      setError('Nome e playlist são obrigatórios');
+    if (!name.trim()) {
+      setError('Nome é obrigatório');
+      return;
+    }
+    if (contentType === 'playlist' && !playlistId) {
+      setError('Escolha uma playlist');
+      return;
+    }
+    if (contentType === 'layout') {
+      if (scope !== 'device') {
+        setError('Layout exige alvo "Device"');
+        return;
+      }
+      if (!layoutId) {
+        setError('Device sem layout configurado');
+        return;
+      }
+    }
+    if (contentType === 'video_wall' && !videoWallId) {
+      setError('Escolha uma video wall');
       return;
     }
 
@@ -140,7 +209,9 @@ export function CampaignModal({
     const payload: Record<string, unknown> = {
       name: name.trim(),
       description: description.trim() || undefined,
-      playlistId,
+      playlistId: contentType === 'playlist' ? playlistId : null,
+      layoutId: contentType === 'layout' ? layoutId : null,
+      videoWallId: contentType === 'video_wall' ? videoWallId : null,
       priority,
       scope,
       deviceId: scope === 'device' ? deviceId : undefined,
@@ -204,21 +275,75 @@ export function CampaignModal({
         </label>
 
         <label className="field">
-          <span>Playlist</span>
+          <span>Conteúdo</span>
           <select
             className="select"
-            value={playlistId}
-            onChange={(e) => setPlaylistId(e.target.value)}
-            required
+            value={contentType}
+            onChange={(e) => setContentType(e.target.value as CampaignContentType)}
           >
-            <option value="">Escolher…</option>
-            {playlists.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
+            {CONTENT_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
               </option>
             ))}
           </select>
         </label>
+
+        {contentType === 'playlist' && (
+          <label className="field">
+            <span>Playlist</span>
+            <select
+              className="select"
+              value={playlistId}
+              onChange={(e) => setPlaylistId(e.target.value)}
+            >
+              <option value="">Escolher…</option>
+              {playlists.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+
+        {contentType === 'layout' && (
+          <div className="field">
+            <span>Layout do device</span>
+            {scope !== 'device' ? (
+              <p className="text-muted" style={{ margin: '4px 0 0', fontSize: 13 }}>
+                Selecione alvo &quot;Device&quot; para usar layout multi-zona.
+              </p>
+            ) : deviceLayout ? (
+              <p style={{ margin: '4px 0 0', fontSize: 13 }}>
+                {deviceLayout.name?.trim() ||
+                  `${deviceLayout.template.name} (${deviceLayout.template.slug})`}
+              </p>
+            ) : (
+              <p className="text-muted" style={{ margin: '4px 0 0', fontSize: 13 }}>
+                Device sem layout — configure em Dispositivos → Layout.
+              </p>
+            )}
+          </div>
+        )}
+
+        {contentType === 'video_wall' && (
+          <label className="field">
+            <span>Video wall</span>
+            <select
+              className="select"
+              value={videoWallId}
+              onChange={(e) => setVideoWallId(e.target.value)}
+            >
+              <option value="">Escolher…</option>
+              {videoWalls.map((w) => (
+                <option key={w.id} value={w.id}>
+                  {w.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
 
         <label className="field">
           <span>Prioridade (maior prevalece sobre agenda)</span>

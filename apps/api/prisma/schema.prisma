@@ -30,6 +30,17 @@ model Tenant {
   ssoClientId     String? @map("sso_client_id")
   ssoClientSecret String? @map("sso_client_secret")
 
+  /** Quotas por plano (PR 6.5) — geridas pelo fornecedor; visíveis (read-only) em `/settings`. */
+  planTier   String @default("starter") @map("plan_tier")
+  maxDevices Int    @default(25) @map("max_devices")
+  maxUsers   Int    @default(10) @map("max_users")
+
+  /** Branding por tenant (PR 6.6) — configurável via `/settings/branding`; aplicado no CMS, no login e no preview embutido. */
+  brandName         String? @map("brand_name")
+  brandLogoUrl      String? @map("brand_logo_url")
+  /** Cor hex (ex.: `#2563eb`) usada como `--color-primary-500`/acento no CMS e no preview embutido. */
+  brandPrimaryColor String? @map("brand_primary_color")
+
   users   User[]
   roles   Role[]
   sites   Site[]
@@ -294,6 +305,7 @@ model DeviceLayout {
   device   Device         @relation(fields: [deviceId], references: [id], onDelete: Cascade)
   template LayoutTemplate @relation(fields: [templateId], references: [id], onDelete: Restrict)
   scheduleRules ScheduleRule[]
+  campaigns     Campaign[]
 
   @@index([tenantId])
   @@map("device_layouts")
@@ -324,6 +336,7 @@ model VideoWall {
   playlist Playlist?     @relation(fields: [playlistId], references: [id], onDelete: SetNull)
   tiles  VideoWallTile[]
   scheduleRules ScheduleRule[]
+  campaigns     Campaign[]
 
   @@index([tenantId, createdAt])
   @@index([siteId])
@@ -481,24 +494,27 @@ model DeviceCommand {
  * Enviado em lote pelo player via `POST /device/playback-events` (Fase 5.6).
  */
 model PlaybackLog {
-  id           String    @id @default(uuid()) @db.Uuid
-  tenantId     String    @map("tenant_id") @db.Uuid
-  deviceId     String    @map("device_id") @db.Uuid
-  itemType     String    @map("item_type")
-  assetId      String?   @map("asset_id") @db.Uuid
-  playlistId   String?   @map("playlist_id") @db.Uuid
-  eventType    String    @map("event_type")
-  startedAt    DateTime  @map("started_at")
-  durationMs   Int?      @map("duration_ms")
-  errorMessage String?   @map("error_message")
-  metaJson     Json?     @map("meta_json")
-  createdAt    DateTime  @default(now()) @map("created_at")
+  id            String    @id @default(uuid()) @db.Uuid
+  tenantId      String    @map("tenant_id") @db.Uuid
+  deviceId      String    @map("device_id") @db.Uuid
+  /// Chave idempotente gerada pelo player — replay do mesmo lote não duplica o registo.
+  clientEventId String?   @map("client_event_id")
+  itemType      String    @map("item_type")
+  assetId       String?   @map("asset_id") @db.Uuid
+  playlistId    String?   @map("playlist_id") @db.Uuid
+  eventType     String    @map("event_type")
+  startedAt     DateTime  @map("started_at")
+  durationMs    Int?      @map("duration_ms")
+  errorMessage  String?   @map("error_message")
+  metaJson      Json?     @map("meta_json")
+  createdAt     DateTime  @default(now()) @map("created_at")
 
   tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   device   Device    @relation(fields: [deviceId], references: [id], onDelete: Cascade)
   asset    Asset?    @relation(fields: [assetId], references: [id], onDelete: SetNull)
   playlist Playlist? @relation(fields: [playlistId], references: [id], onDelete: SetNull)
 
+  @@unique([deviceId, clientEventId], map: "playback_logs_device_client_event_id")
   @@index([tenantId, deviceId, startedAt(sort: Desc)])
   @@index([tenantId, startedAt(sort: Desc)])
   @@index([tenantId, assetId])
@@ -538,7 +554,9 @@ model Campaign {
   tenantId    String    @map("tenant_id") @db.Uuid
   name        String
   description String?
-  playlistId  String    @map("playlist_id") @db.Uuid
+  playlistId  String?   @map("playlist_id") @db.Uuid
+  layoutId    String?   @map("layout_id") @db.Uuid
+  videoWallId String?   @map("video_wall_id") @db.Uuid
   priority    Int       @default(10)
   status      String    @default("draft")
   startAt     DateTime? @map("start_at")
@@ -556,7 +574,9 @@ model Campaign {
   updatedAt   DateTime  @updatedAt @map("updated_at")
 
   tenant     Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  playlist   Playlist     @relation(fields: [playlistId], references: [id], onDelete: Restrict)
+  playlist   Playlist?    @relation(fields: [playlistId], references: [id], onDelete: Restrict)
+  layout     DeviceLayout? @relation(fields: [layoutId], references: [id], onDelete: Cascade)
+  videoWall  VideoWall?   @relation(fields: [videoWallId], references: [id], onDelete: Cascade)
   device     Device?      @relation(fields: [deviceId], references: [id], onDelete: Cascade)
   group      DeviceGroup? @relation(fields: [groupId], references: [id], onDelete: Cascade)
   site       Site?        @relation(fields: [siteId], references: [id], onDelete: Cascade)
@@ -565,6 +585,8 @@ model Campaign {
 
   @@index([tenantId, status])
   @@index([tenantId, scope])
+  @@index([layoutId])
+  @@index([videoWallId])
   @@map("campaigns")
 }
 

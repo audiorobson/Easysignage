@@ -3,7 +3,7 @@
 import { type FormEvent, useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Bell, Copy, KeyRound, Lock, RefreshCw, ShieldCheck, Building2 } from 'lucide-react';
+import { Bell, Copy, Gauge, KeyRound, Lock, Paintbrush, RefreshCw, ShieldCheck, Building2, Users } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { tierLabelPt, featureLabelPt, type LicenseTier, type LicenseFeature } from '@easysignage/license-core/browser';
 import { api, getToken } from '@/lib/api';
@@ -13,6 +13,12 @@ type AlertNotificationsSettings = {
   alertWebhookSecretMasked: string | null;
   hasWebhookSecret: boolean;
   alertNotifyEmails: string | null;
+};
+
+type QuotaUsage = {
+  planTier: string;
+  devices: { used: number; max: number };
+  users: { used: number; max: number };
 };
 
 type LicenseStatus = {
@@ -45,6 +51,8 @@ export default function SettingsPage() {
   const [notifError, setNotifError] = useState<string | null>(null);
   const [notifSaved, setNotifSaved] = useState(false);
 
+  const [quota, setQuota] = useState<QuotaUsage | null>(null);
+
   const load = useCallback(async () => {
     setError(null);
     const data = await api<LicenseStatus>('/license/status');
@@ -56,6 +64,11 @@ export default function SettingsPage() {
     setNotifSettings(data);
     setWebhookUrl(data.alertWebhookUrl ?? '');
     setNotifyEmails(data.alertNotifyEmails ?? '');
+  }, []);
+
+  const loadQuota = useCallback(async () => {
+    const data = await api<QuotaUsage>('/settings/quota');
+    setQuota(data);
   }, []);
 
   useEffect(() => {
@@ -78,11 +91,16 @@ export default function SettingsPage() {
       } catch {
         /** Sem permissão settings.read ou endpoint indisponível — secção fica oculta. */
       }
+      try {
+        await loadQuota();
+      } catch {
+        /** Sem permissão settings.read ou endpoint indisponível — secção fica oculta. */
+      }
     })();
     return () => {
       cancelled = true;
     };
-  }, [router, load, loadNotifications]);
+  }, [router, load, loadNotifications, loadQuota]);
 
   async function onSaveNotifications(ev: FormEvent) {
     ev.preventDefault();
@@ -150,6 +168,43 @@ export default function SettingsPage() {
           </button>
         }
       />
+
+      {quota && (
+        <section
+          className="surface-table-card"
+          style={{
+            padding: '1.1rem 1.25rem',
+            marginBottom: 'var(--space-5)',
+          }}
+        >
+          <h3 className="panel__title" style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '0 0 4px' }}>
+            <Gauge size={17} strokeWidth={1.9} aria-hidden />
+            Quotas do plano
+          </h3>
+          <p className="text-muted" style={{ margin: '0 0 12px' }}>
+            Plano <strong>{quota.planTier}</strong> — geridas pelo fornecedor. Contacte o suporte para aumentar os
+            limites.
+          </p>
+          <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
+            <div>
+              <span className="text-muted" style={{ fontSize: '0.85em' }}>
+                Dispositivos
+              </span>
+              <div style={{ fontWeight: 600 }}>
+                {quota.devices.used} / {quota.devices.max}
+              </div>
+            </div>
+            <div>
+              <span className="text-muted" style={{ fontSize: '0.85em' }}>
+                Utilizadores
+              </span>
+              <div style={{ fontWeight: 600 }}>
+                {quota.users.used} / {quota.users.max}
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
 
       <section
         className="surface-table-card"
@@ -226,6 +281,59 @@ export default function SettingsPage() {
         </div>
         <Link href="/settings/sso" className="btn btn--ghost">
           Configurar SSO
+        </Link>
+      </section>
+
+      <section
+        className="surface-table-card"
+        style={{
+          padding: '1.1rem 1.25rem',
+          marginBottom: 'var(--space-5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 12,
+          flexWrap: 'wrap',
+        }}
+      >
+        <div>
+          <h3 className="panel__title" style={{ display: 'flex', alignItems: 'center', gap: 8, margin: 0 }}>
+            <Users size={17} strokeWidth={1.9} aria-hidden />
+            Utilizadores
+          </h3>
+          <p className="text-muted" style={{ margin: '4px 0 0' }}>
+            Contas de acesso ao CMS — quota <strong>{quota?.users.used ?? '—'}</strong> /{' '}
+            {quota?.users.max ?? '—'}.
+          </p>
+        </div>
+        <Link href="/settings/users" className="btn btn--ghost">
+          Gerir utilizadores
+        </Link>
+      </section>
+
+      <section
+        className="surface-table-card"
+        style={{
+          padding: '1.1rem 1.25rem',
+          marginBottom: 'var(--space-5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 12,
+          flexWrap: 'wrap',
+        }}
+      >
+        <div>
+          <h3 className="panel__title" style={{ display: 'flex', alignItems: 'center', gap: 8, margin: 0 }}>
+            <Paintbrush size={17} strokeWidth={1.9} aria-hidden />
+            Branding
+          </h3>
+          <p className="text-muted" style={{ margin: '4px 0 0' }}>
+            Logótipo, nome e cor de destaque personalizados (CMS, login e preview).
+          </p>
+        </div>
+        <Link href="/settings/branding" className="btn btn--ghost">
+          Configurar branding
         </Link>
       </section>
 

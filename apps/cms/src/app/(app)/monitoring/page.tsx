@@ -9,6 +9,7 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { deviceState, platformLabel, type BadgeTone } from '@/lib/device-labels';
 import { API_BASE, api, fetchApi, getToken } from '@/lib/api';
 import { formatDateTimePtBr } from '@/lib/format-date';
+import { PublicationDeliveryPanel } from '@/components/PublicationDeliveryPanel';
 
 type BorderStatus = 'online' | 'fault' | 'offline_long';
 
@@ -353,6 +354,10 @@ export default function MonitoringPage() {
           </Link>
         }
       />
+
+      <div style={{ marginBottom: 'var(--space-6)' }}>
+        <PublicationDeliveryPanel pollMs={60_000} />
+      </div>
 
       <section
         className="surface-card"

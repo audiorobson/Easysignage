@@ -98,6 +98,8 @@ services:
       - '3000:3000'
     environment:
       NODE_ENV: production
+    # Nota: NEXT_PUBLIC_API_URL e NEXT_PUBLIC_RT_URL são definidos no BUILD da imagem CMS
+    # (ver docker-compose.build.yml e .env.example). Rebuild obrigatório ao mudar o IP LAN.
     depends_on:
       - api
     restart: unless-stopped

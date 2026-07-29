@@ -23,6 +23,7 @@ import { QueueModule } from './queue/queue.module';
 import { SettingsModule } from './settings/settings.module';
 import { AuditModule } from './audit/audit.module';
 import { SsoModule } from './sso/sso.module';
+import { UsersModule } from './users/users.module';
 
 @Module({
   imports: [
@@ -49,6 +50,7 @@ import { SsoModule } from './sso/sso.module';
     SettingsModule,
     AuditModule,
     SsoModule,
+    UsersModule,
   ],
   controllers: [HealthController],
 })

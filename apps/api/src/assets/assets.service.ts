@@ -255,11 +255,7 @@ export class AssetsService {
       width = dims?.width ?? null;
       height = dims?.height ?? null;
     } else if (kind === 'video') {
-      thumbnailKey = await this.tryWriteVideoThumbnail(
-        tenantId,
-        id,
-        this.absPath(storageKey)
-      );
+      // Vídeo: thumbnail/metadata/normalização só no worker assíncrono (evita ffmpeg síncrono na API).
     }
 
     const asset = await this.prisma.asset.create({
@@ -281,9 +277,6 @@ export class AssetsService {
     });
 
     if (kind === 'image' || kind === 'video') {
-      // Best-effort: o worker assíncrono (PR 5.15+) reprocessa thumbnail/metadata;
-      // até lá (ou se o Redis estiver indisponível), o pipeline síncrono acima
-      // já cobre o caso comum.
       void this.mediaQueue.publishAssetUploaded({
         tenantId,
         assetId: asset.id,
@@ -383,6 +376,10 @@ export class AssetsService {
       where: { id: assetId, tenantId },
     });
     if (!asset) throw new NotFoundException('Asset não encontrado');
+
+    if (asset.kind === 'rtsp') {
+      await this.license.assertFeature('rtsp');
+    }
 
     const hasName = dto.name != null && dto.name.trim() !== '';
     const hasUrl = dto.remoteUrl != null && dto.remoteUrl.trim() !== '';

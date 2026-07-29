@@ -13,6 +13,7 @@ pnpm license:gen-keys   # gera deploy/keys/dev-private.pem (gitignored)
 
 ```bash
 pnpm license:gen-staging-keys   # gera par staging (publica commitada)
+pnpm license:gen-production-keys   # par comercial (privada → cofre)
 pnpm license:test-serial -- --hwid ES-... --tier STD
 ```
 
@@ -22,12 +23,11 @@ pnpm license:test-serial -- --hwid ES-... --tier STD
 
 ## Produção comercial
 
-1. Gere um par Ed25519 **dedicado à produção** (fora do repositório).
+1. Gere um par Ed25519 **dedicado à produção**: `pnpm license:gen-production-keys` (ou `--out` fora do repo).
 2. Instale a **pública** no mini PC: `config/license-public.pem` (ver `production-public.pem.example`).
-3. Guarde a **privada** apenas no posto do fornecedor:
-   - variável `EASYSIGNAGE_LICENSE_PRIVATE_KEY`, ou
-   - ficheiro seguro referenciado pelo gerador Electron.
-4. **Nunca** commitar `*.pem` de produção.
-5. O gerador **rejeita** `dev-private.pem` quando `NODE_ENV=production`.
+3. Guarde a **privada** no cofre — ver **`docs/cofre-chave-licenca-producao.md`**.
+4. No gerador: `EASYSIGNAGE_LICENSE_ENV=production` + variável ou **Carregar chave privada…** na UI.
+5. **Nunca** commitar `production-private.pem`.
+6. O gerador **rejeita** chaves dev/staging quando `EASYSIGNAGE_LICENSE_ENV=production`.
 
 A API em produção lê `LICENSE_PUBLIC_KEY_FILE=/config/license-public.pem` e regista erro se ausente.

@@ -4,12 +4,7 @@ import { JwtService } from '@nestjs/jwt';
 import { Issuer, generators, type Client } from 'openid-client';
 import { mergeRolePermissions } from '../common/permissions';
 import { PrismaService } from '../prisma/prisma.service';
-
-interface PendingSsoState {
-  tenantId: string;
-  nonce: string;
-  createdAt: number;
-}
+import { SsoStateStore } from './sso-state.store';
 
 interface CachedIssuer {
   issuer: Issuer;
@@ -18,25 +13,33 @@ interface CachedIssuer {
 
 const STATE_TTL_MS = 10 * 60 * 1000;
 const ISSUER_CACHE_TTL_MS = 10 * 60 * 1000;
+const TWO_FACTOR_CHALLENGE_PURPOSE = '2fa-challenge';
+const TWO_FACTOR_CHALLENGE_TTL = '5m';
 
-export interface SsoSession {
-  accessToken: string;
-  tokenType: 'Bearer';
-  expiresIn: number;
-  user: { id: string; name: string; email: string };
-  tenant: { id: string; name: string; slug: string };
-}
+export type SsoSession =
+  | {
+      accessToken: string;
+      tokenType: 'Bearer';
+      expiresIn: number;
+      user: { id: string; name: string; email: string };
+      tenant: { id: string; name: string; slug: string };
+    }
+  | {
+      requires2fa: true;
+      challengeToken: string;
+      tenant: { id: string; name: string; slug: string };
+    };
 
 @Injectable()
 export class SsoService {
   private readonly logger = new Logger(SsoService.name);
-  private readonly pendingStates = new Map<string, PendingSsoState>();
   private readonly issuerCache = new Map<string, CachedIssuer>();
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
-    private readonly config: ConfigService
+    private readonly config: ConfigService,
+    private readonly ssoState: SsoStateStore
   ) {}
 
   private get apiPublicUrl(): string {
@@ -89,8 +92,8 @@ export class SsoService {
 
     const state = generators.state();
     const nonce = generators.nonce();
-    this.pruneExpiredStates();
-    this.pendingStates.set(state, { tenantId: tenant.id, nonce, createdAt: Date.now() });
+    this.ssoState.pruneExpired();
+    await this.ssoState.save(state, { tenantId: tenant.id, nonce, createdAt: Date.now() });
 
     return client.authorizationUrl({
       scope: 'openid email profile',
@@ -105,11 +108,10 @@ export class SsoService {
       throw new UnauthorizedException('Resposta do provedor de identidade sem state.');
     }
 
-    const pending = this.pendingStates.get(state);
+    const pending = await this.ssoState.consume(state);
     if (!pending) {
       throw new UnauthorizedException('Sessão de SSO inválida ou já utilizada.');
     }
-    this.pendingStates.delete(state);
 
     if (Date.now() - pending.createdAt > STATE_TTL_MS) {
       throw new UnauthorizedException('Sessão de SSO expirada — tente novamente.');
@@ -154,6 +156,18 @@ export class SsoService {
       );
     }
 
+    if (user.totpEnabled) {
+      const challengeToken = await this.jwt.signAsync(
+        { sub: user.id, tenantId: tenant.id, purpose: TWO_FACTOR_CHALLENGE_PURPOSE },
+        { expiresIn: TWO_FACTOR_CHALLENGE_TTL }
+      );
+      return {
+        requires2fa: true as const,
+        challengeToken,
+        tenant: { id: tenant.id, name: tenant.name, slug: tenant.slug },
+      };
+    }
+
     const permissions = mergeRolePermissions(user.userRoles.map((ur) => ur.role));
     const accessToken = await this.jwt.signAsync({
       sub: user.id,
@@ -172,9 +186,21 @@ export class SsoService {
   }
 
   buildCmsRedirectUrl(session: SsoSession): string {
-    const payload = encodeURIComponent(
-      JSON.stringify({ accessToken: session.accessToken, tenant: session.tenant.slug })
-    );
+    const payload =
+      'requires2fa' in session
+        ? encodeURIComponent(
+            JSON.stringify({
+              requires2fa: true,
+              challengeToken: session.challengeToken,
+              tenant: session.tenant.slug,
+            })
+          )
+        : encodeURIComponent(
+            JSON.stringify({
+              accessToken: session.accessToken,
+              tenant: session.tenant.slug,
+            })
+          );
     return `${this.cmsOrigin}/login/sso-callback#session=${payload}`;
   }
 
@@ -190,14 +216,5 @@ export class SsoService {
       }
     }
     return url.toString();
-  }
-
-  private pruneExpiredStates(): void {
-    const now = Date.now();
-    for (const [key, value] of this.pendingStates) {
-      if (now - value.createdAt > STATE_TTL_MS) {
-        this.pendingStates.delete(key);
-      }
-    }
   }
 }

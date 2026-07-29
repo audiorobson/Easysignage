@@ -2,11 +2,12 @@ import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import { LicenseModule } from '../license/license.module';
 import { VideoWallsModule } from '../video-walls/video-walls.module';
+import { TenantQuotaModule } from '../tenant-quota/tenant-quota.module';
 import { DevicesController } from './devices.controller';
 import { DevicesService } from './devices.service';
 
 @Module({
-  imports: [AuthModule, LicenseModule, VideoWallsModule],
+  imports: [AuthModule, LicenseModule, VideoWallsModule, TenantQuotaModule],
   controllers: [DevicesController],
   providers: [DevicesService],
   exports: [DevicesService],

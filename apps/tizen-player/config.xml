@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<widget xmlns="http://www.w3.org/ns/widgets"
+        xmlns:tizen="http://tizen.org/ns/widgets"
+        id="http://easysignage.example.com/tizen-player"
+        version="1.0.0"
+        viewmodes="fullscreen">
+    <tizen:application id="0EasySig1.TizenPlayer" package="0EasySig1" required_version="6.0"/>
+    <name>EasySignage Player</name>
+    <icon src="icon.png"/>
+    <content src="index.html"/>
+    <feature name="http://tizen.org/feature/screen.size.all"/>
+    <tizen:privilege name="http://tizen.org/privilege/systeminfo"/>
+    <tizen:privilege name="http://tizen.org/privilege/internet"/>
+    <tizen:privilege name="http://tizen.org/privilege/network.get"/>
+    <!-- Reinicio/desligamento do SO exige privilegio "power" — apenas apps assinadas como
+         "partner"/"platform" tem acesso; apps publicas comuns nao conseguem. -->
+    <tizen:privilege name="http://tizen.org/privilege/power"/>
+    <tizen:setting screen-orientation="landscape"
+                   context-menu="disable"
+                   background-support="disable"
+                   encryption="disable"
+                   install-location="auto"
+                   hwkey-event="enable"/>
+    <tizen:profile name="tv-samsung"/>
+</widget>
