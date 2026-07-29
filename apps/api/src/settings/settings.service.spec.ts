@@ -56,6 +56,11 @@ describe('SettingsService.getAlertNotifications', () => {
 describe('SettingsService.updateAlertNotifications', () => {
   it('normaliza strings vazias para null e grava apenas os campos enviados', async () => {
     const prisma = buildPrismaMock();
+    prisma.tenant.findUnique.mockResolvedValue({
+      alertWebhookUrl: 'https://hooks.example.com/old',
+      alertWebhookSecret: 'segredo',
+      alertNotifyEmails: null,
+    });
     prisma.tenant.update.mockResolvedValue({
       alertWebhookUrl: null,
       alertWebhookSecret: null,
@@ -82,9 +87,14 @@ describe('SettingsService.updateAlertNotifications', () => {
 
   it('não altera campos que não foram enviados no DTO', async () => {
     const prisma = buildPrismaMock();
+    prisma.tenant.findUnique.mockResolvedValue({
+      alertWebhookUrl: 'https://hooks.example.com/x',
+      alertWebhookSecret: 'segredo-existente',
+      alertNotifyEmails: null,
+    });
     prisma.tenant.update.mockResolvedValue({
       alertWebhookUrl: 'https://hooks.example.com/x',
-      alertWebhookSecret: null,
+      alertWebhookSecret: 'novo-segredo',
       alertNotifyEmails: null,
     });
     const service = new SettingsService(
@@ -98,6 +108,27 @@ describe('SettingsService.updateAlertNotifications', () => {
     expect(prisma.tenant.update).toHaveBeenCalledWith(
       expect.objectContaining({ data: { alertWebhookSecret: 'novo-segredo' } })
     );
+  });
+
+  it('rejeita webhook URL sem secret HMAC', async () => {
+    const prisma = buildPrismaMock();
+    prisma.tenant.findUnique.mockResolvedValue({
+      alertWebhookUrl: null,
+      alertWebhookSecret: null,
+      alertNotifyEmails: null,
+    });
+    const service = new SettingsService(
+      prisma as unknown as PrismaService,
+      buildConfigMock(),
+      buildQuotaMock()
+    );
+
+    await expect(
+      service.updateAlertNotifications('tenant-1', {
+        alertWebhookUrl: 'https://hooks.example.com/alerts',
+      })
+    ).rejects.toThrow('alertWebhookSecret');
+    expect(prisma.tenant.update).not.toHaveBeenCalled();
   });
 });
 

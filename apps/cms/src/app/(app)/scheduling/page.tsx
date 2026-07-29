@@ -16,6 +16,7 @@ import { api, getToken } from '@/lib/api';
 import { formatDateTimePtBr } from '@/lib/format-date';
 import { ScheduleRuleModal } from './ScheduleRuleModal';
 import { ScheduleTimeline } from './ScheduleTimeline';
+import { LicenseFeatureBanner } from '@/components/LicenseFeatureBanner';
 import type { ScheduleRuleRow } from './types';
 import {
   formatMinutes,
@@ -131,6 +132,7 @@ export default function SchedulingPage() {
 
   return (
     <>
+      <LicenseFeatureBanner feature="video_walls" />
       <PageHeader
         title="Agendamento"
         lead="Associe playlists a devices ou grupos por dia da semana e horário — rotinas tipo «segundas playlist A, terças playlist B». O player aplica a playlist ativa em cada poll de estado (~3 s)."

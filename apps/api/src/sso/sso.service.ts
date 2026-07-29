@@ -4,12 +4,7 @@ import { JwtService } from '@nestjs/jwt';
 import { Issuer, generators, type Client } from 'openid-client';
 import { mergeRolePermissions } from '../common/permissions';
 import { PrismaService } from '../prisma/prisma.service';
-
-interface PendingSsoState {
-  tenantId: string;
-  nonce: string;
-  createdAt: number;
-}
+import { SsoStateStore } from './sso-state.store';
 
 interface CachedIssuer {
   issuer: Issuer;
@@ -38,13 +33,13 @@ export type SsoSession =
 @Injectable()
 export class SsoService {
   private readonly logger = new Logger(SsoService.name);
-  private readonly pendingStates = new Map<string, PendingSsoState>();
   private readonly issuerCache = new Map<string, CachedIssuer>();
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
-    private readonly config: ConfigService
+    private readonly config: ConfigService,
+    private readonly ssoState: SsoStateStore
   ) {}
 
   private get apiPublicUrl(): string {
@@ -97,8 +92,8 @@ export class SsoService {
 
     const state = generators.state();
     const nonce = generators.nonce();
-    this.pruneExpiredStates();
-    this.pendingStates.set(state, { tenantId: tenant.id, nonce, createdAt: Date.now() });
+    this.ssoState.pruneExpired();
+    await this.ssoState.save(state, { tenantId: tenant.id, nonce, createdAt: Date.now() });
 
     return client.authorizationUrl({
       scope: 'openid email profile',
@@ -113,11 +108,10 @@ export class SsoService {
       throw new UnauthorizedException('Resposta do provedor de identidade sem state.');
     }
 
-    const pending = this.pendingStates.get(state);
+    const pending = await this.ssoState.consume(state);
     if (!pending) {
       throw new UnauthorizedException('Sessão de SSO inválida ou já utilizada.');
     }
-    this.pendingStates.delete(state);
 
     if (Date.now() - pending.createdAt > STATE_TTL_MS) {
       throw new UnauthorizedException('Sessão de SSO expirada — tente novamente.');
@@ -222,14 +216,5 @@ export class SsoService {
       }
     }
     return url.toString();
-  }
-
-  private pruneExpiredStates(): void {
-    const now = Date.now();
-    for (const [key, value] of this.pendingStates) {
-      if (now - value.createdAt > STATE_TTL_MS) {
-        this.pendingStates.delete(key);
-      }
-    }
   }
 }

@@ -18,7 +18,7 @@ O próprio roadmap, em **§19** (início da secção), aponta para **este fichei
 | **19.5** | Fase 4 — Controle remoto e monitoramento | **Feito (MVP+):** telemetria, overview, comandos (`wol` + **reboot/restart/clear-cache/open-url/screenshot** via Electron), **preview JPEG**, **realtime-gateway** com wall sync, painel de drift, **alertas automáticos** (`/alerts`) com **notificação por webhook (HMAC) e e-mail (Resend)**. |
 | **19.6** | Fase 5 — Robustez operacional | **Concluída (jul/2026 — PRs 5.1–5.18):** CI com Postgres real + migrations, Playwright E2E (CMS + web-player), cobertura Jest nos motores críticos; **proof-of-play** completo (modelo, ingestão, fila offline no web-player, relatório + export CSV, tela no CMS); **Electron real** (bridge RTSP via `ffmpeg`, executor de comandos remotos, watchdog + kiosk + autostart, auto-update); **fila Redis/BullMQ** + `media-worker` real (thumbnail/metadata/transcode); **dashboard sem dados demo** (uptime real via `Heartbeat`); **notificações de alerta** (webhook assinado + e-mail). Ver secções dedicadas abaixo. |
 | **19.7** | Fase 6 — Multi-tenant comercial (enterprise readiness) | **Concluída (jul/2026 — PRs 6.1–6.6):** multi-tenant no modelo; **OpenAPI pública** exportada e verificada em CI (`contracts/openapi/openapi.json`); **audit log** (interceptor global + `/settings/audit`); **2FA (TOTP)** com QR code e desafio no login; **SSO OpenID Connect** por tenant (`/settings/sso`, login único); **quotas por tenant** (`maxDevices`/`maxUsers`/`planTier`, enforcement na criação de dispositivos); **branding por tenant** (logótipo/nome/cor aplicados no CMS, login e preview embutido). Ver secções dedicadas abaixo. |
-| **19.10** | Fase 7 — Players nativos para hardware de TV comercial | **Concluída (jul/2026 — PRs 7.1–7.5):** wrappers de kiosk/WebView reaproveitando o `apps/web-player` para **Android TV** (Kotlin, RTSP nativo via Media3/ExoPlayer), **webOS** (LG, bridge via luna-service), **Tizen** (Samsung) e **Fire TV** (Amazon, base do Android TV); todos com bridge JS testado unitariamente e build/empacotamento automatizado em CI. **Risco residual explícito:** nenhuma plataforma validada em hardware/emulador oficial ainda — ver `docs/matriz-hardware-tv.md`. Ver secção dedicada abaixo. |
+| **19.10** | Fase 7 — Players nativos para hardware de TV comercial | **Entregue em código (jul/2026)** — wrappers + CI; **homologação hardware pendente** (ver `docs/matriz-hardware-tv.md`). Android TV validado em emulador oficial; webOS parcial; Tizen/Fire TV sem device real. |
 
 ---
 
@@ -150,7 +150,7 @@ Integração de **streaming RTSP** como tipo de asset — o servidor **apenas co
 | **API** | `POST /assets` com `{ name, remoteUrl, kind: 'rtsp' }` (ou inferência por `rtsp://`); `PATCH` em assets remotos; `GET .../file` → `400 RTSP_DIRECT_PLAY` |
 | **CMS** | Filtro «Streams RTSP», modal «Nova fonte RTSP», pré-visualização com ícone dedicado |
 | **Web player** | `mediaLoader` lê só `meta.remoteUrl`; `RtspStreamView` + ponte `window.easysignage.rtsp` para Electron futuro |
-| **Electron** | Preload documentado; decoder nativo **pendente** |
+| **Electron** | Bridge RTSP nativo via `ffmpeg` (Fase 5.C) — ver secção abaixo |
 
 **Fluxo:** CMS grava URL → device obtém `GET /device/assets/:id/meta` → player abre `rtsp://…` na LAN.
 
@@ -360,6 +360,21 @@ Fecha o maior gap de alcance de mercado vs. Xibo/OptiSigns/ScreenCloud identific
 
 ---
 
+## Correcções pós-revisão (jul/2026)
+
+| Área | Correcção |
+|------|-----------|
+| Alertas | `publication_sync_pending` compara `contentRevision` além da versão de publicação |
+| Video wall | Drift RTSP/URL alinhado (3600 s) entre API e player |
+| Licenciamento | Revalidação de `expiresAt`; limite unificado no `create` + `pair` de devices; `assertFeature` em listagens (alertas, video walls) |
+| SSO | State OAuth persistido em Redis (fallback memória); 2FA obrigatório após OIDC quando `totpEnabled` |
+| Notificações | Webhook exige secret HMAC na configuração; envio omitido sem assinatura |
+| Proof-of-play | Validação de `assetId`/`playlistId` do tenant na ingestão |
+| Server-box | `NEXT_PUBLIC_RT_URL` no build do CMS; documentação de rebuild por IP LAN |
+| Agenda | Logging de falhas no motor; testes de `applyForDevice` (campanha vs regra) |
+
+---
+
 ## Próximos passos sugeridos
 
 Fases 5 (núcleo operacional), 6 (enterprise readiness) e 7 (players nativos de TV) estão
@@ -398,4 +413,4 @@ de mercado (Fases 8–10):
 
 ---
 
-*Última atualização: 18 de julho de 2026 — Fase 7 (players nativos de TV comercial) concluída: Android TV, webOS, Tizen e Fire TV, todos com bridge JS↔nativo testado unitariamente e build/empacotamento automatizado em CI (validação em hardware físico real ainda pendente — ver `docs/matriz-hardware-tv.md`). Fase 6 (enterprise readiness) já concluída anteriormente: OpenAPI pública, audit log, 2FA (TOTP), SSO OpenID Connect, quotas por tenant e branding por tenant. Fase 5 (núcleo operacional e confiabilidade) também concluída: proof-of-play, Electron real (RTSP/comandos/watchdog/auto-update), media pipeline real (fila + thumbnail/transcode), dashboard sem dados demo e notificações de alerta.*
+*Última actualização: 29 de julho de 2026 — correcções pós-revisão de qualidade (alertas/contentRevision, licenciamento, SSO+2FA, server-box URLs, enforcement por tier). Fase 7 permanece «código entregue, homologação hardware pendente».*

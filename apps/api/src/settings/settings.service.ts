@@ -68,6 +68,12 @@ export class SettingsService {
   }
 
   async updateAlertNotifications(tenantId: string, dto: UpdateAlertNotificationsDto) {
+    const current = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: ALERT_NOTIFICATIONS_SELECT,
+    });
+    if (!current) throw new NotFoundException('Tenant não encontrado');
+
     const data: Record<string, string | null> = {};
     if ('alertWebhookUrl' in dto) {
       data.alertWebhookUrl = dto.alertWebhookUrl?.trim() || null;
@@ -77,6 +83,18 @@ export class SettingsService {
     }
     if ('alertNotifyEmails' in dto) {
       data.alertNotifyEmails = dto.alertNotifyEmails?.trim() || null;
+    }
+
+    const nextUrl =
+      'alertWebhookUrl' in dto ? data.alertWebhookUrl ?? null : current.alertWebhookUrl;
+    const nextSecret =
+      'alertWebhookSecret' in dto
+        ? data.alertWebhookSecret ?? null
+        : current.alertWebhookSecret;
+    if (nextUrl && !nextSecret) {
+      throw new BadRequestException(
+        'Webhook de alertas requer alertWebhookSecret para assinatura HMAC'
+      );
     }
 
     const tenant = await this.prisma.tenant.update({

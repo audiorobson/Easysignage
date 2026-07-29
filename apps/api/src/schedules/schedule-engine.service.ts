@@ -1,4 +1,4 @@
-import { Inject, Injectable, forwardRef } from '@nestjs/common';
+import { Inject, Injectable, Logger, forwardRef } from '@nestjs/common';
 import { Prisma } from '../generated/prisma-client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CAMPAIGN_CONTENT_SOURCE } from '@easysignage/shared-types';
@@ -60,6 +60,8 @@ export function getLocalScheduleContext(
 
 @Injectable()
 export class ScheduleEngineService {
+  private readonly logger = new Logger(ScheduleEngineService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly devices: DevicesService,
@@ -159,7 +161,10 @@ export class ScheduleEngineService {
           scheduleRuleId: rule.id,
         };
       }
-    } catch {
+    } catch (err) {
+      this.logger.warn(
+        `Falha ao construir item de agenda ${rule.id} para device ${deviceId}: ${err instanceof Error ? err.message : String(err)}`
+      );
       return null;
     }
     return null;

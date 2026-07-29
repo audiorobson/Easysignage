@@ -384,6 +384,10 @@ export class AssetsService {
     });
     if (!asset) throw new NotFoundException('Asset não encontrado');
 
+    if (asset.kind === 'rtsp') {
+      await this.license.assertFeature('rtsp');
+    }
+
     const hasName = dto.name != null && dto.name.trim() !== '';
     const hasUrl = dto.remoteUrl != null && dto.remoteUrl.trim() !== '';
     if (!hasName && !hasUrl) {

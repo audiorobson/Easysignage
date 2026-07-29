@@ -2,11 +2,12 @@ import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import { SsoController } from './sso.controller';
 import { SsoService } from './sso.service';
+import { SsoStateStore } from './sso-state.store';
 
 @Module({
   imports: [AuthModule],
   controllers: [SsoController],
-  providers: [SsoService],
+  providers: [SsoService, SsoStateStore],
   exports: [SsoService],
 })
 export class SsoModule {}

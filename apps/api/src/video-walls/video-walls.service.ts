@@ -47,6 +47,7 @@ export class VideoWallsService {
   }
 
   async list(tenantId: string) {
+    await this.assertWallFeature();
     const rows = await this.prisma.videoWall.findMany({
       where: { tenantId },
       orderBy: { createdAt: 'desc' },
@@ -59,6 +60,7 @@ export class VideoWallsService {
   }
 
   async getById(tenantId: string, id: string) {
+    await this.assertWallFeature();
     const wall = await this.prisma.videoWall.findFirst({
       where: { id, tenantId },
       include: {

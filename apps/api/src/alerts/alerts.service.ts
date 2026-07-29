@@ -71,6 +71,7 @@ export class AlertsService {
   }
 
   async acknowledge(tenantId: string, userId: string, alertId: string) {
+    await this.license.assertFeature('alerts');
     const row = await this.prisma.alert.findFirst({
       where: { id: alertId, tenantId },
     });
