@@ -117,10 +117,10 @@ Usa `deploy/keys/staging-private.pem` (não commitada).
 
 ## Passagem para produção comercial
 
-1. Gerar par Ed25519 **comercial** (fora do repo).
+1. Gerar par Ed25519 **comercial**: `pnpm license:gen-production-keys` (ver `docs/cofre-chave-licenca-producao.md`).
 2. Substituir `config/license-public.pem` no mini PC.
-3. Publicar imagens com tag `v*` (workflow `release.yml` → GHCR).
-4. Distribuir ZIP + manual; **nunca** incluir chave privada staging/comercial no pacote cliente.
+3. Imagens GHCR via tag `v1.0.0-rc1` (workflow `release.yml`).
+4. Distribuir ZIP + manual; **nunca** incluir chave privada no pacote cliente.
 
 ---
 

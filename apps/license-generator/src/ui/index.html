@@ -70,11 +70,43 @@
         color: #b91c1c;
         font-size: 0.875rem;
       }
+      .key-bar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        align-items: center;
+        padding: 0.75rem 1rem;
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        margin-bottom: 1rem;
+        font-size: 0.85rem;
+      }
+      .key-bar.ok { border-color: #86efac; background: #f0fdf4; }
+      .key-bar.warn { border-color: #fcd34d; background: #fffbeb; }
+      .key-bar.bad { border-color: #fca5a5; background: #fef2f2; }
+      .key-bar .meta { flex: 1; min-width: 200px; color: #475569; }
+      .btn-row { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.85rem; }
+      button.secondary {
+        background: #fff;
+        color: #334155;
+        border: 1px solid #cbd5e1;
+      }
+      textarea { min-height: 4rem; resize: vertical; }
     </style>
   </head>
   <body>
     <h1>Gerador de licenças</h1>
     <p class="lead">Uso exclusivo do fornecedor. Cole o Hardware ID do mini PC do cliente.</p>
+
+    <div id="keyBar" class="key-bar warn">
+      <div class="meta" id="keyMeta">A verificar chave privada…</div>
+      <div class="btn-row" style="margin:0">
+        <button type="button" class="secondary" id="loadKey">Carregar chave privada…</button>
+        <button type="button" class="secondary" id="clearKey" hidden>Limpar sessão</button>
+      </div>
+    </div>
+    <p id="logHint" class="lead" style="margin-top:-0.5rem;font-size:0.8rem"></p>
 
     <label for="hwid">Hardware ID</label>
     <input id="hwid" placeholder="ES-…" autocomplete="off" />
@@ -88,6 +120,9 @@
 
     <label for="customer">Cliente (opcional)</label>
     <input id="customer" placeholder="Nome do cliente" />
+
+    <label for="notes">Notas internas (opcional)</label>
+    <textarea id="notes" placeholder="Referência comercial, PO, contacto…"></textarea>
 
     <label for="expires">Validade (opcional)</label>
     <input id="expires" type="date" />
@@ -106,6 +141,7 @@
       const hwid = document.getElementById('hwid');
       const tier = document.getElementById('tier');
       const customer = document.getElementById('customer');
+      const notes = document.getElementById('notes');
       const expires = document.getElementById('expires');
       const btn = document.getElementById('btn');
       const err = document.getElementById('err');
@@ -114,7 +150,44 @@
       const tierLabel = document.getElementById('tierLabel');
       const hint = document.getElementById('hint');
       const copyBtn = document.getElementById('copy');
+      const keyBar = document.getElementById('keyBar');
+      const keyMeta = document.getElementById('keyMeta');
+      const loadKey = document.getElementById('loadKey');
+      const clearKey = document.getElementById('clearKey');
+      const logHint = document.getElementById('logHint');
       let lastSerial = '';
+      let keyReady = false;
+
+      async function refreshKeyStatus() {
+        const st = await window.licenseGen.getKeyStatus();
+        logHint.textContent = st.logPath ? 'Registo de emissões: ' + st.logPath : '';
+        keyBar.classList.remove('ok', 'warn', 'bad');
+        if (st.ok) {
+          keyReady = true;
+          keyBar.classList.add('ok');
+          keyMeta.textContent =
+            'Ambiente: ' + st.env + ' — ' + (st.label || st.source);
+          clearKey.hidden = st.source !== 'session-file';
+        } else {
+          keyReady = false;
+          keyBar.classList.add('bad');
+          keyMeta.textContent = st.error || 'Chave privada não configurada';
+          clearKey.hidden = true;
+        }
+        btn.disabled = !keyReady;
+      }
+
+      loadKey.addEventListener('click', async () => {
+        const r = await window.licenseGen.loadPrivateKeyFile();
+        if (r.ok) await refreshKeyStatus();
+      });
+
+      clearKey.addEventListener('click', async () => {
+        await window.licenseGen.clearSessionKey();
+        await refreshKeyStatus();
+      });
+
+      refreshKeyStatus();
 
       btn.addEventListener('click', async () => {
         err.hidden = true;
@@ -125,6 +198,7 @@
             hwid: hwid.value,
             tier: tier.value,
             customer: customer.value || undefined,
+            notes: notes.value || undefined,
             expiresAt: expires.value ? expires.value + 'T23:59:59Z' : null,
           });
           lastSerial = result.serial;
@@ -136,7 +210,7 @@
           err.textContent = e.message || String(e);
           err.hidden = false;
         } finally {
-          btn.disabled = false;
+          btn.disabled = !keyReady;
         }
       });
 

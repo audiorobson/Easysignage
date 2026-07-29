@@ -400,7 +400,8 @@ de mercado (Fases 8–10):
 | API `LicenseModule` | **Feito** — status, apply, limite no `pair` |
 | `deploy/server-box` | **Feito** — compose, install.ps1/sh, volumes config |
 | `deploy/hwid/generate-hwid.mjs` | **Feito** — Win/Linux no host |
-| `apps/license-generator` | **MVP** — Electron gerador de serial |
+| `apps/license-generator` | **Pronto comercial** — estado da chave, carregar PEM, log de emissões |
+| `docs/cofre-chave-licenca-producao.md` | **Feito** — cofre + `pnpm license:gen-production-keys` |
 | CMS `/settings` | **Feito** — HWID, activar licença, funcionalidades por plano |
 | `docs/manual-instalacao-mini-pc.md` | **Feito** — guia cliente |
 | `realtime-gateway` no server-box | **Feito** — compose + Dockerfile |
@@ -408,8 +409,8 @@ de mercado (Fases 8–10):
 | `docs/teste-producao.md` | **Feito** — guia instalacao teste |
 | Script `pnpm prod:test` | **Feito** — build + compose + seed |
 | Pacote ZIP `release:zip` | **Feito** — `dist/release/*.zip` |
-| Imagens GHCR publicadas | **Pendente** — requer tag `v*` no repositório |
-| Chave privada produção (cofre) | **Pendente** — processo comercial do fornecedor |
+| Imagens GHCR publicadas | **Em curso** — tag `v1.0.0-rc1` |
+| Chave privada produção (cofre) | **Processo documentado** — par gerado fora do repo |
 
 ---
 
