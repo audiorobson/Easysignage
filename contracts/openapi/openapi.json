@@ -2374,6 +2374,25 @@
         ]
       }
     },
+    "/monitoring/publication-delivery": {
+      "get": {
+        "operationId": "MonitoringController_publicationDelivery",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "monitoring"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
     "/monitoring/uptime-history": {
       "get": {
         "operationId": "MonitoringController_uptimeHistory",
@@ -3367,6 +3386,71 @@
           "sso"
         ]
       }
+    },
+    "/users/roles": {
+      "get": {
+        "operationId": "UsersController_listRoles",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "users"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/users": {
+      "get": {
+        "operationId": "UsersController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "users"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      },
+      "post": {
+        "operationId": "UsersController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateUserDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "users"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
     }
   },
   "info": {
@@ -3589,6 +3673,10 @@
         "properties": {}
       },
       "UpdateBrandingDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreateUserDto": {
         "type": "object",
         "properties": {}
       }

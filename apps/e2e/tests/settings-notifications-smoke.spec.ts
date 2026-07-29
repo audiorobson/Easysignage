@@ -19,6 +19,7 @@ test('configura webhook e e-mails de notificação de alerta em /settings', asyn
   const emails = 'ops@e2e.local, gestor@e2e.local';
 
   await page.getByPlaceholder('https://hooks.exemplo.com/easysignage-alerts').fill(webhookUrl);
+  await page.getByPlaceholder('Opcional').fill('e2e-webhook-secret');
   await page.getByPlaceholder('ops@empresa.com, gestor@empresa.com').fill(emails);
   await page.getByRole('button', { name: 'Guardar notificações' }).click();
 

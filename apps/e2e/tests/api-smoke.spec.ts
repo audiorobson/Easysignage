@@ -100,7 +100,7 @@ test('pareamento e publicação de conteúdo ponta-a-ponta', async () => {
       },
     });
     expect(playbackRes.ok()).toBeTruthy();
-    expect(await playbackRes.json()).toEqual({ accepted: 2 });
+    expect(await playbackRes.json()).toEqual({ accepted: 2, duplicates: 0 });
 
     const reportRes = await authed.get('monitoring/playback-logs', {
       params: { deviceId: device.id },
