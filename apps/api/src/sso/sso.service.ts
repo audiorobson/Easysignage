@@ -18,14 +18,22 @@ interface CachedIssuer {
 
 const STATE_TTL_MS = 10 * 60 * 1000;
 const ISSUER_CACHE_TTL_MS = 10 * 60 * 1000;
+const TWO_FACTOR_CHALLENGE_PURPOSE = '2fa-challenge';
+const TWO_FACTOR_CHALLENGE_TTL = '5m';
 
-export interface SsoSession {
-  accessToken: string;
-  tokenType: 'Bearer';
-  expiresIn: number;
-  user: { id: string; name: string; email: string };
-  tenant: { id: string; name: string; slug: string };
-}
+export type SsoSession =
+  | {
+      accessToken: string;
+      tokenType: 'Bearer';
+      expiresIn: number;
+      user: { id: string; name: string; email: string };
+      tenant: { id: string; name: string; slug: string };
+    }
+  | {
+      requires2fa: true;
+      challengeToken: string;
+      tenant: { id: string; name: string; slug: string };
+    };
 
 @Injectable()
 export class SsoService {
@@ -154,6 +162,18 @@ export class SsoService {
       );
     }
 
+    if (user.totpEnabled) {
+      const challengeToken = await this.jwt.signAsync(
+        { sub: user.id, tenantId: tenant.id, purpose: TWO_FACTOR_CHALLENGE_PURPOSE },
+        { expiresIn: TWO_FACTOR_CHALLENGE_TTL }
+      );
+      return {
+        requires2fa: true as const,
+        challengeToken,
+        tenant: { id: tenant.id, name: tenant.name, slug: tenant.slug },
+      };
+    }
+
     const permissions = mergeRolePermissions(user.userRoles.map((ur) => ur.role));
     const accessToken = await this.jwt.signAsync({
       sub: user.id,
@@ -172,9 +192,21 @@ export class SsoService {
   }
 
   buildCmsRedirectUrl(session: SsoSession): string {
-    const payload = encodeURIComponent(
-      JSON.stringify({ accessToken: session.accessToken, tenant: session.tenant.slug })
-    );
+    const payload =
+      'requires2fa' in session
+        ? encodeURIComponent(
+            JSON.stringify({
+              requires2fa: true,
+              challengeToken: session.challengeToken,
+              tenant: session.tenant.slug,
+            })
+          )
+        : encodeURIComponent(
+            JSON.stringify({
+              accessToken: session.accessToken,
+              tenant: session.tenant.slug,
+            })
+          );
     return `${this.cmsOrigin}/login/sso-callback#session=${payload}`;
   }
 

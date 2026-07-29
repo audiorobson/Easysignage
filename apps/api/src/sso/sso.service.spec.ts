@@ -85,6 +85,9 @@ describe('SsoService (integração com IdP OIDC mock)', () => {
     const session = await service.handleCallback({ code, state });
 
     expect(session.tenant).toEqual({ id: 'tenant-1', name: 'Acme', slug: 'acme' });
+    expect('accessToken' in session).toBe(true);
+    if (!('accessToken' in session)) return;
+
     expect(session.user).toEqual({ id: 'user-1', name: 'Ana', email: 'ana@acme.com' });
 
     const decoded = await jwt.verifyAsync(session.accessToken);

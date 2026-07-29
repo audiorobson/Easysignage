@@ -207,6 +207,7 @@ export class DevicesService {
     if (!site) throw new NotFoundException('Site não encontrado');
 
     await this.quota.assertCanCreateDevice(tenantId);
+    await this.license.assertCanRegisterAnotherDevice(tenantId);
 
     const pairingCode = generatePairingCode(8);
     const pairingExpiresAt = new Date(Date.now() + PAIRING_TTL_MS);

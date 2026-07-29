@@ -8,6 +8,8 @@ function buildPrismaMock() {
       findMany: jest.fn().mockResolvedValue([]),
       count: jest.fn().mockResolvedValue(0),
     },
+    asset: { count: jest.fn().mockResolvedValue(0) },
+    playlist: { count: jest.fn().mockResolvedValue(0) },
   };
 }
 
@@ -24,6 +26,7 @@ describe('PlaybackService.ingestBatch', () => {
 
   it('grava todos os eventos do lote com tenantId/deviceId injetados', async () => {
     const prisma = buildPrismaMock();
+    prisma.asset.count.mockResolvedValue(1);
     const service = new PlaybackService(prisma as unknown as PrismaService);
 
     const result = await service.ingestBatch('tenant-1', 'device-1', [
@@ -43,6 +46,18 @@ describe('PlaybackService.ingestBatch', () => {
     expect(data).toHaveLength(2);
     expect(data[0]).toMatchObject({ tenantId: 'tenant-1', deviceId: 'device-1', itemType: 'asset' });
     expect(data[1].durationMs).toBe(8000);
+  });
+
+  it('rejeita assets que não pertencem ao tenant', async () => {
+    const prisma = buildPrismaMock();
+    prisma.asset.count.mockResolvedValue(0);
+    const service = new PlaybackService(prisma as unknown as PrismaService);
+
+    await expect(
+      service.ingestBatch('tenant-1', 'device-1', [
+        { itemType: 'asset', assetId: 'foreign-asset', eventType: 'started', startedAt: '2026-07-18T10:00:00.000Z' },
+      ])
+    ).rejects.toThrow('Um ou mais assets do lote não pertencem a este tenant');
   });
 });
 

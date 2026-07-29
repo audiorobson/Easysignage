@@ -35,22 +35,26 @@ function buildService(overrides: { quotaThrows?: Error; siteExists?: boolean } =
       ? jest.fn().mockRejectedValue(overrides.quotaThrows)
       : jest.fn().mockResolvedValue(undefined),
   };
+  const license = {
+    assertCanRegisterAnotherDevice: jest.fn().mockResolvedValue(undefined),
+  };
   const service = new DevicesService(
     prisma as unknown as PrismaService,
     {} as VideoWallsService,
-    {} as LicenseService,
+    license as unknown as LicenseService,
     quota as unknown as TenantQuotaService
   );
-  return { service, prisma, quota };
+  return { service, prisma, quota, license };
 }
 
 describe('DevicesService.create — enforcement de quota por tenant (PR 6.5)', () => {
   it('cria o dispositivo quando a quota do tenant permite', async () => {
-    const { service, prisma, quota } = buildService();
+    const { service, prisma, quota, license } = buildService();
 
     await service.create('tenant-1', { siteId: 'site-1', name: 'TV Recepção' } as any);
 
     expect(quota.assertCanCreateDevice).toHaveBeenCalledWith('tenant-1');
+    expect(license.assertCanRegisterAnotherDevice).toHaveBeenCalledWith('tenant-1');
     expect(prisma.device.create).toHaveBeenCalled();
   });
 
