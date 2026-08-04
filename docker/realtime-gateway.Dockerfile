@@ -11,7 +11,7 @@ COPY docker/npmrc.docker .npmrc
 COPY packages/device-protocol ./packages/device-protocol
 COPY apps/realtime-gateway ./apps/realtime-gateway
 RUN pnpm install --frozen-lockfile
-RUN pnpm --filter @easysignage/device-protocol build
+RUN pnpm --filter @easysignage/realtime-gateway^... build
 RUN pnpm --filter @easysignage/realtime-gateway build
 RUN test -f apps/realtime-gateway/dist/index.js
 RUN pnpm --filter @easysignage/realtime-gateway deploy --prod /out
