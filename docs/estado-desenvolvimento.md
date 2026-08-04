@@ -410,8 +410,9 @@ de mercado (Fases 8–10):
 | Script `pnpm prod:test` | **Feito** — build + compose + seed |
 | Pacote ZIP `release:zip` | **Feito** — `dist/release/*.zip` |
 | Imagens GHCR publicadas | **Feito** — tag `v1.0.0-rc2` (CMS host dinâmico + gateway fix) |
+| Teste E2E ZIP rc2 | **Feito (rc1 completo; rc2 parcial cloud + gateway/CMS OK)** — `deploy/release/e2e-zip-test.ps1` / `.sh` |
 | Chave privada produção (cofre) | **Processo documentado** — par gerado fora do repo |
 
 ---
 
-*Última actualização: 29 de julho de 2026 — lacunas roadmap 1–7 (campanhas layout/wall, métricas de entrega, users CMS, DataTable, UI-6 parcial, PoP idempotente); correcção encoding migration SQL para CI.*
+*Última actualização: 4 de agosto de 2026 — rc2 publicada (CMS LAN dinâmico, gateway Docker fix, script E2E bash); PR #2 mergeado.*
