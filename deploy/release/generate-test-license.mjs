@@ -45,9 +45,9 @@ if (!existsSync(privPath)) {
 const privateKeyPem = readFileSync(privPath, 'utf8');
 const payload = buildLicensePayload({ hwid, tier, customer, expiresAt: null });
 const serial = signLicense(payload, privateKeyPem);
-const display = formatSerialForDisplay(serial);
 
 console.log(`Plano: ${tierLabelPt(tier)}`);
 console.log(`HWID:  ${hwid}`);
 console.log('');
-console.log(display);
+console.log(formatSerialForDisplay(serial));
+console.log('SERIAL_RAW=' + serial);

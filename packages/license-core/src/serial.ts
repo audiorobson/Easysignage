@@ -148,5 +148,11 @@ export function formatSerialForDisplay(serial: string): string {
   for (let i = 0; i < compact.length; i += 8) {
     chunks.push(compact.slice(i, i + 8));
   }
-  return chunks.join('-');
+  // Espaços (não hífens) — base64url da assinatura inclui '-' e '_'
+  return chunks.join(' ');
+}
+
+/** Reverte serial formatado para ecrã (grupos de 8 separados por espaço). */
+export function parseSerialFromDisplay(formatted: string): string {
+  return formatted.replace(/\s+/gu, '');
 }

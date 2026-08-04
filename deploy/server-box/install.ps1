@@ -24,7 +24,13 @@ if (-not (Test-Path ".env")) {
   Write-Host "Criado .env a partir de .env.example - edite JWT_SECRET, passwords e IP do mini PC."
 }
 
-$hwidScript = Join-Path (Split-Path -Parent $Root) "hwid/generate-hwid.mjs"
+$hwidScript = Join-Path $Root "hwid/generate-hwid.mjs"
+if (-not (Test-Path $hwidScript)) {
+  $hwidScript = Join-Path (Split-Path -Parent $Root) "hwid/generate-hwid.mjs"
+}
+if (-not (Test-Path $hwidScript)) {
+  throw "generate-hwid.mjs nao encontrado (esperado em hwid/ do pacote ou deploy/hwid no monorepo)"
+}
 node $hwidScript --out (Join-Path $Root "config/hardware.id")
 
 $hwid = (Get-Content (Join-Path $Root "config/hardware.id") -Raw).Trim()

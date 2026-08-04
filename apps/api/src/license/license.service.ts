@@ -291,14 +291,18 @@ export class LicenseService implements OnModuleInit {
   }
 
   async applyLicenseKey(licenseKey: string): Promise<LicenseStatus> {
-    const trimmed = licenseKey.trim();
+    let trimmed = licenseKey.trim();
     if (!trimmed) {
       throw new BadRequestException('Serial vazio');
     }
 
     const hardwareId = this.resolveHardwareId();
     const publicKey = this.resolvePublicKeyPem();
-    const verified = verifyLicense(trimmed, publicKey);
+    let verified = verifyLicense(trimmed, publicKey);
+    if (!verified.ok && trimmed.includes(' ')) {
+      trimmed = trimmed.replace(/\s+/g, '');
+      verified = verifyLicense(trimmed, publicKey);
+    }
     if (!verified.ok) {
       throw new BadRequestException(verified.reason);
     }

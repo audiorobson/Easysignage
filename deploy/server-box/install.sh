@@ -24,7 +24,15 @@ if [[ ! -f .env ]]; then
   echo "Criado .env — edite JWT_SECRET, passwords e IP do mini PC."
 fi
 
-node "$(dirname "$ROOT")/hwid/generate-hwid.mjs" --out "$ROOT/config/hardware.id"
+HWID_SCRIPT="$ROOT/hwid/generate-hwid.mjs"
+if [[ ! -f "$HWID_SCRIPT" ]]; then
+  HWID_SCRIPT="$(dirname "$ROOT")/hwid/generate-hwid.mjs"
+fi
+if [[ ! -f "$HWID_SCRIPT" ]]; then
+  echo "generate-hwid.mjs nao encontrado (esperado em hwid/ do pacote ou deploy/hwid no monorepo)" >&2
+  exit 1
+fi
+node "$HWID_SCRIPT" --out "$ROOT/config/hardware.id"
 HWID="$(tr -d '[:space:]' < "$ROOT/config/hardware.id")"
 
 echo ""
