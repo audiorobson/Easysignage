@@ -11,6 +11,7 @@ COPY docker/npmrc.docker .npmrc
 COPY packages/device-protocol ./packages/device-protocol
 COPY apps/realtime-gateway ./apps/realtime-gateway
 RUN pnpm install --frozen-lockfile
+RUN rm -rf apps/realtime-gateway/dist apps/realtime-gateway/tsconfig.tsbuildinfo packages/device-protocol/dist packages/device-protocol/tsconfig.tsbuildinfo
 RUN pnpm --filter @easysignage/realtime-gateway^... build
 RUN pnpm --filter @easysignage/realtime-gateway build
 RUN test -f apps/realtime-gateway/dist/index.js

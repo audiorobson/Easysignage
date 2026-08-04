@@ -11,6 +11,7 @@
 **/dist
 !packages/**/dist/**
 .turbo
+**/*.tsbuildinfo
 **/.env
 **/.env.*
 !**/.env.example
