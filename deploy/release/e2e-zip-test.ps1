@@ -3,7 +3,7 @@
 param(
   [string]$ZipPath = "",
   [switch]$UseGhcr,
-  [string]$Version = "1.0.0-rc2"
+  [string]$Version = "1.0.0"
 )
 
 $ErrorActionPreference = "Stop"

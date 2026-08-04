@@ -119,7 +119,7 @@ Usa `deploy/keys/staging-private.pem` (não commitada).
 
 1. Gerar par Ed25519 **comercial**: `pnpm license:gen-production-keys` (ver `docs/cofre-chave-licenca-producao.md`).
 2. Substituir `config/license-public.pem` no mini PC.
-3. Imagens GHCR via tag `v1.0.0-rc2` (workflow `release.yml`).
+3. Imagens GHCR via tag `v1.0.0` (workflow `release.yml`).
 4. Distribuir ZIP + manual; **nunca** incluir chave privada no pacote cliente.
 
 ### Teste E2E do pacote ZIP (ambiente limpo)
@@ -129,13 +129,13 @@ Valida o ZIP de release com imagens GHCR, API, licença staging e realtime-gatew
 **Windows (PowerShell):**
 
 ```powershell
-.\deploy\release\e2e-zip-test.ps1 -UseGhcr -Version 1.0.0-rc2
+.\deploy\release\e2e-zip-test.ps1 -UseGhcr -Version 1.0.0
 ```
 
 **Linux:**
 
 ```bash
-./deploy/release/e2e-zip-test.sh --use-ghcr --version 1.0.0-rc2
+./deploy/release/e2e-zip-test.sh --use-ghcr --version 1.0.0
 ```
 
 Requisitos: Docker Desktop (Windows) ou Docker Engine (Linux), `pnpm` no monorepo para gerar serial staging.
