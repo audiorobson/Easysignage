@@ -385,7 +385,7 @@ de mercado (Fases 8–10):
 |------------|------|------|
 | 1 | Marketplace de widgets/apps (clima, RSS, relógio, sandbox no player) | 8 — Widgets |
 | 2 | Geração de conteúdo por IA (texto/roteiro, imagem, "AI Studio" no CMS) | 9 — IA generativa |
-| 3 | Revisão de segurança, runbook operacional, release v1.0.0 | 10 — Lançamento GA |
+| 3 | Revisão de segurança, runbook operacional, release v1.0.0 | 10 — Lançamento GA | **Feito (ago/2026)** |
 | — | Validação em hardware físico real dos players de TV (nenhuma plataforma testada ainda) | 7 (risco residual) — ver `docs/matriz-hardware-tv.md` |
 
 ---
@@ -409,10 +409,11 @@ de mercado (Fases 8–10):
 | `docs/teste-producao.md` | **Feito** — guia instalacao teste |
 | Script `pnpm prod:test` | **Feito** — build + compose + seed |
 | Pacote ZIP `release:zip` | **Feito** — `dist/release/*.zip` |
-| Imagens GHCR publicadas | **Feito** — tag `v1.0.0-rc2` (CMS host dinâmico + gateway fix) |
-| Teste E2E ZIP rc2 | **Feito (rc1 completo; rc2 parcial cloud + gateway/CMS OK)** — `deploy/release/e2e-zip-test.ps1` / `.sh` |
+| Imagens GHCR publicadas | **Feito** — tag `v1.0.0` (GA) |
+| Teste E2E ZIP | **Feito** — rc2 validado completo; scripts `e2e-zip-test.ps1` / `.sh` |
+| Release v1.0.0 GA | **Feito** — server-box ZIP + 4 imagens GHCR |
 | Chave privada produção (cofre) | **Processo documentado** — par gerado fora do repo |
 
 ---
 
-*Última actualização: 4 de agosto de 2026 — rc2 publicada (CMS LAN dinâmico, gateway Docker fix, script E2E bash); PR #2 mergeado.*
+*Última actualização: 4 de agosto de 2026 — **v1.0.0 GA** publicada (E2E validado, CMS LAN dinâmico, gateway fix, licenciamento comercial).*

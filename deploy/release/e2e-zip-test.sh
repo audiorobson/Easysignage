@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # Teste E2E do pacote ZIP server-box (ambiente limpo simulado)
-# Uso: ./deploy/release/e2e-zip-test.sh [--zip path] [--use-ghcr] [--version 1.0.0-rc2] [--host-gateway]
+# Uso: ./deploy/release/e2e-zip-test.sh [--zip path] [--use-ghcr] [--version 1.0.0] [--host-gateway]
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 ZIP_PATH=""
 USE_GHCR=0
 HOST_GATEWAY=0
-VERSION="1.0.0-rc2"
+VERSION="1.0.0"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
