@@ -1,9 +1,5 @@
 import { isRealtimeServerMessage } from '@easysignage/device-protocol';
-
-const RT_URL =
-  process.env.NEXT_PUBLIC_RT_URL?.replace(/\/$/, '') ?? 'ws://localhost:3020';
-
-/** CMS — atualiza painel de saúde quando a parede emite sync/tick. */
+import { getRtUrl } from './public-urls';
 export function connectCmsWallRealtime(opts: {
   accessToken: string;
   wallId: string;
@@ -17,7 +13,7 @@ export function connectCmsWallRealtime(opts: {
 
   const connect = () => {
     if (stopped) return;
-    ws = new WebSocket(RT_URL);
+    ws = new WebSocket(getRtUrl());
     ws.onopen = () => {
       ws?.send(
         JSON.stringify({ type: 'auth', role: 'cms', token: opts.accessToken })

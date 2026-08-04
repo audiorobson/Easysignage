@@ -409,7 +409,7 @@ de mercado (Fases 8–10):
 | `docs/teste-producao.md` | **Feito** — guia instalacao teste |
 | Script `pnpm prod:test` | **Feito** — build + compose + seed |
 | Pacote ZIP `release:zip` | **Feito** — `dist/release/*.zip` |
-| Imagens GHCR publicadas | **Em curso** — tag `v1.0.0-rc1` |
+| Imagens GHCR publicadas | **Feito** — tag `v1.0.0-rc2` (CMS host dinâmico + gateway fix) |
 | Chave privada produção (cofre) | **Processo documentado** — par gerado fora do repo |
 
 ---

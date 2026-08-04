@@ -58,9 +58,9 @@ await new Promise((resolve, reject) => {
     `EasySignage Server Box ${version}\r\n\r\n` +
       `1. Copie .env.example para .env e ajuste IP do mini PC\r\n` +
       `2. Execute install.ps1 (Windows) ou install.sh (Linux)\r\n` +
-      `3. Configure imagens GHCR no .env OU importe imagens Docker\r\n` +
+      `3. Configure imagens GHCR no .env (pre-preenchidas para rc2)\r\n` +
       `4. docker compose up -d\r\n` +
-      `5. CMS http://localhost:3000 — login admin@demo.local / admin123\r\n` +
+      `5. CMS http://IP-LAN:3000 ou http://localhost:3000 — login admin@demo.local / admin123\r\n` +
       `6. Ver teste-producao.md para licenca staging\r\n`,
     { name: `${prefix}/LEIA-ME.txt` }
   );

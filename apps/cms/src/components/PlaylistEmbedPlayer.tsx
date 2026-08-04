@@ -14,7 +14,7 @@ import {
   resolvePlayerKind,
   type PlayerMediaKind,
 } from '@easysignage/shared-types';
-import { API_BASE, fetchApi } from '@/lib/api';
+import { fetchApi, getApiBase } from '@/lib/api';
 
 type ManifestItem = {
   itemId: string;
@@ -111,7 +111,7 @@ export function PlaylistEmbedPlayer({ playlistId, accessToken }: Props) {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetchApi(`${API_BASE}/settings/branding`, { headers: authHeaders });
+        const res = await fetchApi(`${getApiBase()}/settings/branding`, { headers: authHeaders });
         if (cancelled || !res.ok) return;
         const data = (await res.json()) as EmbedBranding;
         setBranding(data);
@@ -128,7 +128,7 @@ export function PlaylistEmbedPlayer({ playlistId, accessToken }: Props) {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetchApi(`${API_BASE}/playlists/${playlistId}/manifest`, {
+        const res = await fetchApi(`${getApiBase()}/playlists/${playlistId}/manifest`, {
           headers: authHeaders,
         });
         const data = (await res.json()) as PlaylistManifest & { message?: string };
@@ -179,7 +179,7 @@ export function PlaylistEmbedPlayer({ playlistId, accessToken }: Props) {
     (async () => {
       try {
         setHint(`A carregar… ${caption}`);
-        const metaRes = await fetchApi(`${API_BASE}/assets/${activeAssetId}/meta`, {
+        const metaRes = await fetchApi(`${getApiBase()}/assets/${activeAssetId}/meta`, {
           headers: authHeaders,
         });
         if (cancelled) return;
@@ -205,7 +205,7 @@ export function PlaylistEmbedPlayer({ playlistId, accessToken }: Props) {
           return;
         }
 
-        const fr = await fetchApi(`${API_BASE}/assets/${activeAssetId}/file`, {
+        const fr = await fetchApi(`${getApiBase()}/assets/${activeAssetId}/file`, {
           headers: authHeaders,
         });
         if (cancelled) return;

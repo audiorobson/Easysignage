@@ -21,7 +21,24 @@ if (-not (Test-Path $licensePub)) {
 
 if (-not (Test-Path ".env")) {
   Copy-Item ".env.example" ".env"
-  Write-Host "Criado .env a partir de .env.example - edite JWT_SECRET, passwords e IP do mini PC."
+  Write-Host "Criado .env a partir de .env.example - edite JWT_SECRET e passwords."
+}
+
+$envPath = Join-Path $Root ".env"
+$lanIp = (
+  Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue |
+  Where-Object { $_.IPAddress -notlike '127.*' -and $_.PrefixOrigin -ne 'WellKnown' } |
+  Sort-Object InterfaceMetric |
+  Select-Object -First 1 -ExpandProperty IPAddress
+)
+if ($lanIp -and (Test-Path $envPath)) {
+  $envContent = Get-Content $envPath -Raw
+  $envContent = $envContent -replace '192\.168\.1\.100', $lanIp
+  if ($envContent -notmatch 'CORS_ORIGINS=.*localhost') {
+    $envContent = $envContent -replace '(CORS_ORIGINS=.*)', "`$1,http://127.0.0.1:3000"
+  }
+  Set-Content -Path $envPath -Value $envContent.TrimEnd() -NoNewline
+  Write-Host "IP LAN detectado: $lanIp (CORS/CMS no .env)"
 }
 
 $hwidScript = Join-Path $Root "hwid/generate-hwid.mjs"

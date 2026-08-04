@@ -1,15 +1,13 @@
-export const API_BASE =
-  typeof process !== 'undefined' && process.env.NEXT_PUBLIC_API_URL
-    ? process.env.NEXT_PUBLIC_API_URL
-    : 'http://localhost:3001/api/v1';
+import { getApiBase } from './public-urls';
 
-const BASE = API_BASE;
+export { getApiBase, getRtUrl } from './public-urls';
 
 function networkFailureMessage(cause: unknown): string {
-  const intro = `Não foi possível contactar a API em ${BASE}.`;
+  const base = getApiBase();
+  const intro = `Não foi possível contactar a API em ${base}.`;
 
   if (typeof window !== 'undefined') {
-    if (window.location.protocol === 'https:' && BASE.startsWith('http:')) {
+    if (window.location.protocol === 'https:' && base.startsWith('http:')) {
       return [
         intro,
         '',
@@ -28,7 +26,7 @@ function networkFailureMessage(cause: unknown): string {
     '',
     '2) PostgreSQL acessível — em apps/api/.env o DATABASE_URL deve apontar para um servidor em execução. Se a base não estiver disponível, o Nest pode terminar logo à partida e a porta 3001 fica sem serviço (erro parecido a “connection refused”).',
     '',
-    '3) URL do browser — NEXT_PUBLIC_API_URL no CMS (ficheiro .env.local) deve coincidir com a API (por defeito: http://localhost:3001/api/v1).',
+    '3) URL da API — o CMS usa automaticamente o mesmo host do browser (porta 3001). Confirme CORS_ORIGINS na API.',
     '',
     '4) CORS — só depois da API responder: em apps/api/.env, CORS_ORIGINS deve listar a origem exacta do separador (ex.: http://localhost:3000 e http://127.0.0.1:3000).',
   ];
@@ -69,14 +67,14 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
   };
   if (token) headers['Authorization'] = `Bearer ${token}`;
 
-  const res = await fetchApi(`${BASE}${path}`, { ...options, headers });
+  const res = await fetchApi(`${getApiBase()}${path}`, { ...options, headers });
   const text = await res.text();
   let data: unknown;
   try {
     data = text ? JSON.parse(text) : undefined;
   } catch {
     throw new Error(
-      `Resposta não JSON da API (HTTP ${res.status}). Confirme NEXT_PUBLIC_API_URL (${BASE}) e que está a falar com o Nest (noutro serviço na mesma porta devolve HTML).`
+      `Resposta não JSON da API (HTTP ${res.status}). Confirme a API em ${getApiBase()} (Nest na porta 3001).`
     );
   }
 
@@ -106,7 +104,7 @@ export async function uploadAssetMultipart(
   const headers: Record<string, string> = {};
   if (token) headers['Authorization'] = `Bearer ${token}`;
 
-  const res = await fetchApi(`${BASE}/assets/upload`, {
+  const res = await fetchApi(`${getApiBase()}/assets/upload`, {
     method: 'POST',
     body: form,
     headers,
@@ -117,7 +115,7 @@ export async function uploadAssetMultipart(
     data = text ? JSON.parse(text) : undefined;
   } catch {
     throw new Error(
-      `Resposta não JSON no upload (HTTP ${res.status}). Confirme a API em ${BASE}.`
+      `Resposta não JSON no upload (HTTP ${res.status}). Confirme a API em ${getApiBase()}.`
     );
   }
   if (!res.ok) {

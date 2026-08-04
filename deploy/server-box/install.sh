@@ -21,7 +21,13 @@ fi
 
 if [[ ! -f .env ]]; then
   cp .env.example .env
-  echo "Criado .env — edite JWT_SECRET, passwords e IP do mini PC."
+  echo "Criado .env — edite JWT_SECRET e passwords."
+fi
+
+LAN_IP="$(hostname -I 2>/dev/null | awk '{print $1}')"
+if [[ -n "$LAN_IP" && -f .env ]]; then
+  sed -i "s/192.168.1.100/$LAN_IP/g" .env
+  echo "IP LAN detectado: $LAN_IP (CORS/CMS no .env)"
 fi
 
 HWID_SCRIPT="$ROOT/hwid/generate-hwid.mjs"

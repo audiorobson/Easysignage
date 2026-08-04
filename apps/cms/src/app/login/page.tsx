@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { MonitorPlay } from 'lucide-react';
-import { api, API_BASE, setToken } from '@/lib/api';
+import { api, getApiBase, setToken } from '@/lib/api';
 import { applyBrandingCssVars, type TenantBranding } from '@/lib/branding';
 
 type LoginResponse =
@@ -219,7 +219,7 @@ export default function LoginPage() {
           style={{ marginTop: 'var(--space-2)' }}
           disabled={!tenantSlug.trim()}
           onClick={() => {
-            window.location.href = `${API_BASE}/auth/sso/${encodeURIComponent(tenantSlug.trim())}/login`;
+            window.location.href = `${getApiBase()}/auth/sso/${encodeURIComponent(tenantSlug.trim())}/login`;
           }}
         >
           Continuar com SSO (OIDC)

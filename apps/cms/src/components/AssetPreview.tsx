@@ -12,7 +12,7 @@ import {
   Volume2,
   type LucideIcon,
 } from 'lucide-react';
-import { API_BASE, fetchApi, getToken } from '@/lib/api';
+import { fetchApi, getApiBase, getToken } from '@/lib/api';
 
 /** Dados mínimos para pré-visualização na grelha CMS */
 export type AssetPreviewModel = {
@@ -126,7 +126,7 @@ export function AssetPreview({ asset, size = 48 }: Props) {
 
     (async () => {
       try {
-        const res = await fetchApi(`${API_BASE}/assets/${asset.id}/thumbnail`, {
+        const res = await fetchApi(`${getApiBase()}/assets/${asset.id}/thumbnail`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (cancelled) return;
@@ -168,7 +168,7 @@ export function AssetPreview({ asset, size = 48 }: Props) {
 
     (async () => {
       try {
-        const res = await fetchApi(`${API_BASE}/assets/${asset.id}/file`, {
+        const res = await fetchApi(`${getApiBase()}/assets/${asset.id}/file`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (!res.ok || cancelled) return;

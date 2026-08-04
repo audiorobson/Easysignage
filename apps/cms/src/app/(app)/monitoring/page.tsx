@@ -7,7 +7,7 @@ import { Tv } from 'lucide-react';
 import { StatusPill } from '@/components/ui/StatusPill';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { deviceState, platformLabel, type BadgeTone } from '@/lib/device-labels';
-import { API_BASE, api, fetchApi, getToken } from '@/lib/api';
+import { api, fetchApi, getApiBase, getToken } from '@/lib/api';
 import { formatDateTimePtBr } from '@/lib/format-date';
 import { PublicationDeliveryPanel } from '@/components/PublicationDeliveryPanel';
 
@@ -99,7 +99,7 @@ function MonitoringPreviewImage({
       if (!token || cancelled) return;
       try {
         const res = await fetchApi(
-          `${API_BASE}/monitoring/devices/${deviceId}/preview?t=${Date.now()}`,
+          `${getApiBase()}/monitoring/devices/${deviceId}/preview?t=${Date.now()}`,
           {
             headers: { Authorization: `Bearer ${token}` },
             cache: 'no-store',

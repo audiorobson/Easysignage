@@ -21,7 +21,7 @@ import {
   DataTableHeaderCell,
   DataTableRow,
 } from '@/components/ui/DataTable';
-import { API_BASE, api, fetchApi, getToken } from '@/lib/api';
+import { api, fetchApi, getApiBase, getToken } from '@/lib/api';
 import { formatDateTimePtBr } from '@/lib/format-date';
 
 type DeviceOption = { id: string; name: string };
@@ -101,7 +101,7 @@ export default function ReportsPage() {
     setExporting(true);
     try {
       const token = getToken();
-      const res = await fetchApi(`${API_BASE}/monitoring/playback-logs/export.csv?${query.toString()}`, {
+      const res = await fetchApi(`${getApiBase()}/monitoring/playback-logs/export.csv?${query.toString()}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       });
       if (!res.ok) throw new Error(`Erro HTTP ${res.status} ao exportar CSV`);
