@@ -1,17 +1,19 @@
 #!/usr/bin/env bash
 # Teste E2E do pacote ZIP server-box (ambiente limpo simulado)
-# Uso: ./deploy/release/e2e-zip-test.sh [--zip path] [--use-ghcr] [--version 1.0.0-rc2]
+# Uso: ./deploy/release/e2e-zip-test.sh [--zip path] [--use-ghcr] [--version 1.0.0-rc2] [--host-gateway]
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 ZIP_PATH=""
 USE_GHCR=0
+HOST_GATEWAY=0
 VERSION="1.0.0-rc2"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --zip) ZIP_PATH="$2"; shift 2 ;;
     --use-ghcr) USE_GHCR=1; shift ;;
+    --host-gateway) HOST_GATEWAY=1; shift ;;
     --version) VERSION="$2"; shift 2 ;;
     *) echo "Argumento desconhecido: $1" >&2; exit 1 ;;
   esac
@@ -36,9 +38,12 @@ rm -rf "$CLEAN_DIR"
 mkdir -p "$CLEAN_DIR"
 unzip -q "$ZIP_PATH" -d "$CLEAN_DIR"
 
-# Garantir install.sh actualizado do monorepo
+# Garantir scripts actualizados do monorepo
 cp "$REPO_ROOT/deploy/server-box/install.sh" "$BOX_DIR/install.sh"
 chmod +x "$BOX_DIR/install.sh"
+if [[ "$HOST_GATEWAY" -eq 1 ]]; then
+  cp "$REPO_ROOT/deploy/server-box/docker-compose.e2e.yml" "$BOX_DIR/docker-compose.e2e.yml"
+fi
 
 cd "$BOX_DIR"
 
@@ -68,7 +73,12 @@ EOF
 fi
 
 echo "==> docker compose up -d"
-docker compose up -d
+compose_args=(-f docker-compose.yml)
+if [[ "$HOST_GATEWAY" -eq 1 ]]; then
+  compose_args+=(-f docker-compose.e2e.yml)
+  echo "    (modo host-gateway para rede bridge limitada)"
+fi
+docker compose "${compose_args[@]}" up -d
 
 echo "==> Aguardar API..."
 ok=0
@@ -81,8 +91,8 @@ for i in $(seq 1 60); do
 done
 if [[ "$ok" -ne 1 ]]; then
   echo "API health timeout" >&2
-  docker compose ps
-  docker compose logs api --tail 30
+  docker compose "${compose_args[@]}" ps
+  docker compose "${compose_args[@]}" logs api --tail 30
   exit 1
 fi
 echo "API health: OK"
@@ -98,11 +108,22 @@ for i in $(seq 1 30); do
 done
 if [[ "$rt_ok" -ne 1 ]]; then
   echo "Realtime-gateway health timeout" >&2
-  docker compose ps
-  docker compose logs realtime-gateway --tail 30
+  docker compose "${compose_args[@]}" ps
+  docker compose "${compose_args[@]}" logs realtime-gateway --tail 30
   exit 1
 fi
 echo "Realtime-gateway health: OK"
+
+echo "==> Preparar chaves staging"
+cd "$REPO_ROOT"
+if [[ ! -f deploy/keys/staging-private.pem ]]; then
+  pnpm license:gen-staging-keys >/dev/null
+fi
+cp deploy/keys/staging-public.pem "$BOX_DIR/config/license-public.pem"
+cd "$BOX_DIR"
+docker compose "${compose_args[@]}" restart api >/dev/null
+sleep 8
+until curl -sf "http://localhost:3001/api/v1/health" | grep -q '"status":"ok"'; do sleep 2; done
 
 echo "==> Gerar serial staging"
 cd "$REPO_ROOT"
