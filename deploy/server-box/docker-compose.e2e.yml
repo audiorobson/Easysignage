@@ -1,0 +1,30 @@
+# Override para teste E2E em ambientes com rede bridge limitada (ex.: Docker-in-Docker).
+# Expõe Postgres/Redis no host e usa host.docker.internal para ligar entre contentores.
+services:
+  postgres:
+    ports:
+      - '5432:5432'
+
+  redis:
+    ports:
+      - '6379:6379'
+
+  api:
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-easysignage}:${POSTGRES_PASSWORD:-changeme}@host.docker.internal:5432/${POSTGRES_DB:-easysignage}
+      REDIS_URL: redis://host.docker.internal:6379
+
+  media-worker:
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-easysignage}:${POSTGRES_PASSWORD:-changeme}@host.docker.internal:5432/${POSTGRES_DB:-easysignage}
+      REDIS_URL: redis://host.docker.internal:6379
+
+  realtime-gateway:
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+    environment:
+      API_URL: http://host.docker.internal:3001/api/v1

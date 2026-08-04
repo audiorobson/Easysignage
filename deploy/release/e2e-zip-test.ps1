@@ -88,6 +88,22 @@ try {
   if (-not $rtOk) { throw "Realtime-gateway health timeout" }
   Write-Host "Realtime-gateway health: OK"
 
+  Write-Host "==> Preparar chaves staging"
+  Push-Location $RepoRoot
+  if (-not (Test-Path "deploy/keys/staging-private.pem")) {
+    pnpm license:gen-staging-keys | Out-Null
+  }
+  Copy-Item "deploy/keys/staging-public.pem" (Join-Path $BoxDir "config/license-public.pem") -Force
+  Pop-Location
+  docker compose restart api | Out-Null
+  Start-Sleep -Seconds 8
+  do {
+    Start-Sleep -Seconds 2
+    try {
+      $r = Invoke-RestMethod -Uri "http://localhost:3001/api/v1/health" -TimeoutSec 5
+    } catch { $r = $null }
+  } while ($r.status -ne 'ok')
+
   Write-Host "==> Gerar serial staging"
   Push-Location $RepoRoot
   pnpm --filter @easysignage/license-core build | Out-Null
