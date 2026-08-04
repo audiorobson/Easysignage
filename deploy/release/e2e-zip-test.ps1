@@ -3,14 +3,14 @@
 param(
   [string]$ZipPath = "",
   [switch]$UseGhcr,
-  [string]$Version = "1.0.0-rc1"
+  [string]$Version = "1.0.0-rc2"
 )
 
 $ErrorActionPreference = "Stop"
 $RepoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 
 if (-not $ZipPath) {
-  $ZipPath = Join-Path $RepoRoot "dist/release-download/easysignage-server-box-v1.0.0-rc1/easysignage-server-box-$Version.zip"
+  $ZipPath = Join-Path $RepoRoot "dist/release-download/easysignage-server-box-v$Version/easysignage-server-box-$Version.zip"
   if (-not (Test-Path $ZipPath)) {
     $ZipPath = Join-Path $RepoRoot "dist/release/easysignage-server-box-$Version.zip"
   }
@@ -75,6 +75,18 @@ try {
   }
   if (-not $ok) { throw "API health timeout" }
   Write-Host "API health: OK"
+
+  Write-Host "==> Aguardar realtime-gateway..."
+  $rtOk = $false
+  for ($i = 0; $i -lt 30; $i++) {
+    Start-Sleep -Seconds 3
+    try {
+      $rt = Invoke-RestMethod -Uri "http://localhost:3020/health" -TimeoutSec 5
+      if ($rt.ok -eq $true) { $rtOk = $true; break }
+    } catch {}
+  }
+  if (-not $rtOk) { throw "Realtime-gateway health timeout" }
+  Write-Host "Realtime-gateway health: OK"
 
   Write-Host "==> Gerar serial staging"
   Push-Location $RepoRoot
