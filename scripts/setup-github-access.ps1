@@ -50,7 +50,7 @@ if ($PSVersionTable.PSVersion.Major -lt 6) {
 $IsWindowsPlatform = if ($null -ne $PSVersionTable.Platform) { $PSVersionTable.Platform -eq 'Win32NT' } else { $true }
 
 function Test-IsAdministrator {
-    if (-not $IsWindowsPlatform) { return $true }
+    if (-not $IsWindowsPlatform) { return $false }
     $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
     $principal = New-Object Security.Principal.WindowsPrincipal($identity)
     return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
@@ -425,10 +425,12 @@ function Invoke-Main {
     Write-Host ""
     Write-Host "EasySignage - acesso amplo ao GitHub" -ForegroundColor Cyan
     Write-Host "PowerShell $($PSVersionTable.PSVersion)"
-    if ($Elevated -or (Test-IsAdministrator)) {
-        Write-Ok "A correr com permissoes de administrador."
-    } elseif ($IsWindowsPlatform) {
-        Write-Info "Sem elevacao (use -NoElevate so se souber que nao precisa de admin)."
+    if ($IsWindowsPlatform) {
+        if ($Elevated -or (Test-IsAdministrator)) {
+            Write-Ok 'A correr com permissoes de administrador.'
+        } else {
+            Write-Info 'Sem elevacao (normal se usou -NoElevate ou nao precisa de admin).'
+        }
     }
 
     Write-Step "1) Credencial"
